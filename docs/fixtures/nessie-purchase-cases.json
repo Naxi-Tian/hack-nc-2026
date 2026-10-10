@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "simulation": true,
+  "feeBps": 100,
+  "founderFeeShareBps": 4000,
+  "moneyUnit": "micro-USD decimal strings",
+  "source": "BACKEND_STACK.md section 6.3; NESSIE_PURCHASE_FLOW.md section 8",
+  "cases": [
+    {
+      "name": "full_round_100_dollars",
+      "targetMicroUsd": "100000000",
+      "maxUnits": "100",
+      "unitPriceMicroUsd": "1000000",
+      "grossAmountsMicroUsd": [
+        "100000000"
+      ],
+      "expected": [
+        {
+          "acceptedMicroUsd": "100000000",
+          "feeMicroUsd": "1000000",
+          "founderRewardMicroUsd": "400000",
+          "platformRevenueMicroUsd": "600000",
+          "projectProceedsMicroUsd": "99000000",
+          "units": "99",
+          "refundMicroUsd": "0",
+          "dustMicroUsd": "0"
+        }
+      ]
+    },
+    {
+      "name": "undersubscribed_round",
+      "targetMicroUsd": "200000000",
+      "maxUnits": "200",
+      "unitPriceMicroUsd": "1000000",
+      "grossAmountsMicroUsd": [
+        "100000000"
+      ],
+      "expected": [
+        {
+          "acceptedMicroUsd": "100000000",
+          "feeMicroUsd": "1000000",
+          "founderRewardMicroUsd": "400000",
+          "platformRevenueMicroUsd": "600000",
+          "projectProceedsMicroUsd": "99000000",
+          "units": "99",
+          "refundMicroUsd": "0",
+          "dustMicroUsd": "0"
+        }
+      ]
+    },
+    {
+      "name": "oversubscribed_300_into_150",
+      "targetMicroUsd": "150000000",
+      "maxUnits": "150",
+      "unitPriceMicroUsd": "1000000",
+      "grossAmountsMicroUsd": [
+        "200000000",
+        "100000000"
+      ],
+      "expected": [
+        {
+          "acceptedMicroUsd": "100000000",
+          "feeMicroUsd": "1000000",
+          "founderRewardMicroUsd": "400000",
+          "platformRevenueMicroUsd": "600000",
+          "projectProceedsMicroUsd": "99000000",
+          "units": "99",
+          "refundMicroUsd": "100000000",
+          "dustMicroUsd": "0"
+        },
+        {
+          "acceptedMicroUsd": "50000000",
+          "feeMicroUsd": "500000",
+          "founderRewardMicroUsd": "200000",
+          "platformRevenueMicroUsd": "300000",
+          "projectProceedsMicroUsd": "49500000",
+          "units": "49",
+          "refundMicroUsd": "50000000",
+          "dustMicroUsd": "500000"
+        }
+      ]
+    },
+    {
+      "name": "sub_unit_dust",
+      "targetMicroUsd": "1500000",
+      "maxUnits": "5",
+      "unitPriceMicroUsd": "300000",
+      "grossAmountsMicroUsd": [
+        "1000000"
+      ],
+      "expected": [
+        {
+          "acceptedMicroUsd": "1000000",
+          "feeMicroUsd": "10000",
+          "founderRewardMicroUsd": "4000",
+          "platformRevenueMicroUsd": "6000",
+          "projectProceedsMicroUsd": "990000",
+          "units": "3",
+          "refundMicroUsd": "0",
+          "dustMicroUsd": "90000"
+        }
+      ]
+    },
+    {
+      "name": "pro_rata_rounding_zero_units",
+      "targetMicroUsd": "1000000",
+      "maxUnits": "1",
+      "unitPriceMicroUsd": "1000000",
+      "grossAmountsMicroUsd": [
+        "1000000",
+        "1000000",
+        "1000000"
+      ],
+      "expected": [
+        {
+          "acceptedMicroUsd": "333333",
+          "feeMicroUsd": "3333",
+          "founderRewardMicroUsd": "1333",
+          "platformRevenueMicroUsd": "2000",
+          "projectProceedsMicroUsd": "330000",
+          "units": "0",
+          "refundMicroUsd": "666667",
+          "dustMicroUsd": "330000"
+        },
+        {
+          "acceptedMicroUsd": "333333",
+          "feeMicroUsd": "3333",
+          "founderRewardMicroUsd": "1333",
+          "platformRevenueMicroUsd": "2000",
+          "projectProceedsMicroUsd": "330000",
+          "units": "0",
+          "refundMicroUsd": "666667",
+          "dustMicroUsd": "330000"
+        },
+        {
+          "acceptedMicroUsd": "333333",
+          "feeMicroUsd": "3333",
+          "founderRewardMicroUsd": "1333",
+          "platformRevenueMicroUsd": "2000",
+          "projectProceedsMicroUsd": "330000",
+          "units": "0",
+          "refundMicroUsd": "666667",
+          "dustMicroUsd": "330000"
+        }
+      ]
+    },
+    {
+      "name": "cancelled_round_full_refund",
+      "cancelled": true,
+      "targetMicroUsd": "100000000",
+      "maxUnits": "100",
+      "unitPriceMicroUsd": "1000000",
+      "grossAmountsMicroUsd": [
+        "100000000"
+      ],
+      "expected": [
+        {
+          "acceptedMicroUsd": "0",
+          "feeMicroUsd": "0",
+          "founderRewardMicroUsd": "0",
+          "platformRevenueMicroUsd": "0",
+          "projectProceedsMicroUsd": "0",
+          "units": "0",
+          "refundMicroUsd": "100000000",
+          "dustMicroUsd": "0"
+        }
+      ]
+    },
+    {
+      "name": "empty_round",
+      "targetMicroUsd": "100000000",
+      "maxUnits": "100",
+      "unitPriceMicroUsd": "1000000",
+      "grossAmountsMicroUsd": [],
+      "expected": []
+    }
+  ],
+  "fundingCases": [
+    {
+      "amountMicroUsd": "100000000",
+      "expectedNessieWholeDollars": 100,
+      "expectedMockTokenMicroUsd": "100000000"
+    },
+    {
+      "amountMicroUsd": "1000001",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "amountMicroUsd": "0",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "amountMicroUsd": "1001000000",
+      "expectedError": "FUNDING_LIMIT"
+    }
+  ]
+}

@@ -8,7 +8,8 @@ Scope: **backend + on-chain implementation only.** The frontend is the Next.js s
 1. **[MARKET ARCHITECTURE.md](MARKET%20ARCHITECTURE.md) is the source of truth for backend behavior**: product rules, valuation formulas, Solana settlement, data schema, APIs, reliability, security. Section references below (`M§N`) point there.
 2. This file turns that spec into concrete technology choices, layout, contracts, and build order. Where MARKET leaves a choice open, §14 records the decision taken here.
 3. [AGENTS.md](../AGENTS.md) governs working style, commit format, and the Nessie demo-banking boundary.
-4. [MEGA_PLAN.md](MEGA_PLAN.md) backend sections (§9–§21, §24 layout: Postgres credit ledger, virtual shares, quotes, valuation v1, Supabase) are **superseded** and MUST NOT be implemented.
+4. **[NESSIE_PURCHASE_FLOW.md](NESSIE_PURCHASE_FLOW.md)** supplies the full Nessie funding/subscription contract and recovery rules, superseding this file's abbreviated funding, timeout, and event-key rules. Nessie is required for the sponsor demo path; valuation and settlement formulas stay as specified.
+5. [MEGA_PLAN.md](MEGA_PLAN.md) backend sections (§9–§21, §24 layout: Postgres credit ledger, virtual shares, quotes, valuation v1, Supabase) are **superseded** and MUST NOT be implemented.
 
 Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour hackathon.
 
@@ -102,6 +103,7 @@ Static-export constraints the API must respect: `trailingSlash: true` means page
 | Dashboards | Tiger continuous aggregates | Derived |
 | Gemini output | Never authoritative | Cached proposal |
 | Nessie balances/transfers | Nessie mock API | Saga intent + reconciliation trail only |
+| Funded mock tokens and funding replay guard | Solana `FundingReceipt` PDA | Durable bank-to-chain intent and finalized proof; see [purchase flow](NESSIE_PURCHASE_FLOW.md) |
 
 ---
 
@@ -134,7 +136,9 @@ Implement the M§8 schema exactly, plus the support tables below.
 | `rate_limits` | `(bucket, window_start)` counters for per-identity, per-wallet, per-IP limits (M§10.2) |
 | `ai_cache` | `(task, content_hash, prompt_version, model)` unique → `output jsonb` |
 | `indexer_state` | Last processed signature/slot per program |
-| `funding_intents` | Nessie saga (§9): `identity_id`, `wallet`, `amount_micro_usd`, `nessie_transfer_id`, `mint_signature`, `status`, unique `(identity_id, idempotency_key)` |
+| `funding_intents` | Full durable saga in [purchase flow §5](NESSIE_PURCHASE_FLOW.md#5-durable-data-model): immutable intent, generation, wallet, amount, request hash, bank/chain attempts, explicit uncertain states; unique identity/key |
+| `banking_accounts`, `banking_attempts`, `funding_chain_attempts`, `funding_transitions` | Server-managed mock account ownership and persisted external-write/recovery evidence; full fields/constraints in purchase flow §5 |
+| `subscription_intents` | Identity/round reservation, exact prepared transaction message, signature/expiry; prevents two verified wallets bypassing one-subscription rule |
 
 Campus email is stored only as `campus_email_hash = HMAC-SHA256(lowercase(email), EMAIL_HASH_PEPPER)` (M§8.1). Plaintext email exists only in memory while sending the OTP.
 
@@ -214,6 +218,7 @@ Implements M§6.3 and M§7. All arithmetic uses `checked_*` and errors on overfl
 | `founder_reward_vault` | `["founder_reward_vault", project]` | Same |
 | `Round` | `["round", project, round_number u16 LE]` | M§6.3 fields + `max_subscription_amount`, `total_accepted`, `total_units_minted`, `bump` |
 | `round_vault` | `["round_vault", round]` | Holds commitments until settlement |
+| `FundingReceipt` | `["funding", intent_uuid(16 bytes)]` | Immutable intent, wallet, amount, mint, bank-proof hash, funded flag; one guarded mint per intent |
 | `Subscription` | `["subscription", round, buyer]` | M§6.3 fields + `minted: bool`, `refunded: bool` |
 
 Creating the `NonTransferable` mint: use Anchor's token-extension constraints if the pinned Anchor version supports `NonTransferable`. Otherwise CPI `initialize_non_transferable_mint` before `initialize_mint2`. Verify against the docs for the pinned version (AGENTS.md).
@@ -222,6 +227,7 @@ Creating the `NonTransferable` mint: use Anchor's token-extension constraints if
 
 | Instruction | Signers | Rules |
 | --- | --- | --- |
+| `fund_mock_usdc(intent_id, amount, bank_proof_hash)` | configured relayer | Verified Nessie saga only; atomically create/validate FundingReceipt PDA and mint exact mock amount. Matching replay mints nothing; mismatched replay fails. See purchase flow §6. |
 | `initialize_protocol` | admin | Once; sets config |
 | `create_project` | founder wallet + relayer | Creates `Project`, receipt mint, vaults |
 | `open_round` | founder wallet + relayer | `opens_at < closes_at`, `unit_price_micro_usd ≥ 1`, `max_units > 0`, `target_amount = max_units × unit_price` (checked), caps ≤ config limits; stores `model_hash`, `evidence_root` |
@@ -233,7 +239,7 @@ Creating the `NonTransferable` mint: use Anchor's token-extension constraints if
 | `withdraw_project_proceeds` | founder wallet | `project_vault` → founder token account |
 | `withdraw_founder_rewards` | founder wallet | `founder_reward_vault` → founder token account |
 
-Events: `ProjectCreated`, `RoundOpened`, `SubscriptionAccepted`, `RoundFinalized`, `AllocationMinted`, `ExcessRefunded`, `RoundCancelled`, `ProceedsWithdrawn`, `FounderRewardsWithdrawn`.
+Events: `MockWalletFunded`, `ProjectCreated`, `RoundOpened`, `SubscriptionAccepted`, `RoundFinalized`, `AllocationMinted`, `ExcessRefunded`, `RoundCancelled`, `ProceedsWithdrawn`, `FounderRewardsWithdrawn`.
 
 ### 6.3 Settlement math (deterministic, integer micro-USD; M§4.11–4.12)
 
@@ -282,7 +288,7 @@ Base `/api`, JSON, same-origin with the static export in `web/out/`.
 | GET `/rounds/:id/subscriptions/me` | session | Caller's subscription mirror |
 | GET `/projects/:id/history` | none | Continuous-aggregate series |
 | POST `/transactions` | session | `{signedTx(base64)}` → backend submits via RPC, returns `{signature}` and ingests |
-| GET `/transactions/:signature` | session | Status `Prepared/Submitted/Confirmed/Finalized/Failed` (M§11.1); triggers on-demand ingest |
+| GET `/transactions/:signature` | session | Status `Prepared/Submitted/Confirmed/Finalized/Failed/Unknown/Expired/Rejected` (M§11.1); triggers on-demand ingest |
 
 **Wallet transaction flow (frontend contract):**
 `prepare` returns an unsigned-by-user, relayer-partially-signed `VersionedTransaction` (base64), where the relayer is the fee payer, so users need no devnet SOL. The page deserializes it with `@solana/web3.js` (npm dependency of `web/`), calls the injected wallet's `signTransaction`, then POSTs it to `/transactions`. The page polls `GET /transactions/:signature` until `Confirmed` (provisional) or `Finalized`.
@@ -307,32 +313,41 @@ Base `/api`, JSON, same-origin with the static export in `web/out/`.
 
 ## 8. Worker (`server/src/worker.ts`; M§11)
 
-One process, three loops:
+One process, four loops:
 
-1. **Live ingest:** `connection.onLogs(PROGRAM_ID, "confirmed")` → parse Anchor events (`EventParser`) → `insert into chain_events ... on conflict (chain, signature, instruction_index) do nothing` → update mirrors + `market_metrics`, all in one DB transaction per signature.
-2. **Reconciliation, every 60 s:** `getSignaturesForAddress(PROGRAM_ID, { until: last_seen })` → same ingest path; promote `confirmed → finalized`; mark stale `Submitted` rows `Failed` after 2 minutes without a signature status; log an alert on mirror/chain mismatch (M§11.3).
-3. **Settlement crank, every 15 s:** for rounds past `closes_at`, send `finalize_round`, then `mint_final_allocation` + `refund_excess` per unsettled subscription. All are idempotent on-chain, so retries are safe.
+1. **Live ingest:** `connection.onLogs(PROGRAM_ID, "confirmed")` → parse Anchor events (`EventParser`) → `insert into chain_events ... on conflict (chain, signature, instruction_index, event_index) do nothing` → update mirrors + `market_metrics`, all in one DB transaction per signature.
+2. **Reconciliation, every 60 s:** `getSignaturesForAddress(PROGRAM_ID, { until: last_seen })` → same ingest path; promote `confirmed → finalized`; mark stale `Submitted` rows `Unknown` and reconcile signature history, blockhash expiry, and PDA state; do not infer failure from a two-minute timeout; log an alert on mirror/chain mismatch (M§11.3).
+3. **Funding recovery:** claim durable intents and reconcile banking/mint outcomes as specified in [purchase flow §6](NESSIE_PURCHASE_FLOW.md#6-funding-state-machine-and-recovery); no blind Nessie write retry.
+4. **Settlement crank, every 15 s:** for rounds past `closes_at`, send `finalize_round`, then `mint_final_allocation` + `refund_excess` per unsettled subscription. All are idempotent on-chain, so retries are safe.
 
 Ingest is the **only** writer of mirror tables. API routes MAY call the same ingest function on demand (`POST/GET /transactions`) for responsiveness.
 
 ---
 
-## 9. Nessie funding saga (AGENTS.md)
+## 9. Nessie funding saga
 
-Nessie is a mock bank, not identity, KYC, proof of funds, or settlement.
+Follow **[NESSIE_PURCHASE_FLOW.md](NESSIE_PURCHASE_FLOW.md)** for the complete implementation contract, schema, adapter capability gate, API responses, and recovery tests.
+
+Nessie funds demo wallets; Solana handles startup participation. They are separate actions. Do not debit Nessie or create a merchant purchase again for a subscription.
 
 ```text
-POST /funding {amountMicroUsd} + Idempotency-Key
-1. insert funding_intents(status=CREATED)                      -- persist intent first
-2. Nessie: debit the identity's mock account (adapter, server-side key) → store nessie_transfer_id, status=BANK_DEBITED
-3. Mint mock USDC (relayer = mint authority) to the verified wallet's ATA → store mint_signature, status=MINTED
-4. Reconcile: confirm Nessie transfer + chain balance delta → status=COMPLETED
+Persist intent and reserve limits
+→ one Nessie transfer to configured mock funding treasury
+→ verify provider terminal success, amount, parties, and tag
+→ guarded fund_mock_usdc instruction + FundingReceipt PDA
+→ verify finalized on-chain receipt
+→ complete funding
+→ prepare/sign/submit startup subscription
+→ allocate receipts and refund excess after round close
 ```
 
-- Each step is retryable and keyed by the intent; mint **at most once** (check `mint_signature` before minting).
-- Failures leave a resumable status; the worker retries `BANK_DEBITED` intents that have no mint.
-- Cap: one funding per identity per hour, $1,000 mock per demo identity.
-- If Nessie is unavailable during the demo, `NESSIE_ENABLED=false` skips step 2 and labels the intent `FAUCET_ONLY` (an explicit demo shortcut).
+- Nessie POSTs have no assumed provider idempotency guarantee. Persist before dispatch; ambiguous results require read-back/history reconciliation or review, never blind write retries.
+- Matching app request keys recover the same intent. One unresolved funding per source, one accepted funding per rolling hour, $1,000 cumulative mock cap per identity; all verified wallets share limits.
+- Whole-dollar Nessie funding converts exactly to six-decimal mock tokens. A missing `mint_signature` or wallet balance delta is not replay protection; the FundingReceipt PDA is.
+- `BANK_PENDING` is not funded, and RPC submission is not finality. Poll owned intent endpoints and show each phase explicitly.
+- Add the account/intent/portfolio endpoints in purchase flow §9 to the existing API; keep exact-message checking for submitted wallet transactions.
+- A Nessie outage disables new banking funding; already-funded wallets can participate. A separately selected `FAUCET_ONLY` path is visibly labeled and never substitutes for an uncertain dispatched bank intent.
+- Live adapter schema/status/host behavior must be validated with the team's key. This document does not claim live execution.
 
 ---
 
@@ -358,6 +373,8 @@ POST /funding {amountMicroUsd} + Idempotency-Key
 | `server/tests/valuation` | vitest | Golden cases from §5.7; weights/probabilities sum to 1; missing → neutral; demand bounds; single participant cannot max `D`; reproducibility from stored inputs |
 | `server/tests/rounds` | vitest | §6.3 math mirrored in TS (same results as the program for a shared table of cases); invariants |
 | `server/tests/integration` | vitest + local Tiger image | Auth/OTP/wallet challenge, idempotency, ingest dedupe (same signature twice), reconciliation recovery, aggregates match raw totals, private evidence never in public responses |
+| `server/tests/banking` | vitest + local DB | Adapter redaction/status validation, uncertain-write recovery, account ownership, replay/quota/lease races; full cases in purchase flow §12 |
+| `chain/tests/funding` | `anchor test` (local validator) | Guarded funding receipt + mint atomicity, duplicate intent/new signature, wrong wallet/amount/mint/proof, pause and cap checks |
 | `chain/tests` | `anchor test` (local validator) | Every M§16 Solana case: founder cannot subscribe; closed/not-open rejects; cap; atomic payment; **receipt transfer fails**; no double mint; finalize ≤ max units; refund once; fee split matches bps |
 
 ---
@@ -379,7 +396,12 @@ PROGRAM_ID=
 PAYMENT_MINT=                  # mock USDC (Token-2022)
 RELAYER_SECRET_KEY=            # base58; fee payer + eligibility authority + mock USDC mint authority (Devnet only)
 NESSIE_API_KEY=
+NESSIE_BASE_URL=                # tested HTTPS API host
+NESSIE_PROFILE=                 # tested wire/status contract
+NESSIE_TREASURY_ACCOUNT_ID=
 NESSIE_ENABLED=true
+FUNDING_PAUSED=false
+DEMO_GENERATION_ID=
 GEMINI_API_KEY=
 GEMINI_MODEL=                  # current Gemini Flash model ID
 WORKER_IN_PROCESS=false
@@ -405,7 +427,7 @@ Never commit values. `RELAYER_SECRET_KEY` is Devnet-only and must never be reuse
 | 10 | 2 | Gemini extraction/triage/explanation | Failure falls back cleanly; cache hit on repeat |
 | 11 | 3 | Hosted deploy (Railway + Tiger + Devnet), M§15 demo rehearsal | Full M§15 live demo runs twice from a fresh project |
 
-Cut order if time runs short: 10 → 9 (`NESSIE_ENABLED=false`) → hourly/daily aggregates. Never cut chain tests, idempotent ingest, or the receipt-transfer-fails check.
+Cut order for the requested Nessie prize path: optional Gemini explanations/extraction → hourly/daily aggregates → social extras. Preserve Nessie funding, guarded minting, chain tests, idempotent ingest, and receipt-transfer checks. A visibly labeled faucet-only development fallback is not a completed Nessie integration.
 
 ---
 

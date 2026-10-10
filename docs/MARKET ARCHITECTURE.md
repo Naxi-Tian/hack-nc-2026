@@ -7,6 +7,8 @@
 **Default environment:** Solana Devnet with simulated currency  
 **Product category:** Primary-issuance startup market simulator
 
+**Nessie purchase flow:** [NESSIE_PURCHASE_FLOW.md](NESSIE_PURCHASE_FLOW.md) specifies bank-to-wallet funding, guarded minting, signed subscriptions, recovery, API contracts, and numerical fixtures. It refines funding, finality, event keys, and scheduled-close behavior without changing valuation or fee formulas.
+
 ---
 
 ## Contents
@@ -45,8 +47,9 @@ The system intentionally is **not** a stock exchange:
 - no claim that a hackathon receipt is legal equity;
 - no use of an LLM to determine prices or settle transactions.
 
-The hackathon version uses three sponsor technologies with non-overlapping responsibilities:
+The hackathon version uses four sponsor technologies with non-overlapping responsibilities:
 
+- **Capital One Nessie** simulates bank account balances and transfers to fund demo wallets; it does not settle startup receipts.
 - **Tiger Data** is the operational database, immutable analytics history, and time-series dashboard engine.
 - **Gemini** extracts structured claims from messy founder submissions and explains already-computed results.
 - **Solana** enforces issuance rules, processes simulated payment, records allocations, and mints non-transferable participation receipts.
@@ -187,6 +190,8 @@ confirmation_status
 | Model output history | Immutable valuation snapshots in Tiger |
 | Dashboard charts | Tiger continuous aggregates derived from canonical events |
 | Gemini interpretation | Never authoritative; cached proposal only |
+| Mock bank balances/transfers | Nessie API; validated by the server adapter |
+| Wallet funding mint/replay protection | Solana FundingReceipt PDA; saga recovery trail in Tiger |
 
 The backend must never overwrite chain truth. A reconciliation worker compares indexed records with Solana and inserts missing events idempotently.
 
@@ -484,7 +489,7 @@ else:
     accepted_i = available_amount × requested_i / total_requested
 ```
 
-Remainders are resolved deterministically by transaction sequence. Excess simulated currency is refunded. Pro-rata allocation is preferred over first-come-first-served because it reduces bot and latency advantages.
+Use integer flooring per subscription as specified in BACKEND_STACK §6.3. Aggregate rounding remainder is not redistributed; it remains in participant refunds. Excess simulated currency is refunded to wallets. See the purchase flow's golden fixtures. Pro-rata allocation is preferred over first-come-first-served because it reduces bot and latency advantages.
 
 ### 4.12 Fees and founder reward
 
@@ -626,7 +631,7 @@ Cost controls:
 
 ### 6.3 Solana
 
-Solana owns the money-like state transition. The Devnet program should atomically validate the round, accept mock currency, record the allocation, split fees, and mint the receipt.
+Solana owns the money-like state transition. The Devnet subscription instruction atomically validates the round, accepts mock currency into its vault, and records the commitment. After scheduled close, guarded settlement instructions split fees, mint final receipts, and refund excess. Do not issue final receipts at commitment time for pro-rata rounds.
 
 MLH explicitly directs hackathon teams to Solana Devnet and highlights Anchor as a program-development framework.[^mlh-solana]
 
@@ -673,6 +678,7 @@ Program instructions:
 
 ```text
 initialize_protocol
+fund_mock_usdc
 create_project
 open_round
 subscribe
@@ -683,6 +689,14 @@ cancel_and_refund
 withdraw_project_proceeds
 withdraw_founder_rewards
 ```
+
+---
+
+### 6.4 Capital One Nessie
+
+Use the complete [Nessie purchase-flow design](NESSIE_PURCHASE_FLOW.md). A server-side adapter reads fictional account balances and transfers mock dollars to a configured funding treasury; a durable saga then mints wallet tokens through a replay-protected FundingReceipt PDA. Solana stays authoritative for participation, and Tiger records recovery evidence.
+
+Nessie funding and startup subscription are separate. No second bank debit, merchant purchase, or automatic bank payout is created when users subscribe or receive token refunds. Ambiguous provider writes are reconciled without blind retries. Validate the actual API contract with the team's sandbox key before implementation.
 
 ---
 
@@ -750,7 +764,7 @@ If the product uses immediate fixed allocation rather than end-of-round pro rata
 ### 7.5 Finalization and refunds
 
 ```text
-1. Round reaches close time or maximum allocation.
+1. Round reaches scheduled close time. Target attainment is a progress indicator and does not end a pro-rata round early.
 2. Program calculates or verifies deterministic pro-rata allocation.
 3. Accepted amounts become withdrawable project proceeds.
 4. Protocol fee is split between platform and founder reward vault.
@@ -902,6 +916,7 @@ chain TEXT
 program_id TEXT
 signature TEXT
 instruction_index INTEGER
+event_index INTEGER
 slot BIGINT
 event_type TEXT
 project_id UUID NULL
@@ -910,7 +925,7 @@ payload JSONB
 confirmation_status ENUM
 block_time TIMESTAMPTZ
 indexed_at TIMESTAMPTZ
-UNIQUE (chain, signature, instruction_index)
+UNIQUE (chain, signature, instruction_index, event_index)
 ```
 
 `chain_events` remains a normal PostgreSQL table so its idempotency constraint is simple and authoritative.
@@ -1133,7 +1148,7 @@ The UI may display `Confirmed` provisionally but should distinguish it from `Fin
 ### 11.2 Idempotency
 
 - Every mutation request carries an idempotency key.
-- Each chain instruction is uniquely identified by chain, signature, and instruction index.
+- Each chain event is uniquely identified by chain, signature, instruction index, and event index within that instruction.
 - Indexing the same transaction twice must not create a second subscription.
 - Round finalization must be safe to retry.
 - Withdrawal and refund status come from program accounts, not UI state.
@@ -1238,7 +1253,8 @@ One web application, one database, one Solana program, and one scheduled worker 
 2. Convert metrics tables to Tiger hypertables and add continuous aggregates.
 3. Deploy Anchor program to Solana Devnet.
 4. Create mock currency and one non-transferable receipt mint.
-5. Complete one end-to-end subscription.
+5. Add the Nessie funding adapter, durable saga, and guarded FundingReceipt mint path.
+6. Complete one end-to-end subscription from a Nessie-funded wallet.
 
 ### Phase 3: trust and demo polish
 
@@ -1256,7 +1272,8 @@ Founder submits a narrative and GitHub/revenue evidence
 → Gemini extracts claims and requests missing proof
 → deterministic backend produces an explainable valuation
 → founder opens a five-minute Devnet issuance round
-→ three students subscribe with faucet-issued mock currency
+→ students fund demo wallets through Nessie mock transfers
+→ three students subscribe with the resulting mock tokens
 → Solana records allocations and mints non-transferable receipts
 → Tiger updates funding, participant, and valuation dashboards
 → founder self-subscription and receipt transfer both fail
@@ -1344,6 +1361,8 @@ Founder submits a narrative and GitHub/revenue evidence
                  │ continuous aggregates + read models   │
                  └────────────────────────────────────────┘
 ```
+
+Nessie funds demo wallets through the guarded saga described in [NESSIE_PURCHASE_FLOW.md](NESSIE_PURCHASE_FLOW.md).
 
 The essential rule is simple:
 
