@@ -1,663 +1,665 @@
-# HackNC 2026 — Early Startup Investing: Mega Plan
+# HackNC 2026 — Direct Startup Share Investing: Mega Plan
 
 Repository: [avidnerd/hack-nc-2026](https://github.com/avidnerd/hack-nc-2026)  
-Prepared: October 10, 2026  
-Status: proposed product and build specification; no application implemented yet.  
-Working name: **FirstStake** (team can replace this).
+Updated: October 10, 2026  
+Status: proposed product/build specification; no application or runtime verification implemented yet.  
+Working name: **FirstStake**, subject to the team's choice.
 
-## 1. The project in one sentence
+## 1. Product direction
 
-Build a web platform where people discover participating early startups, understand an investment opportunity, and explore buying a right to purchase shares later through a transparent, simulated option lifecycle.
+Build a platform where people discover startups at any stage and **buy shares directly from the startup** through a simple investment page. A founder can add an **“Invest in us”** link to their website, share their company profile, and raise funding through structured checkout.
 
-The long-term ambition is wider access to startup investing. For HackNC, deliver a convincing interactive prototype using fictional startups, demo credits, and simulated ownership records. A company being pre-IPO does not mean it is approaching an IPO, and listing a company does not create permission to sell its shares.
+Discovery welcomes idea-stage projects, unincorporated teams, prototypes, launched startups, and growing private companies. Company stage and legal entity status are recorded separately; an early project need not pretend to be an incorporated company to create a profile.
 
-**Recommended demo model:** a startup offers a fixed share quantity at a fixed exercise price until a deadline; a backer pays a separate upfront premium; later they exercise and pay the share purchase cost, or let the option expire and lose the premium. This is an implementation assumption, not a settled business model or validated legal instrument.
+**HackNC MVP:** every registered demo user can buy platform-issued simulated startup shares with free, non-redeemable demo credits. Each purchase creates a virtual share holding and credits the startup's simulated funding account immediately. This demonstrates the full investment flow without claiming that a database entry creates legal equity.
 
-**The judge should be able to see:** a founder publishes terms → a backer understands the costs → the backer buys an option → the portfolio tracks its deadline → exercise produces simulated shares, while expiry produces no shares.
+**Long-term direction:** actual share issuance for suitable participating issuers through a validated legal and settlement arrangement. Actual and virtual shares use distinct instrument types and balances. Virtual holdings do not automatically convert into actual equity.
 
-## 2. Assumptions and decisions to make first
+**Current scope: startup-to-investor purchases only.** No investor resale, order book, secondary trading, guaranteed cash-out, or premium/exercise/expiry option mechanism.
 
-The plan assumes three or four teammates, a web app, a US-oriented concept, and a 24-hour build window. HackNC's official website describes a 24-hour project challenge and recommends teams of three or four; the actual submission deadline and judging requirements must be checked with organizers. Use the relative schedule below against the time your team actually has left. [HackNC](https://hacknc.com/)
+The demo story: **founder profile → initial valuation suggestion → fixed-price offering → website investment link → virtual share purchase → investor holding and startup funding update together.**
 
-| Decision | Proposed starting point | Why / revisit trigger |
-| --- | --- | --- |
-| Investment instrument | Simulated company-issued option | Matches the user's example; change before implementing transactions if the team prefers equity or a SAFE |
-| Audience | Curious backers and participating student/seed-stage founders | Manageable discovery interviews; broad public access is a long-term hypothesis |
-| Market scope | Fictional participating startups | No unauthorized offerings or invented claims about real companies |
-| Team and time | 3–4 people, 24 hours | Adjust ownership and scope immediately if different |
-| Cash | Demo USD credits only | Keeps the core lifecycle demonstrable without payment or settlement dependencies |
-| Units | Whole share quantities; all-or-nothing exercise | Makes allocation, deadlines, and settlement understandable |
-| Premium | Per share; never credited against exercise cost | Avoids ambiguous pricing; make it explicit in every quote |
-| Inventory | Dedicated share pool per offering | Prevents overlapping offers from allocating the same shares |
-| Expiry | Fixed UTC timestamp; server-controlled | Avoids time-zone and client-clock ambiguity |
-| Transferability | No transfers or secondary sales | A separate product and regulatory problem |
-| Differentiator | Cost and scenario explorer + clear lifecycle | Useful, visible in a short demo, and feasible in one weekend |
+## 2. Meaning of shares and the Freeport reference
 
-First-hour decision: commit to one instrument for the demo. Do not support three investment models in the MVP.
-
-## 3. Problem, value, and initial users
-
-### Backer problem
-
-Startup opportunities can be hard to discover and compare. A backer needs to distinguish money paid today, money required later, ownership received, and the possibility of losing money. A polished card with a low upfront price can obscure a much larger future purchase cost.
-
-### Founder problem
-
-A participating founder needs a clear way to publish terms and updates, track allocations, and understand what funding has actually arrived. An option premium is immediate simulated cash; a possible future exercise payment is contingent funding, not money already raised.
-
-### Proposed value
-
-- **Backers:** understandable terms, an interactive cost explorer, deadlines, and a record of what happened.
-- **Founders:** a structured offering workflow and a dashboard separating premiums received, outstanding purchase rights, and exercise proceeds.
-- **Judges:** a complete two-sided workflow with financial reasoning and transaction correctness visible on screen.
-
-Start with people interested in supporting startups they understand. Avoid claiming that every startup can list or every person can legally participate in a real offering.
-
-### Questions to validate
-
-Interview three founders and five potential backers if time permits. Treat responses as qualitative feedback, not market proof.
-
-1. Why would a founder sell future purchase rights instead of shares now?
-2. Would a backer pay a premium knowing it may expire worthless?
-3. Can the backer explain both payments after seeing the interface?
-4. What information would they need about the company and share class?
-5. Does a fixed deadline help the decision or create unwanted pressure?
-6. Would a founder accept reserved equity without guaranteed future funding?
-
-## 4. Compare the business models before committing
-
-| Model | Backer receives | Founder receives | Product trade-off |
+| Instrument | Payment | Buyer receives | MVP |
 | --- | --- | --- | --- |
-| Direct equity | Shares after a completed issuance | Purchase proceeds now | Easier ownership story; no buy-now/decide-later lifecycle |
-| Company-issued purchase option | Contractual right to buy specified shares before a deadline | Premium now; exercise proceeds only if exercised | Distinctive demo; more contract, pricing, allocation, and settlement questions |
-| SAFE or similar future-equity instrument | Contractual future-equity rights defined by its terms | Funding now | Does not work like a share option; conversion depends on the contract |
-| Interest reservation | Expression of interest under specified terms | Demand signal; possibly no funding | Fast validation path; must not be described as actual ownership |
+| SIMULATED_SHARE | Free demo credits | Recorded virtual allocation; no equity, cash value, redemption, or dividends | Enabled |
+| ACTUAL_EQUITY | Real funds through an approved arrangement | Defined ownership after valid issuance and confirmed settlement | Disabled; future integration |
+| Synthetic exposure | Real money linked to company value | A separate financial contract that may convey no ownership | Outside scope |
 
-These are product comparisons, not a determination that any model qualifies for a particular offering exemption. The option model's legal classification, contract enforceability, and availability to retail backers require review before a real launch.
+For an unincorporated team, display **“Unincorporated project · simulated shares.”** Do not invent a corporate share class or claim the platform owns that project. The accessibility vision covers all stages; actual participation depends on issuer, instrument, investor, and jurisdiction requirements. Digital formatting alone does not remove securities obligations. [SEC staff statement](https://www.sec.gov/newsroom/speeches-statements/corp-fin-statement-tokenized-securities-012826-statement-tokenized-securities)
 
-Keep a small instrument abstraction in the domain model (`instrument_type` and terms snapshot). Build only `SIMULATED_OPTION` now. Do not build a generic investment engine during the hackathon.
+Freeport Markets inspires broad discovery, company-related market information, and portfolio presentation. Its own explanation distinguishes pre-IPO perpetual exposure from company shares and describes separate SPV-backed instruments. Its live trading model is not a play-money simulation or this primary fundraising flow. Borrow the browsing experience; do not copy leverage, derivatives, or continuous trading. [Freeport explanation](https://freeportmarkets.com/)
 
-## 5. Option economics: make the math unambiguous
+An early startup generally lacks an observable continuously traded share price. Our estimate is a transparent model anchor; our offering price is a founder-approved term. Neither is an identical replica of a real market.
 
-Use a fictional company, **Carolina Robotics**, with this illustrative offering:
+## 3. Assumptions and operating rules
 
-| Term | Example |
+| Decision | MVP rule |
 | --- | --- |
-| Shares covered by one purchase | 100 |
-| Exercise price per share | $2.00 |
-| Premium per share | $0.20 |
-| Upfront premium | 100 × $0.20 = **$20.00** |
-| Additional exercise payment | 100 × $2.00 = **$200.00** |
-| Total paid if exercised | $20.00 + $200.00 = **$220.00** |
-| Illustrative break-even share value | $220.00 / 100 = **$2.20** |
-| Illustrative term | 90 days, represented by an exact expiry timestamp |
+| Users | Every registered demo user can participate |
+| Stages | IDEA, PROTOTYPE, LAUNCHED, REVENUE, GROWTH |
+| Entity status | Unincorporated project or incorporated entity; independent of stage |
+| Money | Free DEMO_USD credits; no purchased credits or withdrawals |
+| Purchase | Newly issued units directly from startup |
+| Quantity | Positive whole shares; fractional units deferred |
+| Initial price | Algorithm proposes; founder accepts or overrides with reason |
+| Round pricing | Fixed once published; valuation updates do not silently reprice it |
+| Capacity | Finite approved new-share issuance cap |
+| Fees | Zero in MVP; explicit fee field in quotes |
+| Settlement | Immediate atomic credit transfer and issuance |
+| Social | Founder bios, website/LinkedIn links, optional public contact; follows/updates after core flow |
+| Future rights | Optional later extension; not necessary to invest now |
 
-For quantity `q`, premium per share `p`, exercise price `k`, and hypothetical future share value `v`:
+Assume three or four teammates and a relative 24-hour build. Adjust to the actual time remaining and organizers' submission instructions. HackNC describes a 24-hour project challenge and recommends teams of three or four. [HackNC](https://hacknc.com/)
+
+## 4. Users, value, and validation
+
+**Founder:** “I want to explain my company and share one link where backers can buy an allocation.” Provide profile, suggested initial valuation, offering creation, proceeds tracking, and allocation records.
+
+**Investor:** “I want to understand the startup, founders, price, and rights before buying.” Provide clear terms, costs, immediate receipt, holdings, and company updates.
+
+**Judge:** demonstrate an approachable product supported by reproducible valuation logic and a backend that conserves credits/shares under competing requests and retries.
+
+Ask founders/backers: Is a website link easier than a marketplace? What company information matters? Can they distinguish virtual units from actual ownership? Can a founder explain the estimate and its uncertainty? Can the investor identify price, units, proceeds, and lack of liquidity? Would defined future-round participation matter?
+
+Record qualitative feedback without claiming adoption or product-market fit. A useful clarity gate is four of five test users correctly explaining the share type and payment destination.
+
+## 5. Founder and investor journeys
+
+### Founder
+
+1. Create company draft; enter stage/entity status, story, sector, website, LinkedIn links, founder bios, and contact preferences.
+2. Supply product/traction/financial inputs with dates and evidence labels.
+3. Request a valuation estimate and inspect assumptions, sensitivity range, and evidence quality.
+4. Accept a simulation anchor or override it with an explanation.
+5. Set pre-round virtual founder supply, finite new-share cap, price, purchase limits, and round deadline.
+6. Preview allocation/dilution at full subscription and publish immutable offering terms.
+7. Copy the hosted investment URL or ordinary link snippet into the company website.
+8. View completed proceeds, issued shares, and remaining capacity; optionally publish updates.
+
+### Investor
+
+1. Follow the company's investment link or browse by stage/sector.
+2. Read company information, founder links, entity status, instrument label, and offering terms.
+3. Sign in; receive a single free demo-credit grant.
+4. Enter quantity and obtain a server-generated quote showing unit price and total.
+5. Confirm simulation terms; purchase.
+6. Receive a persistent receipt and virtual holding; refresh to verify persistence.
+7. Follow company updates if the social feature is ready.
+
+## 6. MVP scope and priority
+
+**P0:** landing/discovery; founder profile with website/LinkedIn/contact/privacy fields; deterministic initial valuation; accepted fixed-price offering; shareable investment link; authenticated credit grant; authoritative quote; atomic purchase; holdings/receipt; founder proceeds dashboard; protected reset/reconciliation; hosted demonstration and critical verification.
+
+The minimum social profile is founder identity/bio and public links. It is part of P0. Richer social actions are optional until the purchase path is stable.
+
+**P1:** follow/unfollow, founder update feed/publishing, saved companies, better valuation explanation, consent-based public contact button.
+
+**P2:** reviewed website prefill, AI explanation grounded in saved inputs, early-backer indicator/future-right data model, receipt export, reconciliation UI.
+
+**Outside MVP:** resale, buybacks, real custody/payments/equity settlement, options, derivatives, leverage, dividends, automatic repricing, private chat, full social network, and guaranteed conversion of virtual units.
+
+If time slips, cut P1/P2 before transaction correctness. A flow that changes a browser balance but never persists issuance should be presented as a concept walkthrough, not completed settlement.
+
+## 7. Company information and social design
+
+| Group | Inputs | Visibility |
+| --- | --- | --- |
+| Identity | Name, slug, stage, sector, location, entity status | Public when published |
+| Story | Problem, solution, product status, business model | Founder-approved public fields |
+| Web presence | Website, product/demo URL | Public links |
+| Founders | Name, role, bio, LinkedIn URL, optional photo | Public with consent |
+| Contact | Account email; separate optional public contact email/URL | Account email private by default |
+| Traction | Users/customers, pilots, dated revenue/growth | Explicit public/private choices |
+| Financial inputs | Revenue, cash, burn, funding history, disclosed debt | Private unless explicitly published |
+| Evidence | Source/date and self-reported/imported/checked status | Appropriate public summary |
+| Community | Follows and founder updates | Public; excluded from valuation |
+
+P0 accepts website and LinkedIn **URLs** without requiring scraping or API connections. A submitted LinkedIn link is not identity verification. A website does not verify revenue, ownership, or the truth of company claims. Followers are not investors, and popularity is not company value.
+
+If prefill is added, a founder reviews extracted facts before publication. Restrict URL fetching to approved public destinations; block private/local addresses, revalidate redirects/DNS, bound response size/time, and treat page content as untrusted data. Never fetch user URLs with internal credentials. Defer automated LinkedIn ingestion; founders provide their information directly.
+
+Avoid public exposure of private financial inputs through valuation explanations. Use respectful, non-sensitive scoring inputs rather than personal demographics.
+
+## 8. Screens and link-to-invest UX
+
+| Route | Content/action |
+| --- | --- |
+| `/` | Pitch, simulation explanation, explore/create company |
+| `/explore` | Search, stage/sector filters, company cards |
+| `/companies/[slug]` | Story, founders/links, stage, entity status, valuation summary, offering |
+| `/invest/[offeringId]` | Share type, fixed price, available capacity, deadline, quantity |
+| `/checkout/[quoteId]` | Exact quote, demo balance, confirmation |
+| `/portfolio` | Credit balance, quantities, historical cost basis, receipts |
+| `/orders/[id]` | Quantity, price, total, terms snapshot, settlement time |
+| `/founder` | Own company list, proceeds, issued/remaining units |
+| `/founder/company/[id]` | Profile/privacy inputs and valuation request |
+| `/founder/offerings/new` | Accepted value, supply, cap, price, publish preview |
+| `/demo` | Protected scenario reset and integrity check |
+
+Use an ordinary website anchor to the investment URL, not a script requiring privileged credentials. Design calm readable numbers, explicit instrument labels, keyboard-accessible forms, text status badges, and clear empty/loading/error states. Show **Simulation — demo credits and virtual shares** during checkout and in the portfolio. No cash-out button.
+
+## 9. Initial valuation algorithm: purpose and inputs
+
+Propose an initial **illustrative pre-money equity valuation** that founders can use to set a virtual issue price. The hackathon algorithm is a reproducible heuristic, not an appraisal, investment recommendation, or assurance of fair value. A website alone rarely supports a reliable startup assessment.
+
+For an unincorporated project, the output is a hypothetical simulation anchor, not a corporate equity appraisal. Never infer authorized shares or a verified cap table from a website.
+
+Collect stage, product progress, stage-appropriate traction, team relevance/time commitment, dated financial readiness, and evidence provenance. Record missing data as unknown, not invented revenue. Financial inconsistencies, missing data, and disclosed debt reduce evidence quality; v1 does not implement enterprise-value-to-equity-value or a debt waterfall.
+
+The founder sees input sources, model version, category contributions, sensitivity range, and quality notes before accepting a price. Founder overrides retain the original estimate and a reason. A claimed higher value does not create credits, shares, or verification.
+
+## 10. Valuation v1 formula and versioning
+
+These anchors are **invented demo constants**, not market benchmarks or prices for real investments:
+
+| Stage | Demo anchor |
+| --- | --- |
+| IDEA | $100,000 |
+| PROTOTYPE | $500,000 |
+| LAUNCHED | $1,000,000 |
+| REVENUE | $2,000,000 |
+| GROWTH | $5,000,000 |
+
+Score each category from 0–100 using a saved ordinal rubric (0/25/50/75/100) and stage-specific questionnaire:
+
+| Category | Weight | Basis |
+| --- | --- | --- |
+| Product | 30% | Demonstrable progress relative to declared stage |
+| Traction | 30% | Documented interviews/pilots for early teams; usage/customers/retention for launched teams |
+| Team | 25% | Relevant building/delivery experience and commitment; no protected demographic inputs |
+| Financial readiness | 15% | Consistent dated runway/business-model inputs |
+
+A first implementation rubric can use the following anchors; retain the underlying responses and evidence rather than only a numeric total:
+
+| Score | Product progress | Traction validation | Team readiness | Financial readiness |
+| --- | --- | --- | --- | --- |
+| 0 | No milestone evidence | No validation evidence | No relevant information | No usable financial/business inputs |
+| 25 | Milestone described | Informal conversations | Roles/availability described | Business model described |
+| 50 | Working stage-appropriate demonstration | Documented interviews/pilot/usage | Relevant experience and named responsibilities | Consistent revenue/burn/cash or pre-revenue assumptions supplied |
+| 75 | Demonstration tested with intended users | Repeat use or committed pilots/customers | Evidence of prior relevant delivery | Dated budget and calculable runway when meaningful |
+| 100 | Repeated milestone delivery with evidence | Multiple corroborated stage-appropriate validation sources | Complementary delivery experience and committed coverage | Consistent documented inputs and explicit uncertainty/scenarios |
+
+These ordinal anchors are qualitative demo rules, not a scientific measure of company quality. A founder claim alone cannot become independently checked evidence. Save the question answers, rubric version, and provenance so the output is explainable.
+
+Missing responses contribute zero under this explicitly conservative toy convention and reduce evidence coverage. Explain that unknown is not proof of poor performance. Invalid/out-of-range scores are rejected.
 
 ```text
-premium_due_now = q × p
-exercise_payment = q × k
-total_paid_if_exercised = q × (p + k)
-illustrative_share_value_after_exercise = q × v
-illustrative_difference_after_exercise = q × v − q × k − q × p
-expiry_outcome_if_never_exercised = −q × p
+score = 0.30*product + 0.30*traction + 0.25*team + 0.15*financial
+multiplier = 0.50 + score/100
+suggested_pre_money = stage_anchor * multiplier
+sensitivity_low = suggested_pre_money * 0.60
+sensitivity_high = suggested_pre_money * 1.50
 ```
 
-| Hypothetical share value | If exercised: illustrative difference versus total paid | If allowed to expire |
-| --- | --- | --- |
-| $1.00 | −$120 | −$20; no shares |
-| $2.00 | −$20 | −$20; no shares |
-| $2.20 | $0 | −$20; no shares |
-| $5.00 | +$280 | −$20; no shares |
+The sensitivity bounds are arbitrary scenario bands, not statistical confidence intervals. A launched fictional startup scoring 50 in all categories produces score 50, multiplier 1, estimate $1M, and $600k–$1.5M band.
 
-The illustration excludes taxes and other fees. A hypothetical value is not a market quote, a sale opportunity, or cash profit. Exercising does not produce liquidity. If exercised shares later become worthless, the backer may lose the entire $220, not just the premium. Private offerings can involve total loss, limited information, and indefinite holding periods. [Investor.gov private placements bulletin](https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins/private-placements-under-regulation-d-updated-investor-bulletin)
+Save `valuation-model-v1`, rubric/anchor versions, inputs, evidence timestamps, scores, rounding, and output. Show input coverage and self-reported/checked counts separately as LOW/MEDIUM/HIGH **evidence quality**, not a success probability. Suppress numeric estimates when required core inputs/stage are absent; permit a clearly labeled manual simulation anchor.
 
-The premium becomes a sunk cost after purchase. The interface can explain that exercise requires additional funds; it should not automatically recommend exercising based on a hypothetical value. Do not use public-market option pricing formulas to imply a reliable private-company option price.
+Recompute only from a new submitted input version. A new valuation is informational and never rewrites existing purchases or changes published round prices. AI may propose extracted facts or explain the deterministic output, but cannot fabricate verification, choose binding prices, or authorize investments.
 
-### UX language
+Later, replace toy constants with reviewed comparable data and calibrated methods; test errors and bias before offering real pricing assistance. Follow counts/contact information are excluded.
 
-Use “Pay $20 now,” “Pay an additional $200 if you exercise,” and “You do not own shares yet.” After exercise: “100 simulated shares recorded.” At expiry: “Expired — $20 premium spent; no shares acquired.”
+## 11. Valuation to price, share supply, and allocation
 
-Avoid “guaranteed return,” “cash out,” “IPO soon,” “risk-free,” and “invest in any startup.” Show cost and loss scenarios as prominently as upside scenarios.
+Choose a virtual pre-round founder supply `S0`. This is a simulation denominator. Actual issuance would require a verified fully diluted cap table, authorized issuance, and defined share-class rights.
 
-## 6. Product scope and priorities
+```text
+raw_price = accepted_pre_money_value / S0
+unit_price_cents = round_nearest_cent(raw_price * 100)
+implied_pre_money = unit_price_cents * S0 / 100
+cost_cents = quantity * unit_price_cents
+issued_supply = S0 + cumulative_primary_units_sold
+holder_allocation = holder_quantity / issued_supply
+```
 
-### P0: required for a credible end-to-end demo
+Require positive integer cents and supported numeric bounds. If rounding materially changes implied value, show the rounded price/implied value for acceptance. Reject sub-cent/unrepresentable prices rather than silently clamping them. Fractional quantities and finer price precision require a later deliberate design.
 
-- Landing page explaining the product in plain language.
-- Marketplace of six fictional startups, with search and sector filters.
-- Startup detail page with a founder profile, metrics, updates, share class, and option terms.
-- Interactive quantity and scenario calculator.
-- Backer account with isolated demo credit balance.
-- Server-generated purchase quote and confirmation.
-- Persistent option purchase with allocation and wallet updates.
-- Portfolio showing active options, deadlines, exercised simulated shares, and expired positions.
-- Exercise flow requiring an additional debit and producing a simulated share position.
-- Deterministic expiry behavior, including an explicit expired-option demo.
-- Founder dashboard showing inventory, premiums, contingent proceeds, and completed exercise proceeds.
-- Minimal founder create/publish flow using structured fictional data.
-- Protected demo controls to reset a scenario and advance its clock.
-- Hosted demo, a repeatable walkthrough, and a backup recording.
+### Example
 
-### P1: add only after P0 works
-
-- Watchlist and in-app deadline notifications.
-- Founder update publishing.
-- Backer comparison of two opportunities using the same cost fields.
-- An educational terms explainer using provided company information.
-- Better founder draft validation and simulated admin review.
-- Responsive polish, keyboard navigation, and chart accessibility improvements.
-
-### P2: stretch ideas
-
-- AI-generated plain-language explanations grounded in the offering's terms, with source links and a deterministic fallback.
-- Scenario visualization for dilution and share-class differences, clearly marked as hypothetical.
-- An exported transaction receipt.
-- Analytics funnel dashboard with no unnecessary personal data.
-
-### Beyond the hackathon
-
-Real securities offerings, real payments or escrow, formal investor eligibility, identity checks, executed legal contracts, cap-table settlement, secondary trading, international participation, automated investment recommendations, and an actual compliance review process.
-
-Blockchain and tokenization are optional technology choices. They do not resolve the legal or economic questions and are unnecessary for the core demo.
-
-## 7. User journeys and screens
-
-### Backer journey
-
-1. Enter the demo and receive $1,000 in non-withdrawable demo credits.
-2. Browse fictional startups and filter by sector.
-3. Open Carolina Robotics and read its company story and terms.
-4. Select 100 shares; see $20 due now, $200 due later, and the deadline.
-5. Explore a downside and upside scenario without receiving an investment recommendation.
-6. Confirm understanding that an option is not ownership and may expire worthless.
-7. Buy the simulated option; see balance fall to $980 and an active position appear.
-8. Open the portfolio and exercise before expiry.
-9. Confirm a $200 debit; see balance fall to $780 and 100 simulated shares recorded.
-10. Inspect a second, expired position to understand the alternative outcome.
-
-### Founder journey
-
-1. Sign in as a demo founder and create a fictional company profile.
-2. Set a dedicated share pool, premium, strike, minimum/maximum quantity, sale close, and option expiry.
-3. Preview the exact terms a backer will see.
-4. Publish under demo-only validation rules.
-5. Inspect the dashboard after a purchase: available shares decrease and reserved shares increase.
-6. Inspect the dashboard after exercise: reservation moves to simulated issued shares; exercise proceeds appear separately.
-7. Inspect expiry: reserved inventory is released, subject to whether the offering is still open for new purchases.
-
-### Screen inventory
-
-| Route | Key content | Primary action |
-| --- | --- | --- |
-| `/` | One-sentence pitch, three-step explainer, demo label | Explore startups |
-| `/explore` | Company cards, sector filters, loading/empty states | View startup |
-| `/startups/[slug]` | Company information, terms, calculator, updates | Get quote |
-| `/checkout/[quoteId]` | Premium, exercise cost, expiry, terms version | Confirm simulated purchase |
-| `/portfolio` | Balance, active rights, exercised shares, expired positions | View position |
-| `/positions/[id]` | Snapshot of terms, transaction history, deadline | Exercise |
-| `/founder` | Company, reserved/available/issued counts, proceeds | Create offering |
-| `/founder/offerings/new` | Structured draft form and preview | Publish demo offering |
-| `/demo` | Authorized scenario controls and reset | Advance demo clock |
-
-Design direction: calm financial interface, readable numbers, one accent color, clear company cards, and a persistent “Simulation — fictional companies and demo credits” label. Use text/icons as well as color for position status. Do not show unsupported live stock charts or a fabricated portfolio return.
-
-## 8. User stories with acceptance criteria
-
-| Story | Acceptance criteria |
+| Item | Amount |
 | --- | --- |
-| As a backer, I can discover opportunities | Six seeded companies load; search and sector filters compose; empty states are understandable |
-| As a backer, I understand the commitment | Quote shows quantity, premium, additional exercise payment, total cost, share class, and expiry |
-| As a backer, I can buy an option | Successful transaction debits credits once, reserves inventory once, and persists after refresh |
-| As a backer, I can exercise | Owned active option before expiry debits exercise cost once and creates one share position |
-| As a backer, I can see expiry | At or after the deadline, exercise is rejected and eventual expiry releases reserved inventory exactly once |
-| As a founder, I can publish | Only the founder's own company can be used; invalid dates, amounts, and quantities are rejected |
-| As a founder, I understand proceeds | Premium receipts, potential exercise proceeds, and actual exercise proceeds are separate fields |
-| As a teammate, I can repeat the demo | A protected reset restores deterministic fictional fixtures without touching another session |
+| Accepted pre-money simulation anchor | $1,000,000 |
+| Founder units before round | 1,000,000 |
+| New unit price | $1.00 |
+| Maximum new units | 100,000 |
+| Maximum simulated raise | $100,000 |
+| Investor A purchase | 1,000 units for $1,000 |
+| Total supply immediately after A | 1,001,000 |
+| A allocation immediately | About 0.0999% |
+| Total supply at full subscription | 1,100,000 |
+| A allocation at full subscription | About 0.0909% |
+| All round investors at full subscription | About 9.09% |
+| Founder at full subscription | About 90.91% |
 
-## 9. Architecture recommendation
+Only sold units are issued. Remaining capacity is permission to issue, not existing shares in someone's holding. Further primary purchases dilute allocation percentages without changing existing quantities.
 
-Use **Next.js + TypeScript**, **Supabase Postgres/Auth**, and **Vercel** unless the team already knows an alternative well. Keep one application and one database. The recommendation prioritizes team familiarity, one deployment, and transactional storage; it is not a claim that this is the only suitable stack.
+Show current and fully subscribed **simulation allocation**, not legal ownership. A higher valuation estimate is not cash or available profit. Portfolio P0 shows quantity and historical amount paid; later estimates, if displayed, are separate and hypothetical.
 
-Next.js supports the proposed app routing and server boundary; use its official documentation for the installed version. Supabase documents server-side auth, row-level security, and database functions. Vercel documents Next.js deployment. Pin the versions chosen at setup and avoid mid-event upgrades. [Next.js docs](https://nextjs.org/docs/app), [Supabase server-side auth](https://supabase.com/docs/guides/auth/server-side/nextjs), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Supabase functions](https://supabase.com/docs/guides/database/functions), [Vercel docs](https://vercel.com/docs/frameworks/full-stack/nextjs)
+## 12. Offering lifecycle and immutable terms
+
+`DRAFT → PUBLISHED → CLOSED` or `PUBLISHED → SOLD_OUT`.
+
+Publishing validates company ownership, entity/stage labels, accepted valuation source, positive price/supply, finite issuance cap, quantity limits, future close timestamp, instrument type, and terms version. P0 permits one active published round and one simulated share class per company. Lock the company during publication so concurrent requests cannot create overlapping rounds.
+
+Published financial terms are immutable. A founder may update their story but cannot change the price, rights, or supply denominator for completed purchases. A new accepted valuation requires a new offering/version to affect later issuance. For MVP, subsequent rounds can remain disabled until cumulative supply rules are implemented.
+
+Stop purchases at close, full subscription, or explicit founder closure. Purchased shares do not expire or disappear. The MVP has no minimum raise or conditional close: proceeds credit the startup after every settled purchase. All-or-nothing fundraising and refunds require separate states and are deferred.
+
+## 13. Backend architecture and boundaries
+
+Use one Next.js/TypeScript app, Supabase Auth/Postgres, and Vercel unless team familiarity favors another stack. Keep settlement in one database transaction, not a series of independently committed services.
 
 ```mermaid
 flowchart LR
-    B[Backer browser] --> W[Next.js web app]
-    F[Founder browser] --> W
-    W --> A[Server routes and authorization]
-    A --> S[Supabase Auth]
-    A --> T[Postgres transaction functions]
-    T --> D[(Postgres data and ledger)]
-    C[Protected demo clock and reset] --> A
-    E[Expiry sweep] --> T
-    A -. optional .-> X[Grounded explanation service]
+    F[Founder browser] --> W[Web app and server API]
+    I[Investor or company link] --> W
+    W --> A[Auth and ownership]
+    A --> V[Versioned valuation]
+    A --> Q[Authoritative quotes]
+    A --> T[Atomic primary purchase]
+    V --> D[(Postgres)]
+    Q --> D
+    T --> D
+    D --> O[Outbox events]
+    O --> R[Receipt and dashboard refresh]
+    C[Protected seed/reset] --> A
 ```
 
-### Boundaries and trade-offs
+Browser inputs are identifiers/quantities and draft facts, not authoritative price/balance/supply. Server authentication and validation precede database checks; the database rechecks identity, terms, credits, and capacity at settlement.
 
-- Browser: displays terms and scenarios; sends identifiers and quantities, never authoritative prices or balances.
-- Server: verifies identity, role, ownership, quote, and mutation permissions.
-- Database transaction: atomically checks state, locks wallet/inventory/position, debits credits, and writes records.
-- Authentication: provision separate backer/founder demo accounts; never let a client toggle grant founder/admin privileges.
-- Expiry: synchronous deadline checks enforce correctness; a sweep updates stored state. A timer on the page is presentation only.
-- Storage: fictional structured documents first; defer uploads and their access-control work.
-- Optional AI: provides explanations from approved fields; cannot mutate investments, price options, or select “best” investments.
+Postgres supports row-locking transactions; Supabase supports database functions for these operations. Restrict functions and validate identity inside any privileged mutation. [Postgres locking](https://www.postgresql.org/docs/current/explicit-locking.html), [Supabase functions](https://supabase.com/docs/guides/database/functions)
 
-A managed backend saves setup time but introduces connectivity and service dependencies. Keep a separate local walkthrough with static fixtures as a presentation fallback. A static fallback must identify itself as a walkthrough; it should not imply persistence or completed transactions.
+Trade-off: one offering lock serializes its purchases and reduces throughput, but simplifies correctness for this MVP. Cache discovery, not settlement authorization. Revisit lock contention and durable workers after measuring real usage.
 
-## 10. Domain and database model
+## 14. Proposed database schema
 
-Use UUID identifiers, integer cents, positive whole quantities, and UTC timestamps. The following schema is a proposed contract, not a migration that has already been implemented.
-
-| Table | Important fields |
+| Table | Important fields/purpose |
 | --- | --- |
-| `profiles` | `id` matching auth subject, display name, trusted role |
-| `demo_scenarios` | `id`, authorized controller, clock offset, generation/reset version |
-| `companies` | `id`, owner, slug, name, sector, description, fictional metrics, profile status |
-| `offerings` | company, dedicated pool, instrument type, strike/premium cents per share, min/max quantity, sale close, expiry, status, terms version |
-| `quotes` | investor, offering, quantity, price snapshot, terms version, quote expiry, scenario/generation, consumed position |
-| `option_positions` | investor, offering, quantity, purchased terms snapshot, premium total, strike, expiry, ACTIVE/EXERCISED/EXPIRED, exercise time |
-| `share_positions` | investor, company, share class, quantity, cost basis, originating option ID |
-| `wallets` | investor/scenario, demo balance cents |
-| `ledger_entries` | wallet, signed cents, PREMIUM/EXERCISE/SEED/REFUND type, position reference, timestamp |
-| `transactions` | actor, idempotency key, operation, normalized request hash, result reference |
-| `company_updates` | company, title, body, published time |
-| `audit_events` | actor, action, entity, request ID, timestamp, non-sensitive metadata |
+| `profiles` | Auth subject, display name, trusted permissions; users may invest and found companies |
+| `demo_scenarios` | Scenario/controller/generation, isolates reset and fixtures |
+| `companies` | Owner, slug, stage, entity status, story, publication status |
+| `founder_profiles` | Company membership, name/role/bio, LinkedIn, public-contact preferences |
+| `company_sources` | Source URL/date, self-reported/imported/checked status |
+| `valuation_inputs` | Immutable input version, privacy choices |
+| `valuations` | Model/rubric versions, scores, anchor/range, coverage, accepted override |
+| `instruments` | Company/scenario, share type, genesis founder supply, total issued |
+| `offerings` | Instrument/terms/version, price cents, cap, sold/reserved, limits, close, status |
+| `quotes` | Investor/offering/quantity, price/fee/total snapshots, expiry, consumed order, generation |
+| `orders` | Investor/offering/quote, quantity/price/total, status, settlement timestamp |
+| `holdings` | Owner/instrument, quantity, acquisition cost cents |
+| `share_events` | Genesis/primary issuance/compensation, quantity/owner/order |
+| `ledger_accounts` | Investor/startup/fee/issuance-source, currency/mode/scenario, cached posted balance |
+| `journal_entries` | Immutable journal/operation/order/time |
+| `journal_lines` | Journal/account/signed cents |
+| `fund_holds` | Future pending-settlement reservations; absent/zero in immediate MVP |
+| `idempotency_records` | Actor/operation/key/request hash/committed result |
+| `outbox_events` | Business event, unique reference, delivery state |
+| `follows` | User/company unique pair; P1 |
+| `company_updates` | Company/authorized author/published text; P1 |
+| `audit_events` | Actor/action/entity/request ID and non-sensitive metadata |
+| `payment_events` | Future provider event deduplication; unused for live money in MVP |
 
-Scope demo accounts, wallets, quotes, and positions to a scenario where relevant. Company fixtures can be shared read-only or cloned into a scenario. Resets increment the scenario generation so stale quotes cannot be reused.
+UUIDs, UTC timestamps, integer cents, positive integer quantities, foreign keys, unique references, and bounded numeric inputs. Use database bigint where needed and avoid JavaScript integer precision loss when crossing the API boundary.
 
-### Required invariants
+Unique constraints: actor/operation/idempotency key; one settled order per quote; one primary journal and one issuance per order; owner/instrument holding; one credit grant per account/scenario generation; one active round per company; one follow per user/company.
 
-1. `available + reserved_active + exercised_issued = dedicated_pool_total` for each offering. Expired positions are historical and no longer count in `reserved_active`.
-2. `available`, `reserved_active`, `exercised_issued`, and demo wallet balances cannot become negative.
-3. One option position can create at most one exercised share position.
-4. Quote consumption happens at most once, including with a different idempotency key.
-5. Premium and exercise debits have unique operation/position references.
-6. Ledger sum matches stored wallet balance; a reconciliation check catches drift.
-7. Published terms are immutable for purchased positions. Later founder edits cannot rewrite a purchase snapshot.
-8. Founder metrics use successful transactions, not quoted or failed attempts.
-9. All mutation attempts use authenticated ownership checks; database policy alone is not the entire transaction boundary.
+## 15. Money management: source of truth
 
-A fixed exercise price does not prevent dilution or guarantee a percentage ownership. The share class and capitalization denominator matter; do not show an ownership percentage unless its assumptions are explicitly defined.
+Use an append-only balanced journal of signed demo-credit transfers. For every journal, **sum of signed amounts equals zero** within one currency, mode, and scenario. Positive lines increase an account's posted credits; negative lines decrease them. This double-entry-style transfer ledger is not a complete corporate accounting system.
 
-## 11. Lifecycle and transaction rules
-
-### Offering lifecycle
-
-`DRAFT → PUBLISHED → CLOSED`
-
-Closing stops new sales. It does not cancel existing purchased rights. After publication, material term changes require a new version/offering; the MVP can simply prohibit edits to published financial terms.
-
-### Position lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> ACTIVE: Premium paid and inventory reserved
-    ACTIVE --> EXERCISED: Before expiry; exercise payment succeeds
-    ACTIVE --> EXPIRED: Effective time reaches expiry
-    EXERCISED --> [*]
-    EXPIRED --> [*]
+```text
+posted_balance = sum(committed journal lines for account)
+available_balance = posted_balance - active_holds
 ```
 
-The MVP uses immediate simulated settlement. Do not add pending real-payment states until actual asynchronous settlement is designed.
+Enforce balancing inside a restricted journal-posting function before commit; forbid direct journal-line inserts/updates/deletes. A deferred database check can provide an additional guard against incomplete journals. Cached balances update in the same transaction and reconcile to journal sums. Clients cannot edit balance columns. Journal balancing alone is not sufficient: spending-account non-negativity, authorization, deduplication, and share conservation also matter.
 
-### Buy option: single atomic transaction
+### One-time demo grant
 
-1. Verify session, scenario, request key, and positive quantity.
-2. Check an existing idempotency result; reject reuse with a different payload.
-3. Lock records in a consistent order and recheck the key after any wait.
-4. Load the quote; verify investor, unconsumed status, scenario generation, terms version, quantity, and quote deadline.
-5. Verify the offering is published, sale window open, and option not expired.
-6. Check available inventory and the wallet balance.
-7. Debit premium, move available inventory into active reservation, insert position, consume quote, append ledger/audit records, and store the request result.
-8. Commit everything or roll everything back.
+| Account | Change |
+| --- | --- |
+| Demo issuance source | −$1,000 |
+| Investor credits | +$1,000 |
+| Sum | $0 |
 
-A quote is a short-lived pricing snapshot, not an inventory reservation. If shares run out between quote and purchase, return a clear inventory conflict without charging anything. A 60-second quote lifetime is sufficient for the demo; cap it at sale close and option expiry.
+The source account is the sole account permitted to go negative: it explicitly represents issuance of play money and cannot spend or withdraw. Investor/startup accounts cannot go negative. Grant amount is server-owned, restricted, and deduplicated by scenario generation.
 
-### Exercise: single atomic transaction
+### Primary purchase
 
-1. Verify the investor owns the position in the current scenario.
-2. Lock the position and related wallet/inventory in the same documented lock order used across mutations.
-3. Require ACTIVE and effective database time strictly less than expiry.
-4. Compute the payment from the purchased terms snapshot.
-5. Check funds; debit once; create the share record; move reserved inventory to exercised inventory; mark EXERCISED; append ledger/audit and idempotency records.
-6. Commit, returning the resulting position and balance.
+Investor buys 1,000 virtual units at $1:
 
-The premium is not refunded or deducted from the exercise payment. Insufficient funds leave the option ACTIVE if it has not expired. The user can choose to wait or let it expire.
+| Account | Change |
+| --- | --- |
+| Investor credits | −$1,000 |
+| Startup simulated proceeds | +$1,000 |
+| Sum | $0 |
 
-### Expiry and the boundary race
+In the same transaction, issue 1,000 units to that investor, increase total supply from 1,000,000 to 1,001,000, and reduce round capacity by 1,000. No money goes to another investor. No money appears because the valuation rises.
 
-At `effective_now >= expires_at`, exercise is forbidden even if the stored status still says ACTIVE. A sweeper locks due ACTIVE positions, changes them to EXPIRED, and returns inventory once. Exercise and expiry serialize on the same position lock, so only one terminal transition can win.
+If fees are added later, debit investor by gross proceeds plus fee, credit startup gross proceeds, and credit fee account separately. Quote/version the fee/rounding policy. P0 fee is zero.
 
-For the hackathon, run the expiry sweep through the protected demo clock control and a server-side portfolio refresh. For a real system, use a durable scheduled worker and monitor lag. Reads may present the effective expired state before the sweep finishes.
+Founder dashboard separates **received simulated proceeds** from **maximum remaining potential raise**. A model mark-up never increases spendable credit balances. Without a defined payout/sale, holdings appreciation is not cash. No withdrawal or buyback is offered.
 
-Expired inventory is available for new sales only if the sale window remains open and the new rights have a valid future expiry. For this fixed-expiry MVP, the original offering will ordinarily be closed when its positions expire.
+## 16. Quote and atomic purchase algorithm
 
-### Demo clock
+Quotes are short-lived pricing snapshots, not reservations. Server computes quantity × published unit price plus disclosed fee. Lifetime: up to 60 seconds, capped at round close. Record investor, terms version, instrument/mode, scenario generation, and unconsumed status.
 
-Derive effective time from database time plus a server-controlled scenario offset. Clients cannot supply time or change offsets. Advancement is forward-only within a scenario; reset creates a new generation. Display both the scenario time and actual demo label to prevent confusion.
+### Single transaction
 
-## 12. API contracts
+1. Authenticate, normalize payload, check bounded quantity/idempotency key.
+2. Return committed result for same key/payload; reject key reuse with different request.
+3. Resolve and lock offering as the common gate for purchases and closure.
+4. Lock quote; recheck idempotency after waits. Lock affected accounts in sorted UUID order, then share/holding records in a consistent documented order.
+5. Revalidate actor/quote ownership, generation, unconsumed quote, database-time deadlines, published status, terms, unit price, limits, capacity, and investor funds.
+6. Create order and a balanced purchase journal; update account caches.
+7. Issue units through one share event; update holding/cost basis, total issued, and round sold count.
+8. Consume quote; mark SOLD_OUT if appropriate; store receipt/terms/audit/outbox and successful idempotency result.
+9. Commit all writes together, returning order, balance, and holding.
 
-Use one documented API style; server route handlers are the proposed default. Successful mutations return the authoritative resulting state so the UI can refresh immediately.
+```text
+purchase(actor, quote_id, key):
+  begin
+  return_existing_result_or_reject_changed_payload()
+  lock_offering_quote_sorted_accounts_share_records()
+  recheck_key_quote_identity_terms_deadlines()
+  require_available_capacity_and_credits()
+  write_order_and_balanced_journal()
+  update_balances_and_issue_units()
+  update_holdings_supply_round_and_quote()
+  write_receipt_audit_outbox_idempotency()
+  commit
+```
 
-| Endpoint | Request | Behavior |
-| --- | --- | --- |
-| `GET /api/startups` | Search/sector query | Paginated published fictional companies |
-| `GET /api/startups/:slug` | Slug | Profile, updates, published offering, terms |
-| `POST /api/quotes` | Offering ID, quantity | Validated cost snapshot and short deadline |
-| `POST /api/options` | Quote ID; idempotency header | Atomic premium debit and reservation |
-| `GET /api/portfolio` | Authenticated session | Own wallet, rights, shares, transaction history |
-| `POST /api/options/:id/exercise` | Idempotency header | Atomic debit and simulated share issuance |
-| `POST /api/founder/offerings` | Company ID, structured draft terms | Validate ownership and save DRAFT |
-| `POST /api/founder/offerings/:id/publish` | Draft version | Validate and publish immutable terms |
-| `GET /api/founder/dashboard` | Session | Own company inventory and proceeds |
-| `POST /api/demo/advance` | Scenario ID, authorized forward offset | Advance server clock and sweep expiry |
-| `POST /api/demo/reset` | Scenario ID | Authorized deterministic reset/generation change |
+Any failure rolls back every settlement write. A timeout after commit is resolved by retrying the same key or fetching receipt, not issuing a blind new purchase. Quote consumption is unique even across different keys. If a concurrent unique-key insertion loses the race, roll back that attempt and recover the already committed matching result; never treat the uniqueness error as another charge.
 
-Example purchase quote response:
+MVP settlement is immediate: no external payment request occurs inside the transaction. Reject founders buying their own offering to avoid misleading funding signals. Check cumulative investor limits under the offering lock, not only per-order limits. Founder genesis units are created through protected setup, not an investor endpoint.
+
+## 17. Share and credit invariants
+
+```text
+remaining_capacity = cap - settled_new_units - reserved_pending_units
+total_issued = founder_genesis + settled_primary_issuance
+sum(holding quantities) = total_issued
+cost_basis = sum(confirmed acquisition costs)
+startup_proceeds = sum(confirmed credits - explicit reversals)
+```
+
+P0 has no pending-unit reservations because settlement is immediate. For later asynchronous payments, explicitly reserve units and funds as needed before awaiting external results.
+
+Required invariants:
+
+- Non-negative quantities/capacity and investor/startup available balances.
+- Journal zero-sum by currency/mode/scenario.
+- One purchase journal and issuance event per settled order.
+- No order settles without both credit transfer and share issuance.
+- All holdings conserve total issued supply.
+- No purchases at/after close, after explicit closure, or above issuance cap.
+- No quote consumption twice or duplicate credit grant.
+- No valuation change affecting cash balances or existing contract terms.
+- Purchase/close race serializes on the same offering lock.
+- Ending a round preserves purchased holdings.
+
+Round deadlines stop issuance; **purchased shares do not expire**.
+
+## 18. Failures, correction, and reconciliation
+
+| Case | Behavior |
+| --- | --- |
+| Insufficient credits / exhausted allocation | Reject without any debit or issuance |
+| Duplicate request | Existing result; single settlement |
+| Same key, changed payload | Conflict |
+| Same quote, different keys | Existing order or conflict; never double settle |
+| Two buyers for last units | Offering lock prevents overselling |
+| Database deadlock/serialization failure | Bounded same-key retries with jitter; retryable error if unresolved |
+| Timeout after commit | Recover receipt by own key/quote/order |
+| Notification failure | Retry outbox; settlement remains committed |
+| Reset/stale quote | Reject generation mismatch |
+| Ledger/supply mismatch | Freeze affected purchase mutations; retain diagnostic history |
+
+No user refund/buyback in P0. Reset creates a new scenario generation rather than deleting selected settled journals. Later corrections require linked compensating money/share entries, authorization, locks, and valid resulting balances. Preserve original history.
+
+Reconcile after setup, scripted purchases, and through protected controls: cached balances vs journal sums; journals zero-sum; holdings vs share events; supply vs genesis/issuance; sold counters vs settled orders; unique order/journal/issuance; quote consumption; grant uniqueness; startup proceeds vs transfer lines. Report scenario/offering/request IDs without private data leaks.
+
+Outbox consumers are idempotent. Notification delivery cannot grant credits or issue shares. Database commit, not email/UI success, determines settlement.
+
+## 19. API contracts
+
+| Endpoint | Request/result |
+| --- | --- |
+| GET `/api/companies` | Search/stage/sector; published profiles |
+| GET `/api/companies/:slug` | Profile/founders/valuation/offering |
+| POST `/api/founder/companies` | Owned structured company draft |
+| PATCH `/api/founder/companies/:id` | Versioned edits and visibility |
+| POST `/api/founder/companies/:id/valuations` | Input version; estimate/provenance |
+| POST `/api/founder/offerings` | Accepted value/supply/cap/terms; draft |
+| POST `/api/founder/offerings/:id/publish` | Validated immutable offering/link |
+| POST `/api/founder/offerings/:id/close` | Locked stop-new-purchases operation |
+| POST `/api/quotes` | Offering/quantity; authoritative quote |
+| POST `/api/purchases` | Quote and idempotency header; receipt/balance/holding |
+| GET `/api/orders/:id` | Own receipt only |
+| GET `/api/purchases/by-key` | Own operation/key; timeout recovery |
+| GET `/api/portfolio` | Own credits/holdings/cost basis |
+| GET `/api/founder/dashboard` | Own proceeds and issuance counts |
+| POST `/api/companies/:id/follow` | Unique follow; P1 |
+| POST `/api/founder/companies/:id/updates` | Authorized public update; P1 |
+| POST `/api/demo/reset` | Protected isolated generation reset |
+| POST `/api/demo/reconcile` | Protected integrity result |
+
+Example quote:
 
 ```json
 {
   "quoteId": "example-uuid",
-  "quantity": 100,
-  "premiumDueNowCents": 2000,
-  "additionalExercisePaymentCents": 20000,
-  "totalPaidIfExercisedCents": 22000,
+  "instrumentType": "SIMULATED_SHARE",
+  "quantity": 1000,
+  "unitPriceCents": 100,
+  "feeCents": 0,
+  "totalCostCents": 100000,
+  "startupProceedsCents": 100000,
   "termsVersion": 1,
-  "quoteExpiresAt": "ISO-8601 UTC timestamp",
-  "optionExpiresAt": "ISO-8601 UTC timestamp",
-  "simulation": true
+  "expiresAt": "ISO-8601 UTC timestamp",
+  "currency": "DEMO_USD",
+  "redeemable": false
 }
 ```
 
-Error responses use a stable code, human-readable message, and request ID. Examples: `UNAUTHENTICATED`, `FORBIDDEN`, `INVALID_QUANTITY`, `QUOTE_EXPIRED`, `TERMS_CHANGED`, `INSUFFICIENT_CREDITS`, `INVENTORY_UNAVAILABLE`, `OPTION_EXPIRED`, and `IDEMPOTENCY_CONFLICT`. Use appropriate HTTP status codes; never return a successful-looking receipt for a failed mutation.
+Stable error codes, readable message, request ID, and appropriate HTTP status: UNAUTHENTICATED, FORBIDDEN, INVALID_QUANTITY, INVALID_VALUATION_INPUT, QUOTE_EXPIRED, ROUND_CLOSED, INSUFFICIENT_CREDITS, ALLOCATION_UNAVAILABLE, IDEMPOTENCY_CONFLICT, RETRYABLE_SETTLEMENT_ERROR. No successful-looking receipt for an uncommitted order.
 
-## 13. Access control and data integrity
+## 20. Authorization and privacy
 
-- Public/demo discovery reads published fictional profiles and terms.
-- Backers read only their own wallets, ledger entries, quotes, options, and shares.
-- Founders edit only companies they own and read aggregated results for their offerings.
-- Users cannot self-assign trusted roles or edit monetary/inventory columns directly.
-- Enable RLS on exposed tables and define explicit policies. Privileged server credentials must stay on the server. [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security)
-- Make ledger, wallet, inventory, and position mutations available only through authorized transaction functions/server operations. If a function uses elevated database privileges, restrict invocation, check identity within it, and set a safe search path. [Supabase database functions](https://supabase.com/docs/guides/database/functions)
-- Validate same-origin requests and session authentication on browser mutations; use the framework's supported protections.
-- Avoid public reset endpoints or shared admin secrets shipped to the browser.
-- Log request IDs and transitions; omit auth tokens and unnecessary personal information.
-- Add basic request limits to quote creation and demo reset if the app is publicly accessible.
+Users can found companies and invest without granting themselves admin access. Every founder write verifies ownership; public reads expose only approved information. Investors read only their balances/holdings/receipts. Founders cannot inspect unrelated investor portfolios or balances.
 
-This is the minimum integrity work for the proposed transaction demo. It is not a production security certification.
+Use explicit RLS on exposed tables and privileged server operations for ledger/holding mutations. Keep service credentials server-only. Restrict execute rights and validate trusted identity inside elevated database functions; set safe search paths. [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Supabase functions](https://supabase.com/docs/guides/database/functions)
 
-## 14. Fictional seed data and demo fixtures
+Apply supported session/origin protections; rate-limit grants, quotes, and company creation. Validate link schemes and sanitize public text. Financial inputs/contact emails stay private by default. Scope reset/reconciliation to authorized scenario controllers. Log request IDs and transitions, not secrets or sensitive financial fields.
 
-Create six clearly fictional startups across robotics, climate, health software, education, agriculture, and developer tools. Give each a distinct description and a few invented metrics explicitly labeled as demo data.
+## 21. Future actual-money and equity adapter
 
-For Carolina Robotics, reserve a dedicated pool of 10,000 simulated shares. Seed two backer scenarios so the exercise demonstration cannot accidentally expire the other presenter's position.
+Keep the boundary extensible, but do not activate real money during HackNC. A generic checkout provider does not supply securities authorization, escrow, or share issuance. Decide issuer, custody, subscription confirmation, and cap-table responsibilities with the chosen partner.
+
+Actual-money access needs a validated instrument/operating route; US Regulation Crowdfunding is one possible route for eligible offerings and requires registered intermediation/disclosures. This does not establish eligibility of this product. [SEC overview](https://www.sec.gov/resources-small-businesses/exempt-offerings/regulation-crowdfunding)
+
+Proposed future asynchronous states, to finalize with the partner:
+
+`CREATED → RESERVED → PAYMENT_PENDING → FUNDS_CONFIRMED → ISSUANCE_PENDING → SETTLED`
+
+Also FAILED, CANCELLED, REFUND_PENDING, REFUNDED as applicable. Reserve capacity before external settlement. Expiring payment sessions must reconcile provider outcome before releasing capacity; explicitly handle late success after release.
+
+1. Save pending subscription/terms and reserve allocation.
+2. Create provider request with server-owned amount/idempotency outside database locks.
+3. Verify signed callbacks and deduplicate event IDs; handle delayed/out-of-order events.
+4. Confirm appropriate settled/escrow funds state; browser redirect is not payment proof.
+5. Request actual issuance with durable partner reference and safe retry.
+6. Mark SETTLED only after money and actual issuance are confirmed.
+7. Reconcile statements, investor/issuer liabilities, disputes/refunds, and cap table.
+
+Provider webhooks may retry and arrive out of order. [Stripe webhooks, as a technical example](https://docs.stripe.com/webhooks)
+
+Real accounting distinguishes custodian-held cash from liabilities owed to parties and pending settlement. The demo issuance-source account is not real cash and cannot finance payouts. Keep demo and real currencies/modes separate. Virtual-to-actual conversion, if ever offered, requires separate consent, terms, eligibility, issuance authorization, and evidence; it is not automatic.
+
+## 22. Optional rights to invest later
+
+Record earlier participation as purchase history. A **First-round backer** badge can acknowledge a simulated purchase without promising a guaranteed future allocation.
+
+An actual future-round participation right needs defined beneficiary, qualifying investment, maximum allocation, pricing rule, deadline, transferability, and outcome if no round occurs. A later `participation_rights` record can contain those fields and a terms version.
+
+This is a later extension of direct investment; it does not reintroduce the upfront option premium mechanism into the core MVP.
+
+## 23. Fictional fixtures and repeatable demo
+
+Seed six clearly fictional companies covering the five stages, including one unincorporated project. Mark invented traction/financials as demo inputs.
 
 | Fixture | Purpose |
 | --- | --- |
-| Founder with one published offering | Immediate marketplace content and founder dashboard |
-| New backer with $1,000 demo credits | Purchase and exercise flow |
-| Backer with an active near-expiry option | Deadline and expiry flow |
-| Closed offering | Disabled new-purchase state |
-| Small inventory pool | Oversubscription/concurrent purchase verification |
-| Low-balance wallet | Insufficient-funds verification |
+| Carolina Robotics: $1M accepted anchor, 1M genesis units, 100k cap, $1/unit | Main profile-to-investment story |
+| Idea-stage unincorporated team | Cross-stage discovery and truthful unit label |
+| Missing-input prototype | Evidence quality and manual-anchor behavior |
+| Investor A: $1,000 credits | Buy 1,000 units; persistent holding |
+| Low-balance investor | Reject purchase without mutation |
+| 10-unit offering; two buyers request 7 | Oversubscription verification |
+| Closed round with existing holdings | New buying disabled; ownership record remains |
 
-Use relative timestamps generated at reset. Keep company descriptions and offering terms in a typed seed definition shared with the demo script. No real founder names, funding claims, or company logos are required.
+Protected setup creates genesis holdings, a zero startup proceeds account, and deduplicated grants. Isolate mutable accounts/offerings by scenario; resets increment generation and invalidate quotes. Public fixture content may be shared read-only. Teammates should not overwrite one another's demonstration.
 
-## 15. GitHub organization and proposed file structure
+## 24. GitHub structure and execution backlog
 
-This repository currently begins with a README and license. Add implementation folders only as they are built; the structure below is a recommendation.
+Proposed implementation structure, not files already built:
 
 ```text
-app/                       pages and server route handlers
-components/                reusable UI and financial display components
-lib/auth/                  sessions, ownership, and trusted roles
-lib/domain/                money, terms, scenarios, lifecycle definitions
-lib/db/                    server database access
-supabase/migrations/       versioned schema, policies, transaction functions
-supabase/seed.sql           deterministic fictional demo data
-tests/domain/              meaningful money and lifecycle cases
-tests/integration/         transaction, authorization, and concurrency checks
-tests/e2e/                 backer and founder demo paths
+app/                       pages and server API
+components/                company/profile/valuation/checkout UI
+lib/auth/                  sessions and ownership
+lib/domain/                money, supply, offerings, quotes
+lib/valuation/             versioned anchors and scoring rubrics
+lib/db/                    restricted database clients
+supabase/migrations/       schema, policies, atomic purchase functions
+supabase/seed.sql           fictional fixtures
+tests/domain/             valuation, arithmetic, dilution
+tests/integration/        ledger, issuance, concurrency, access
+tests/e2e/                founder-to-investor path
 docs/MEGA_PLAN.md           this plan
-README.md                  project entry point and verified setup instructions
-.env.example               variable names only; no secrets
+README.md                  current status and verified setup when built
+.env.example               variable names only
 ```
 
-Workflow: short feature branches, small pull requests, and a build/typecheck on each merge candidate. Establish `main` as the last working integrated demo. Assign one integration owner who resolves shared interfaces and checks the deployed flow.
-
-Use issue titles and acceptance criteria from the backlog below. If the team enables a project board, use **Ready → In progress → Review → Done**, with at most one active implementation task per teammate. Assign real names only after the team confirms ownership.
-
-## 16. Execution backlog and dependency order
-
-Estimates are rough person-hours, not guarantees. Each row is a ready-to-create GitHub issue; the full set should not be attempted if the remaining event time is shorter than the assumed window.
-
-| ID | Priority | Issue / deliverable | Owner role | Depends on | Estimate | Done when |
+| ID | Priority | Deliverable | Role | Dependency | Person-hours | Done when |
 | --- | --- | --- | --- | --- | --- | --- |
-| H01 | P0 | Agree demo instrument and freeze terms | Whole team | — | 0.5 | Example and rules approved; no ambiguity about the two payments |
-| H02 | P0 | App shell and first hosted deployment | Frontend/integration | H01 | 1.5 | Shared navigation and a deployed placeholder work |
-| H03 | P0 | Schema, auth, policies, and fixtures | Backend | H01 | 3 | Seeded accounts and isolation checks work |
-| H04 | P0 | Marketplace and startup detail | Frontend | H02; H03 API contract | 3 | Six startups, filtering, terms, and empty states work |
-| H05 | P0 | Cost/scenario explorer and quote API | Domain/backend + frontend | H01; H03 | 2 | Example arithmetic matches; quote authority is server-side |
-| H06 | P0 | Atomic simulated option purchase | Backend | H03; H05 | 3 | Purchase persists; retries and low funds cannot double-debit |
-| H07 | P0 | Portfolio and receipts | Frontend | H04; H06 | 2 | Own active options, balance, and terms snapshots render |
-| H08 | P0 | Exercise transaction and confirmation | Backend + frontend | H06; H07 | 3 | Credits and simulated shares update exactly once |
-| H09 | P0 | Expiry sweep and protected demo clock | Backend | H06 | 2 | Boundary rejection and single inventory release verified |
-| H10 | P0 | Founder draft, publish, and dashboard | Founder UX | H02; H03; H06 | 3 | Ownership, terms validation, and proceeds categories work |
-| H11 | P0 | Critical verification and integration fixes | Integration | H06–H10 | 3 | Correctness checklist and hosted happy paths pass |
-| H12 | P0 | Pitch, recording, and submission package | Product/integration | H04; H07; H10 | 2 | Rehearsed demo and organizer-required materials ready |
-| H13 | P1 | Watchlist and in-app deadline alerts | Frontend | H07; H09 | 2 | Alerts refer to the right owned positions |
-| H14 | P1 | Grounded educational explainer | Available teammate | H04; H05 | 2 | Uses supplied terms; no invented facts; fallback works |
+| H01 | P0 | Freeze primary simulation rules | Team | — | 0.5 | Supply/credits/share label/example agreed |
+| H02 | P0 | Hosted app shell | Frontend/integration | H01 | 1.5 | Navigation and deployment work |
+| H03 | P0 | Auth/schema/ledger/share events/fixtures | Backend | H01 | 3 | Isolated grants and supply invariants |
+| H04 | P0 | Founder profile and links | Founder UX | H02; H03 contract | 2 | Stage/entity/website/LinkedIn/contact persisted |
+| H05 | P0 | Valuation v1 | Domain | H01; H04 inputs | 2 | Versioned explainable golden cases |
+| H06 | P0 | Offering publish and investment link | Backend/founder | H03–H05 | 2 | Immutable price/cap and direct URL |
+| H07 | P0 | Discovery and company page | Frontend | H02; H04 | 2 | Filters, profile, founder links |
+| H08 | P0 | Quote and atomic purchase | Backend | H03; H06 | 4 | Funds and units settle together safely |
+| H09 | P0 | Checkout/portfolio/receipt | Frontend | H07; H08 contract | 3 | Purchase persists after refresh |
+| H10 | P0 | Founder dashboard | Founder UX | H08 | 1.5 | Proceeds and supply counts agree |
+| H11 | P0 | Reconcile/concurrency/access tests | Integration/backend | H08–H10 | 3 | No duplicate debit/oversell/unauthorized write |
+| H12 | P0 | Rehearsal/recording/submission | Product/integration | H09–H11 | 2 | Repeatable pitch and required artifacts |
+| H13 | P1 | Follow/update feed | Available teammate | H04; H07 | 2 | Social loop independent of valuation |
+| H14 | P2 | Reviewed prefill/AI explanation | Available teammate | H05; H11 | 2+ | Trusted review/fallback/fetch boundaries |
 
-Critical path: **H01 → H03/H05 → H06 → H08/H09 → H11 → H12**. Build the interface against agreed fixtures while the backend is being implemented, then replace fixtures at the first integration checkpoint.
+Critical path: H01 → H03 → H06/H08 → H09 → H11 → H12. Build interfaces against typed fixtures while backend proceeds. Estimates are rough, not guarantees. Use short feature branches, small PRs, and a working main branch. Assign real names after the team confirms roles.
 
-### Issue template
+## 25. Team roles and 24-hour schedule
 
-```text
-Title: [P0] H06 — Atomic simulated option purchase
-Outcome: A backer can buy one option without duplicate charges or oversold inventory.
-Scope: Quote validation, wallet debit, reservation, position, ledger, receipt.
-Dependencies: H03, H05.
-Acceptance: Successful purchase persists; insufficient funds and stale quotes do not mutate state;
-            retries return the existing receipt; concurrent requests preserve inventory.
-Verification: Demonstrate the acceptance cases against the database, not only mocked UI.
-```
-
-## 17. Team responsibilities
-
-| Role | Primary ownership | Must coordinate with |
-| --- | --- | --- |
-| A: backer/frontend | Marketplace, detail, calculator, checkout, portfolio | B on response formats and state refresh |
-| B: backend/domain | Schema, auth, quotes, ledger, purchase, exercise, expiry | Everyone on model and authorization |
-| C: founder/product | Founder form/dashboard, copy, fictional data, validation interviews | B on publishing and metrics; D on pitch |
-| D: integration/demo | Deployment, critical checks, integration, recording, submission | All owners at checkpoints |
-
-For three people, combine C and D; A and B help with integration. For two people, seed founder terms and make the founder view read-only for the presentation, then focus on the backer lifecycle. Explicitly disclose any seeded workflow instead of presenting it as a completed publishing feature.
-
-## 18. The 24-hour build schedule
-
-| Elapsed time | Work | Exit criterion |
-| --- | --- | --- |
-| 0–1h | Pick model, write example terms, choose stack, assign ownership | Everyone can describe the same transaction |
-| 1–3h | Deploy shell; schema/auth/fixtures; UI layout and pitch outline | Hosted site and agreed API shapes exist |
-| 3–6h | Marketplace, details, calculator, quote, purchase backend | First durable purchase works |
-| 6–10h | Connect checkout, portfolio, founder totals | One backer purchase visible on both sides |
-| 10–14h | Exercise, expiry, protected clock/reset; founder publish | Complete lifecycle works locally |
-| 14–17h | Concurrency/authorization checks; deployed integration | Critical invariants hold in hosted demo |
-| 17–20h | User clarity check, responsive polish, accessible statuses | Test users explain both payments correctly |
-| 20–22h | Record demo, finish README and submission materials | Backup recording and required fields ready |
-| 22–24h | Feature freeze, rehearse, fix only blocking bugs, submit | Two repeatable walkthroughs completed |
-
-Do not wait until the final hours to deploy. Check integration around hours 3, 6, 10, 14, and 17. Each checkpoint should demonstrate a working behavior, not just report code completion.
-
-### If time is running out
-
-- **12 hours left:** keep discovery, calculator, purchase, exercise, expiry, and a seeded founder dashboard; cut AI, watchlists, uploads, and elaborate publishing.
-- **6 hours left:** one fictional startup, one backer account, one durable lifecycle, protected reset, and a clear pitch.
-- **3 hours left:** stop expanding scope; stabilize the working path, capture a recording, and prepare submission.
-
-The minimum defensible transaction demo still needs correct balances, deadlines, inventory, and ownership checks. If those are incomplete, present it honestly as an interactive concept walkthrough.
-
-## 19. Verification that matters
-
-The task list here describes tests to implement with the app. No runtime checks have been performed yet because this deliverable is a plan.
-
-### Domain cases
-
-- 100 × 20 cents premium = 2,000 cents; 100 × 200 cents strike = 20,000 cents; total 22,000 cents.
-- Reject zero, negative, fractional, out-of-range, and overflow-sized quantities.
-- Exercise before expiry succeeds; at or after expiry fails.
-- Break-even and scenario values display consistent units; hypothetical values never appear as realized cash.
-
-### Transaction and authorization cases
-
-| Case | Expected result |
+| Role | Ownership |
 | --- | --- |
-| Duplicate purchase with same key | Same result; one debit and one reservation |
-| Same key, different request | Conflict; no additional mutation |
-| Same quote, different key | Existing purchase or conflict; no second charge |
-| Two requests for last available shares | At most the available quantity allocated; losing request is not charged |
-| Two exercise requests | One share position and one exercise debit |
-| Exercise racing expiry | One terminal state; inventory and ledger stay consistent |
-| Failure between writes | Entire transaction rolls back |
-| Backer requests another portfolio | Denied |
-| Founder changes another company's terms | Denied |
-| Client attempts direct wallet/inventory edit | Denied |
-| Client changes price or clock | Ignored/rejected; server remains authoritative |
-| Founder closes offering with active options | New purchases stop; valid existing options can still exercise |
-| Reset followed by stale quote | Rejected due to scenario generation mismatch |
+| A | Discovery/profiles/checkout/portfolio frontend |
+| B | Schema/ledger/primary issuance/locks/idempotency/reconciliation |
+| C | Founder form/dashboard, valuation rubric, fictional data |
+| D | Integration/deploy/testing/user clarity/pitch/submission |
 
-### End-to-end acceptance
+Three people: combine C/D and share verification. Two: one company, minimal founder form, reliable durable purchase before marketplace polish.
 
-Run the backer purchase → exercise path, the expiry path, and founder totals on the hosted deployment. Refresh during each path to verify persistence. Check narrow-screen usability, keyboard use, visible loading/errors, and no exposed server secrets. Two teammates should independently run the presentation with a fresh reset.
-
-Aim for under three seconds per interaction on the demo network and support roughly 20 simultaneous demo users. These are internal targets to verify, not measured performance or promised service levels.
-
-## 20. Demo and pitch: three minutes
-
-| Time | Presenter action | Message |
+| Elapsed | Work | Gate |
 | --- | --- | --- |
-| 0:00–0:20 | Show landing page | “We're exploring clearer access to participating early startups.” |
-| 0:20–0:50 | Open Carolina Robotics | “Here is the company information and the exact offer.” |
-| 0:50–1:20 | Set 100 shares; show downside/upside | “Pay $20 now; an additional $200 is needed to buy the shares.” |
-| 1:20–1:45 | Confirm purchase; open portfolio | “The backer owns a purchase right, and the system reserves its allocation.” |
-| 1:45–2:10 | Exercise; show share record | “The additional payment creates simulated ownership, with a persistent receipt.” |
-| 2:10–2:30 | Show separate expired scenario | “If the backer lets it expire, they lose the premium and receive no shares.” |
-| 2:30–2:45 | Show founder dashboard | “The founder sees premiums, contingent proceeds, and exercise proceeds separately.” |
-| 2:45–3:00 | Close with next step | “We built the workflow; our next step is validating the instrument and eligible participation with founders and a regulated partner.” |
+| 0–1h | Agree scope/example/roles | Same meaning for shares and credits |
+| 1–3h | Deploy shell/schema/auth/fixtures/API shapes | Hosted page and isolated accounts |
+| 3–6h | Profile/valuation/offering/discovery | Founder generates investment link |
+| 6–10h | Atomic purchase and checkout | First durable funding/issuance |
+| 10–14h | Portfolio/receipt/founder dashboard | Both sides agree after refresh |
+| 14–17h | Integrity/access/concurrency | Critical cases pass hosted |
+| 17–20h | Clarity/responsive polish; P1 if ready | Users understand units and costs |
+| 20–22h | Recording/README/submission package | Backup and required artifacts |
+| 22–24h | Freeze/rehearse/fix blockers/submit | Two independent walkthroughs |
 
-Potential differentiators to highlight: the two-payment explanation, honest scenario labeling, atomic inventory handling, visible exercise/expiry states, and a founder view tied to actual completed transactions.
+Use relative time against actual time remaining and actual organizer deadline. If 12 hours remain, focus founder form/valuation/direct link/purchase/portfolio. With six, one startup and one working path. With three, stop features and record. Cut AI, scraping, rich social, and future rights first.
 
-### Judge questions to prepare for
+## 26. Verification and acceptance gates
 
-- **Is this real investing?** The HackNC demo uses fictional companies and credits. A real offering would require a valid instrument and compliant offering/settlement route.
-- **Why would founders use options?** The hypothesis is early premium proceeds and a community of interested backers; the trade-off is reserved equity and uncertain exercise funding.
-- **What happens without an IPO?** The option still follows its contractual deadline in the proposed model; exercised shares may remain illiquid indefinitely.
-- **What happens if the company fails?** Unexercised rights can become worthless; exercised shares can also lose all value.
-- **How are prices set?** Founder-entered demo terms. Real pricing would require diligence and agreement, not a guaranteed valuation algorithm.
-- **How is this different from crowdfunding?** Our prototype focuses on explaining and tracking a future purchase right. A real implementation may need a crowdfunding or other securities offering route; the interface alone does not create an exemption.
+These are planned application tests; this documentation update does not mean runtime checks have passed.
 
-## 21. Real-launch feasibility workstream
+**Domain:** launched $1M anchor and scores 50 → $1M estimate, $600k–$1.5M band; 1,000×100 cents →100,000 cents; 1M+100k units →1.1M, new investors≈9.09%; consistent rounding and implied value; explicit missing/invalid input handling; bounded arithmetic; valuation updates do not alter cash/contracts.
 
-The product concept itself raises legal and operational questions that affect the design. Treat them as decisions to investigate after the demo, not as solved by a disclaimer.
+| Integration case | Expected |
+| --- | --- |
+| Same key twice | One order/journal/issuance; same result |
+| Same key changed payload | Conflict |
+| Two keys same quote | At most one settled order |
+| Two buyers request 7/10 | One succeeds; other unchanged |
+| Investor buys two offerings concurrently | Account locks prevent overspending |
+| Failure between credit and issuance | Full rollback |
+| Close/purchase race | Serialized valid result |
+| Low funds / quote deadline | No debit/issuance |
+| Founder self-purchase | Rejected |
+| Two concurrent publications | One active round |
+| Modified client prices/cap/balance | Server/database values control |
+| Other portfolio/company writes | Denied |
+| Direct journal/holding writes | Denied |
+| Duplicate grant/outbox delivery | No extra credits/units |
+| Reset and stale quote | Rejected |
+| Reconciliation | Credits/supply/proceeds agree |
 
-In the US, Regulation Crowdfunding is one possible route for eligible offerings: it requires a registered intermediary, disclosures, and limits for non-accredited investors, and generally restricts resale for a year. That does not establish that this proposed option qualifies. [SEC Regulation Crowdfunding overview](https://www.sec.gov/resources-small-businesses/exempt-offerings/regulation-crowdfunding)
+Hosted gate: founder profile with links/privacy → valuation → offering URL → investor purchase → persistent receipt/portfolio → founder proceeds/remaining capacity. Verify closed/sold-out/low-balance states, mobile/keyboard access, and no client secrets. Two teammates run after fresh protected reset.
 
-SEC guidance also states that funding portals cannot provide investment advice/recommendations or hold/manage investor funds or securities. That distinction affects future AI features, money movement, and partner selection. [SEC funding portal guide](https://www.sec.gov/files/divisions/marketreg/tmcompliance/fpregistrationguide.htm)
+Internal targets: roughly 20 simultaneous demo users and normal purchase interaction under three seconds on the event network. These are targets to measure, not proven service levels.
 
-### Questions before accepting real funds
+## 27. Pitch, completion, and roadmap
 
-1. Is the issuer selling a new company-issued option, a warrant, a reservation, or someone else's existing shares?
-2. What approvals and share authorization support issuance and exercise?
-3. Which registration/exemption and intermediary route applies to both the right and underlying shares?
-4. Who can participate, in which jurisdictions, and under which limits or verification requirements?
-5. What share class, voting rights, dilution treatment, corporate actions, and transfer restrictions apply?
-6. What happens at expiry, company failure, acquisition, cancellation, or issuer inability to issue shares?
-7. Who handles funds, refunds, reconciliation, signed contracts, custody where applicable, and cap-table updates?
-8. Which identity, fraud, tax reporting, privacy, and record-retention requirements apply?
-9. How are transaction fees and the platform's compensation structured under the chosen route?
+### Three-minute story
 
-Recommended post-event sequence: obtain counsel's instrument analysis → interview suitable registered partners → choose a compliant operating model → map eligibility/settlement APIs → implement and test against that contract → conduct a limited pilot. Do not enable live checkout merely by swapping demo credits for a payment button.
-
-## 22. Business model and adoption hypotheses
-
-Start by validating founder demand, not by building a broad exchange. Potential channels include campus entrepreneurship groups, incubators, and founder communities willing to discuss the concept. These are proposed channels, not existing partnerships.
-
-Potential revenue models to investigate: founder software subscriptions, administration/service fees, or partner-compatible transaction fees. Do not pick a transaction-based fee before reviewing the platform's regulatory role. Keep platform fees at zero in the simulated MVP so the two core payments stay clear.
-
-Unit-economics worksheet for a future pilot:
-
-```text
-net contribution per company
-  = software/service revenue + permitted transaction revenue
-  − partner costs − identity/verification costs − support costs
-  − payment/settlement costs − allocated compliance costs
-```
-
-Founder option proceeds should be modeled separately:
-
-```text
-premium proceeds = successfully purchased quantity × premium per share
-contingent exercise proceeds = active reserved quantity × strike per share
-completed exercise proceeds = exercised quantity × strike per share
-```
-
-Do not include contingent proceeds in cash raised. An illustrative 1,000-share purchase at a $0.20 premium and $2.00 strike produces $200 now and up to $2,000 later if all rights are exercised.
-
-### Validation metrics
-
-- Can at least four of five test backers correctly explain the premium, exercise payment, and expiry?
-- Can each presenter complete the main flow without intervention?
-- Do founder interviewees describe a plausible reason to reserve equity for this arrangement?
-- Can users find and understand the share class and total cost?
-- Do transactions reconcile after retries, expiry, and reset?
-
-These are proposed gates. Record actual results separately and avoid claiming adoption, traction, or returns from demo activity.
-
-## 23. Risks and contingency plan
-
-| Risk | Observable signal | Response |
+| Time | Show | Message |
 | --- | --- | --- |
-| Instrument choice stays unresolved | Team uses incompatible terms | Freeze one simulated contract in hour one |
-| Backend integration slips | Purchase exists only as UI state | Cut P1/P2; integrate one durable path |
-| Option UI confuses users | They think premium buys shares | Rewrite checkout around two payments and current ownership |
-| Inventory or ledger drifts | Invariants fail after retry | Stop feature work; fix atomic transaction boundary |
-| Founder funding story overstated | Dashboard counts future payments as raised | Separate contingent proceeds from received proceeds |
-| Network/service outage | Hosted demo fails | Use recording or labeled local walkthrough |
-| Expiry affects other presenters | Shared scenario unexpectedly advances | Use isolated scenarios and protected controls |
-| AI invents company information | Explanation lacks support | Disable AI and use deterministic terms explanations |
-| Public demo is mistaken for an offering | Real company/cash language appears | Keep fictional data, credits, and simulation labeling explicit |
-| Submission rules are missed | Unknown required artifact/deadline | Check organizers' instructions early and again before submission |
+| 0:00–0:20 | Company website investment link | One link for a startup to reach backers |
+| 0:20–0:50 | Company/founder profile and links | Transparent information across stages |
+| 0:50–1:15 | Estimate and founder-approved price | Explainable starting value, disclosed assumptions |
+| 1:15–1:45 | Buy 1,000 virtual units | Exact price and immediate simulated holding |
+| 1:45–2:10 | Portfolio/receipt after refresh | Durable transaction |
+| 2:10–2:35 | Founder proceeds/capacity | Primary funds go to startup account |
+| 2:35–2:50 | Integrity results | No duplicate debit or oversold shares |
+| 2:50–3:00 | Next step | Validate valuation and actual issuance before real money |
 
-## 24. Completion checklist and post-hackathon roadmap
+Be ready to explain Freeport as interface inspiration, primary issuance as the product focus, heuristic valuation as a prototype, and virtual units as distinct from actual equity. Do not promise automatic conversion.
 
-### Hackathon definition of done
+### Definition of done
 
-- [ ] Team confirms the demo instrument and rules.
-- [ ] Hosted app has fictional startup discovery and complete cost disclosure.
-- [ ] A purchase persists and respects balance/inventory limits.
-- [ ] Exercise debits the additional amount and records simulated shares.
-- [ ] Expiry produces no shares and releases reservations once.
-- [ ] Backer data and founder editing are properly isolated.
-- [ ] Founder proceeds and inventory agree with completed transactions.
-- [ ] Protected reset produces a repeatable scenario.
-- [ ] Critical verification passes on the hosted environment.
-- [ ] README contains verified setup instructions, actual feature status, and demo access guidance.
-- [ ] Three-minute walkthrough is rehearsed; backup recording exists.
-- [ ] Organizer-required submission materials are completed before the actual deadline.
+- [ ] Primary-only rules and example agreed.
+- [ ] Founder stage/entity/website/LinkedIn/contact/privacy fields persist.
+- [ ] Versioned estimate and explicit founder price approval work.
+- [ ] Finite immutable offering and shareable website link work.
+- [ ] All demo users receive one grant and can purchase virtual units.
+- [ ] Credits, proceeds, issuance, holdings, and receipt settle atomically.
+- [ ] Refresh persists holdings; closure preserves existing units.
+- [ ] Idempotency/concurrency/authorization/reconciliation cases pass.
+- [ ] Cash/holdings/estimates are distinct in portfolio.
+- [ ] Hosted demo and protected reset work.
+- [ ] Optional social feature included only if stable.
+- [ ] Verified setup/current feature status in README.
+- [ ] Rehearsal, recording, and organizer submission completed.
 
-### After HackNC
+### Next stages
 
-| Stage | Work | Decision gate |
+| Stage | Work | Gate |
 | --- | --- | --- |
-| Week 1 | Founder/backer interviews; analyze whether the option mechanism solves a real problem | Users understand and want the proposed workflow |
-| Weeks 2–4 | Instrument and intermediary review; evaluate direct equity/SAFE alternatives | Identified legal/operating route and partner feasibility |
-| Following prototype cycle | Expand contract states, settlement reconciliation, disclosures, and audit retention | End-to-end partner sandbox behavior validated |
-| Before a real pilot | Formal security/operational review, approved documents, eligibility, settlement and support process | Authorized, monitored pilot with limited scope |
-| Only after pilot evidence | Broader issuer onboarding, performance scaling, expanded jurisdictions | Demonstrated demand and compliant operational capacity |
+| Week 1 | Founder/backer interviews, clarity tests | Demand for direct investment links |
+| Weeks 2–4 | Validate price methodology and actual-equity arrangement | Credible inputs and feasible partner/issuance route |
+| Next build | Partner sandbox, subscriptions/reservations/issuance confirmation | Money and ownership reconcile end to end |
+| Before pilot | Approved terms, eligibility, custody/accounting, privacy/security/operations | Authorized limited real-money pilot |
+| Later if justified | Explicit future participation rights and founder community | Defined terms and demand |
 
-As usage grows, revisit transactional contention, durable expiry jobs, pagination/indexes, backup restoration, reconciliation alerts, and partner outages before adding caches or services. Keep financial state strongly consistent; caches can accelerate discovery but cannot authorize purchases.
+Resale is outside the current implementation scope. Monitor primary lock waits, quote failure rates, settlement errors, reconciliation mismatch, and outbox lag before optimizing. Index/paginate discovery and improve measured bottlenecks without weakening invariants.
 
-**Immediate next task:** settle the simulated instrument, assign H02 and H03, and deploy the first shared shell. This document is the planning artifact; the unchecked items above represent work still to build.
+**Immediate next task:** agree on the worked supply example, assign H03/H04, and build the ledger/issuance transaction before expanding features.
