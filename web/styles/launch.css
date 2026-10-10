@@ -1,0 +1,64 @@
+/* /launch/ page styles, scoped under .S-launch. */
+.S-launch .desk{display:grid;grid-template-columns:260px 1fr;border:1px solid var(--rule);min-height:520px;margin-top:6px}
+.S-launch .nb{border-right:1px solid var(--rule);padding:20px;background:#0d0d0b}
+.S-launch .nb .kicker{display:block;margin-bottom:10px}
+.S-launch .nb button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px dotted #2f2d28;padding:9px 0;cursor:pointer;transition:opacity .3s}
+.S-launch .nb button span{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon)}
+.S-launch .nb button b{font-weight:500;font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.S-launch .nb button.todo{opacity:.4}
+.S-launch .nb button.cur span{color:var(--green)}
+.S-launch .nb button:hover b{color:var(--green)}
+.S-launch .stage{padding:34px 48px 30px;display:flex;flex-direction:column;min-width:0}
+.S-launch .folio{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon)}
+.S-launch .dots{display:flex;gap:4px;margin-top:10px}
+.S-launch .dots i{flex:1;height:3px;background:#1f1e1b;transition:background .4s}
+.S-launch .dots i.on{background:var(--green)}
+.S-launch .q{margin-top:36px;transition:opacity .28s ease,transform .38s cubic-bezier(.22,1,.36,1)}
+.S-launch .q.out{opacity:0;transform:translateX(-18px)}
+.S-launch .q.in{opacity:0;transform:translateX(18px);transition:none}
+.S-launch .q h2{font-weight:500;font-size:clamp(32px,4vw,50px);letter-spacing:-.02em;line-height:1.04}
+.S-launch .q h2 i{color:var(--green);font-weight:400}
+.S-launch .q label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon);margin-top:22px}
+.S-launch .q input{display:block;width:100%;background:transparent;border:0;border-bottom:2px solid var(--rule);color:var(--ink);font-family:var(--serif);font-size:clamp(22px,2.6vw,30px);padding:8px 0;outline:none;transition:border-color .25s}
+.S-launch .q input:focus{border-bottom-color:var(--green)}
+.S-launch .q input::placeholder{color:#45423c;font-style:italic}
+.S-launch .q .hint{font-style:italic;color:var(--carbon);font-size:15px;margin-top:12px}
+.S-launch .q .err{color:var(--red);font-family:var(--mono);font-size:11px;margin-top:8px;min-height:1em}
+.S-launch .opts{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.S-launch .opts button{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding:16px 20px;border:1px solid var(--rule);background:transparent;cursor:pointer;transition:all .2s}
+.S-launch .opts button:hover{border-color:var(--ink)}
+.S-launch .opts button[aria-pressed=true]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.S-launch .acts{margin-top:auto;padding-top:34px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.S-launch .acts .enter{font-family:var(--mono);font-size:11px;color:var(--carbon)}
+.S-launch .acts kbd{border:1px solid var(--rule);padding:1px 6px;font-family:var(--mono)}
+.S-launch .done{display:none;grid-template-columns:1.1fr 1fr;border:1px solid var(--rule);margin-top:6px}
+.S-launch .done.on{display:grid;animation:pt-rise .7s cubic-bezier(.22,1,.36,1) both}
+.S-launch .done > div{padding:30px}
+.S-launch .done > div + div{border-left:1px solid var(--rule);background:#0d0d0b}
+.S-launch .ad{border:3px double var(--ink);padding:18px;margin-top:14px}
+.S-launch .ad .what{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.S-launch .ad h3{font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1.05;margin:8px 0 6px}
+.S-launch .ad p{color:var(--ink-2);font-size:16px}
+.S-launch .ad .meta{display:block;font-family:var(--mono);font-size:11px;color:var(--carbon);margin-top:12px;overflow-wrap:anywhere}
+.S-launch .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);margin-top:18px}
+.S-launch .stats div{padding-top:12px}
+.S-launch .stats div+div{border-left:1px solid var(--rule);padding-left:14px}
+.S-launch .stats span{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+.S-launch .stats b{font-family:var(--mono);font-weight:500;font-size:18px}
+.S-launch .snip{display:block;font-family:var(--mono);font-size:12.5px;background:#070706;border:1px solid var(--rule);padding:14px;margin:12px 0 14px;overflow-x:auto;white-space:nowrap;color:var(--ink-2)}
+.S-launch .snip em{font-style:normal;color:var(--green)}
+.S-launch .done h2{font-weight:500;font-size:clamp(32px,3.6vw,48px);letter-spacing:-.02em;line-height:1.02}
+.S-launch .done h2 i{color:var(--green);font-weight:400}
+.S-launch .row{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:860px){
+.S-launch .desk{grid-template-columns:1fr;min-height:0}
+.S-launch .nb{display:none}
+.S-launch .stage{padding:24px 18px}
+.S-launch .done{grid-template-columns:1fr}
+.S-launch .done > div + div{border-left:0;border-top:1px solid var(--rule)}
+.S-launch .done > div{padding:22px 18px}
+}
+@media (prefers-reduced-motion:reduce){
+.S-launch .q,.S-launch .q.out,.S-launch .q.in{transition:none;transform:none;opacity:1}
+.S-launch .done.on{animation:none}
+}
