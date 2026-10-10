@@ -3,7 +3,8 @@
 Repository: [avidnerd/hack-nc-2026](https://github.com/avidnerd/hack-nc-2026)  
 Updated: October 10, 2026  
 Status: proposed product/build specification; no application or runtime verification implemented yet.  
-Working name: **FirstStake**, subject to the team's choice.
+Name of this project: Prospecto
+domain name: prospecto.finance
 
 Business rationale: see [users](#28-first-users-and-potential-customers), [benefits](#29-why-the-product-is-useful), [competitors](#30-competitive-landscape), [differentiation](#31-where-we-could-be-better-and-how-to-demonstrate-it), [demand](#32-demand-evidence-and-its-limits), [VC-and-small-investment-questions](#33-why-complement-vcs-and-why-small-investments-matter), and [validation](#34-validation-positioning-and-execution).
 

@@ -27,22 +27,6 @@ The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md
 
 Prefer the tools and libraries already present in the repository. Do not add infrastructure such as Kafka, Kubernetes, Redis, new services, or real-money payment rails unless a documented requirement and demonstrated need justify it.
 
-## Sources of truth
-
-Use this order when resolving uncertainty:
-
-1. The user's current request and explicitly approved decisions.
-2. Repository product and architecture docs, especially the most recent applicable version.
-3. Current official documentation for the exact framework, provider, protocol, or API version in use.
-4. Primary standards, papers, and official industry references.
-5. Secondary sources only when primary material is unavailable; label assumptions clearly.
-
-Do not guess APIs, schemas, financial formulas, weights, legal claims, or protocol behavior. Record meaningful assumptions and cite sources in plans or implementation notes. If docs conflict, stop and surface the conflict before encoding either interpretation.
-
-Gemini output is advisory only. Deterministic application code owns validation, scoring, valuation, allocation, fees, minting, and refunds.
-
-Nessie is a demo banking adapter, not a bank connection or settlement authority. Use it only for mock customers, accounts, balances, and bank-side transfers such as funding a demo wallet. Solana remains authoritative for mock USDC balances, subscriptions, allocations, fees, refunds, and receipts. Tiger stores the cross-system intent and reconciliation trail.
-
 ## Change style
 
 Make the smallest coherent change that solves the problem.
