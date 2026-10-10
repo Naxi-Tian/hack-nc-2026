@@ -433,6 +433,8 @@ The browser always talks to one origin, so session cookies stay first-party and 
 
 **Vercel project** (one project, Vercel Services, currently beta): import the repo with the repository root as the project root, so the root `vercel.json` defines both services. The `api` service runs `backend/server.ts` (Hono, Node 24 from `engines`) as a Fluid compute function; the service receives the original `/api/...` path. Set the §12 variables in the project, with `PUBLIC_ORIGIN` = the production domain. Apply migrations from a laptop with `npm --prefix backend run db:migrate` before deploying code that needs them.
 
+Production: `https://hack-nc-2026.vercel.app` (project `hack-nc-2026`, deployed with `vercel deploy --prod`; the repo is not Git-connected, and `.vercelignore` keeps local `.env*` files out of uploads). Environment variables are pushed with `vercel env add`, not pulled. The `api` service installs runtime dependencies only (`npm ci --omit=dev`): Vercel's backend builder type-checks with the project's `typescript` when present, and TypeScript 7 has no JavaScript API, so that check crashed the build. `npm run typecheck` still runs locally.
+
 **Serverless limits and how the code handles them:**
 
 - Background research runs use `waitUntil` (`server.ts`), so they share the function's 300 s limit (Hobby default and maximum). The two Gemini passes run in parallel (90 s timeout, one retry each), which fits. If an instance is stopped mid-run, the 5-minute lease expires and `recoverStaleRuns` marks the run `FAILED` the next time runs are started or read.
