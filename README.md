@@ -6,6 +6,8 @@ HackNC project building a simple investment link for startups at any stage.
 
 Read the [complete mega plan](docs/MEGA_PLAN.md) for founder profiles, website/LinkedIn/contact information, an initial valuation algorithm, direct share purchases, backend architecture, balanced credit ledger, atomic share issuance, testing, and the 24-hour schedule.
 
+Backend implementers (human or AI) should follow the [backend tech stack spec](docs/BACKEND_STACK.md): fixed stack, repo layout, SQL function catalog, API/error conventions, tests, and build order.
+
 ## Proposed MVP
 
 1. A founder creates a company profile and receives an illustrative valuation suggestion.
