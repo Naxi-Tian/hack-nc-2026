@@ -23,7 +23,7 @@ The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md
 - Demo banking: Capital One Nessie mock banking REST API
 - AI: Gemini Flash-class model with structured JSON output
 - Charts: Lightweight Charts, Recharts, or an existing equivalent
-- Hosting: Vercel for the static frontend; Railway for one web/API service and one scheduled reconciliation worker
+- Hosting: one Vercel project with two Services (static frontend and the Hono API as Vercel Functions); no persistent worker, so reconciliation runs on demand
 
 Prefer the tools and libraries already present in the repository. Do not add infrastructure such as Kafka, Kubernetes, Redis, new services, or real-money payment rails unless a documented requirement and demonstrated need justify it.
 

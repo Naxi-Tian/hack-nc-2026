@@ -20,7 +20,7 @@ Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour 
 | Concern | Choice | Notes |
 | --- | --- | --- |
 | Language | TypeScript `strict: true` (server); Rust (program) | No `any` in server domain code |
-| Runtime | Node.js 22 LTS or newer | Long-lived process (websocket subscription + worker), so no serverless |
+| Runtime | Node.js 24 | Demo hosting is serverless (Vercel Functions on Fluid compute, §12.1): no long-lived process, 300 s per request including background work |
 | HTTP server | **Hono** on `@hono/node-server` | One modular monolith (M§9.1), API only. Vercel serves the frontend and forwards `/api/*` here, so the browser sees one origin (§12.1) |
 | Validation | `zod` + `@hono/zod-validator` | Same schemas validate Gemini output (M§12) |
 | Database | **Tiger Data** (Tiger Cloud PostgreSQL + TimescaleDB) | Relational tables + hypertables + continuous aggregates (M§6.1) |
@@ -36,7 +36,7 @@ Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour 
 | Auth | **Better Auth** 1.7.7 with the `emailOTP` plugin, mounted at `/api/auth/*` (`backend/src/auth/`) | Campus email codes (6 digits, 10 min, 5 attempts, stored hashed) and 7-day sessions in schema `auth` |
 | Email OTP delivery | Resend (optional); `DEMO_MODE=true` logs codes to server console | Campus email verification |
 | Tests | `vitest` (server); `anchor test` (program) | §11 |
-| Hosting | Frontend static export on **Vercel**; one web/API service + one worker service on **Railway** (Render acceptable) | `WORKER_IN_PROCESS=true` fallback runs the worker inside the web process |
+| Hosting | One **Vercel** project with two Services: `web` (static export) and `api` (`backend/server.ts`), `/api/*` routed to `api` (§12.1) | Demo shortcut: no persistent worker; see §8 |
 | Package manager | `pnpm` workspace (`server`, `chain`) | Pin exact versions |
 
 ### Banned for the MVP
@@ -53,7 +53,8 @@ landing/                      legacy static prototype that web/ replaced; fronte
 server/                       BACKEND
   package.json
   src/
-    index.ts                  Hono app: /api/* routes (the frontend is served by Vercel)
+    index.ts                  local server (@hono/node-server); server.ts at the package root is the Vercel entry
+    bootstrap.ts              shared setup: config, pools, auth, createApi
     worker.ts                 indexer + reconciliation + settlement crank (§8)
     config.ts                 zod-parsed env (§12); fail fast on missing vars
     db/
@@ -151,7 +152,7 @@ Campus email is stored only as `campus_email_hash = HMAC-SHA256(lowercase(email)
 ### 5.1 Inputs → factor sub-scores
 - Every sub-factor (e.g. `shipped_work`) is scored from claims by a rubric to `s ∈ {0, 0.25, 0.5, 0.75, 1}`, stored in `normalization_rules`.
 - Apply M§4.5: `adjusted = c·s + (1−c)·0.5`, where `c` comes from the claim's `verification_status`. Missing/contradicted means `c = 0`, which gives `0.5` (neutral, **not zero**).
-- If several claims feed one sub-factor, use the claim with the highest `c`, ties broken by most recent.
+- If several claims feed one sub-factor, use the claim with the highest `c`, then the higher rubric level `s`, then the most recent (approved 2026-10-10, so prior projects can add to `shipped_work` but never erase credit for this startup's own product).
 
 ### 5.2 Category scores, stage weights, `Q`
 M§4.3 formulas and M§4.4 table verbatim. Assert each stage's weights sum to 1 (±1e-9).
@@ -313,6 +314,8 @@ Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev
 
 ## 8. Worker (`server/src/worker.ts`; M§11)
 
+> **Demo hosting note (Vercel):** there is no persistent process, so a `connection.onLogs` subscription and polling loops cannot run. Implement each loop as on-demand work instead: verify a transaction by signature when the client submits it, reconcile when data is read, and use Vercel Cron only where a schedule is unavoidable (once per day on Hobby, per minute on Pro). Research runs already recover stale leases on read (`recoverStaleRuns`).
+
 One process, four loops:
 
 1. **Live ingest:** `connection.onLogs(PROGRAM_ID, "confirmed")` → parse Anchor events (`EventParser`) → `insert into chain_events ... on conflict (chain, signature, instruction_index, event_index) do nothing` → update mirrors + `market_metrics`, all in one DB transaction per signature.
@@ -420,20 +423,28 @@ The browser always talks to one origin, so session cookies stay first-party and 
 | | Browser origin | Pages | `/api/*` |
 | --- | --- | --- | --- |
 | Local | `http://localhost:3000` | `npm --prefix web run dev` | proxied by `next dev` to `API_PROXY_TARGET` (default `http://localhost:8787`; run `npm --prefix backend run dev`) |
-| Deployed | Vercel production domain | Vercel serves the static export | external rewrite in `web/vercel.json` to the Railway service |
+| Deployed | Vercel production domain | `web` service (static export) | `api` service, routed by the root `vercel.json` |
 
 `web/next.config.ts` applies `output: "export"` only to `next build` and the `/api` rewrite only to `next dev`, because Next.js rejects rewrites in export mode.
 
-**Railway (backend)**: root directory `backend`; start command `npm start`; healthcheck path `/api/health`; Node from `engines` (≥ 22.9). Set the §12 variables, with `PUBLIC_ORIGIN` = the Vercel production domain and `DEMO_MODE` as needed. Railway provides `PORT`. Apply migrations from a laptop with `npm --prefix backend run db:migrate` before deploying code that needs them.
+**Vercel project** (one project, Vercel Services, currently beta): import the repo with the repository root as the project root, so the root `vercel.json` defines both services. The `api` service runs `backend/server.ts` (Hono, Node 24 from `engines`) as a Fluid compute function; the service receives the original `/api/...` path. Set the §12 variables in the project, with `PUBLIC_ORIGIN` = the production domain. Apply migrations from a laptop with `npm --prefix backend run db:migrate` before deploying code that needs them.
 
-**Vercel (frontend)**: root directory `web`; framework preset Next.js. Replace the `.invalid` placeholder host in `web/vercel.json` with the Railway public domain. The placeholder fails closed; never point it at an unclaimed hostname. `x-vercel-enable-rewrite-caching: 0` stops the CDN caching API responses.
+**Serverless limits and how the code handles them:**
+
+- Background research runs use `waitUntil` (`server.ts`), so they share the function's 300 s limit (Hobby default and maximum). The two Gemini passes run in parallel (90 s timeout, one retry each), which fits. If an instance is stopped mid-run, the 5-minute lease expires and `recoverStaleRuns` marks the run `FAILED` the next time runs are started or read.
+- Each instance keeps a small pg pool (`max: 5`) and `attachDatabasePool` closes idle clients before suspension. Prefer Tiger's connection pooler URL if connection counts climb.
+- Better Auth's rate limiter keeps counts in instance memory, so limits are per instance. Acceptable for the demo.
+- Files outside `backend/` are not deployed with the `api` service; `PROFILE_SNAPSHOT_FILES` must point at files inside `backend/` to work on Vercel.
+- Cold starts add latency to the first request after idle; open the site before presenting.
+
+**Demo sign-in (DEMO_MODE=true only):** `POST /api/demo/sign-in { email }` signs in any address on `CAMPUS_EMAIL_DOMAINS` without sending a code (Better Auth `createVerificationOTP` + `signInEmailOTP` server-side, same-origin only). The identity is still recorded as `VERIFIED`, which under `DEMO_MODE` means only "campus-domain address"; `/api/me` returns `demoMode: true` so the UI can say so. Production replacement: the emailed-code flow with `DEMO_MODE=false`.
 
 **First-deploy checks** (behaviors that could not be verified locally):
 
-1. `curl -i https://<vercel-domain>/api/health` returns `200` JSON with `cache-control: no-store` (also try `/api/health/`).
-2. Campus email sign-in completes on the production domain. Preview deployment URLs do not match `PUBLIC_ORIGIN`, so sign-in is expected to fail there.
-3. Client IP for rate limiting: Better Auth trusts only a single-value `x-forwarded-for`. If Railway logs "Rate limiting could not determine a client IP", every user shares one bucket (30 requests/minute per path); set `advanced.ipAddress` for the headers actually observed before the demo.
-4. The Railway domain is publicly reachable and bypasses Vercel. Acceptable for the demo; the hardening is Vercel's origin-secret header check.
+1. `curl -i https://<vercel-domain>/api/health` returns `200` JSON with `cache-control: no-store`, and `/` serves the landing page.
+2. Demo sign-in followed by `GET /api/me` works on the production domain. Preview deployment URLs do not match `PUBLIC_ORIGIN`, so sign-in is expected to fail there.
+3. A research run reaches a terminal status (`SUCCEEDED`, `PARTIAL`, or `FAILED`) within about 5 minutes.
+4. Client IP for rate limiting: if the logs show "Rate limiting could not determine a client IP", every user shares one bucket (30 requests/minute per path); set `advanced.ipAddress` for the headers actually observed.
 
 ---
 
@@ -451,7 +462,7 @@ The browser always talks to one origin, so session cookies stay first-party and 
 | 8 | 2 | Worker: ingest, reconciliation, crank | Round finalizes, units minted, refunds sent; mirrors match chain |
 | 9 | 2 | Nessie funding saga | Funding completes once under retry |
 | 10 | 2 | Gemini extraction/triage/explanation | Failure falls back cleanly; cache hit on repeat |
-| 11 | 3 | Hosted deploy (Vercel + Railway + Tiger + Devnet, §12.1), M§15 demo rehearsal | Full M§15 live demo runs twice from a fresh project |
+| 11 | 3 | Hosted deploy (Vercel Services + Tiger + Devnet, §12.1), M§15 demo rehearsal | Full M§15 live demo runs twice from a fresh project |
 
 Cut order for the requested Nessie prize path: optional Gemini explanations/extraction → hourly/daily aggregates → social extras. Preserve Nessie funding, guarded minting, chain tests, idempotent ingest, and receipt-transfer checks. A visibly labeled faucet-only development fallback is not a completed Nessie integration.
 
@@ -467,6 +478,6 @@ Cut order for the requested Nessie prize path: optional Gemini explanations/extr
 | "Subscription PDA created or updated" | One subscription per buyer per round | Matches `UNIQUE(round_id, identity_id)` in M§8.1 |
 | Separate payment asset program | Mock USDC also on Token-2022 | One token program in every instruction |
 | Who pays transaction fees | Relayer is fee payer | Users need no Devnet SOL |
-| Hosting "one web/API + one worker" | Railway, two start commands; in-process fallback | Long-lived websocket needs a persistent process |
+| Hosting "one web/API + one worker" | Demo: one Vercel project (Services), no persistent worker; loops become on-demand steps (§8) | One platform and no always-on server for a seeded demo; gives up live websocket ingest |
 | Scenario/demand constants unspecified | `valuation-v0.1` priors in §5.7 | Must be versioned data, labeled as invented |
 | `evidence_root` | `sha256` of canonical JSON array of sorted claim `content_hash`es | Tamper-evident; Merkle tree deferred |
