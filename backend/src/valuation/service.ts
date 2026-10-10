@@ -5,7 +5,15 @@ import { createHash, randomUUID } from "node:crypto";
 
 import type { Pool } from "pg";
 
-import { canonicalJson, computeValuation, modelHash, parseValuationParams, type Valuation, type ValuationParams } from "./model-value.js";
+import {
+  canonicalJson,
+  computeValuation,
+  modelHash,
+  parseValuationParams,
+  type PriorRound,
+  type Valuation,
+  type ValuationParams,
+} from "./model-value.js";
 import { STAGES, type ClaimStatus, type ScoringClaim, type Stage } from "./quality-scores.js";
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -99,6 +107,45 @@ export async function loadCurrentClaims(pool: Pool, projectId: string): Promise<
   return rows;
 }
 
+/**
+ * M§4.9: demand from the project's latest FINALIZED round. Founder, team, and flagged identities
+ * are excluded before computing (BACKEND_STACK §5.5). Null before the first round settles.
+ */
+export async function loadPriorRound(pool: Pool, projectId: string): Promise<{ roundId: string; prior: PriorRound } | null> {
+  const round = await pool.query<{ id: string; target: string; implied: string }>(
+    `select r.id, r.target_amount_micro_usd::text as target, v.round_implied_value::text as implied
+       from rounds r
+       join valuation_snapshots v on v.id = r.valuation_snapshot_id and v.calculated_at = r.valuation_calculated_at
+      where r.project_id = $1 and r.status = 'FINALIZED' and v.round_implied_value is not null
+      order by r.round_number desc
+      limit 1`,
+    [projectId],
+  );
+  const row = round.rows[0];
+  if (!row) return null;
+  const buyers = await pool.query<{ accepted: string }>(
+    `select sum(s.accepted_amount_micro_usd)::text as accepted
+       from subscriptions s
+       join identities i on i.id = s.identity_id
+      where s.round_id = $1 and s.status = 'FINALIZED' and i.risk_flags = '[]'::jsonb
+        and s.identity_id not in (select founder_identity_id from projects where id = $2
+                                  union select identity_id from project_members where project_id = $2)
+      group by s.identity_id
+      order by s.identity_id`,
+    [row.id, projectId],
+  );
+  const allocations = buyers.rows.map((buyer) => BigInt(buyer.accepted));
+  return {
+    roundId: row.id,
+    prior: {
+      round_implied_value: row.implied,
+      accepted_micro_usd: allocations.reduce((sum, a) => sum + a, 0n),
+      target_micro_usd: BigInt(row.target),
+      buyer_allocations_micro_usd: allocations,
+    },
+  };
+}
+
 /** BACKEND_STACK §14: sha256 of the canonical JSON array of sorted claim content hashes. */
 export function evidenceRoot(contentHashes: string[]): string {
   return sha256(JSON.stringify([...contentHashes].sort()));
@@ -120,6 +167,8 @@ export interface ValuationPreview {
     unitPriceMicroUsd: string;
   };
   explanationInputs: {
+    demand: Valuation["demand"];
+    priorRound: Record<string, unknown> | null;
     scenarios: Valuation["scenarios"];
     alpha: number;
     operating: Valuation["operating"];
@@ -136,8 +185,8 @@ const microToUsd = (micro: string) => {
 };
 
 /**
- * Computes the project's valuation from its current claims and records snapshots (M§9.3).
- * Rounds are not built yet, so there is no prior round: demand multiplier 1 (BACKEND_STACK §5.5).
+ * Computes the project's valuation from its current claims and the latest finalized round's demand,
+ * and records snapshots (M§9.3). Before any round settles the demand multiplier is 1 (BACKEND_STACK §5.5).
  */
 export async function previewValuation(pool: Pool, projectId: string): Promise<ValuationPreview> {
   const project = await pool.query<{ stage: Stage }>(`select stage::text as stage from projects where id = $1`, [projectId]);
@@ -147,11 +196,26 @@ export async function previewValuation(pool: Pool, projectId: string): Promise<V
   const model = await loadModel(pool);
   const rows = await loadCurrentClaims(pool, projectId);
   const claims: ScoringClaim[] = rows.map(({ content_hash: _hash, ...claim }) => claim);
-  const valuation = computeValuation(model.params, { declared_stage: declared, claims, prior_round: null });
+  const prior = await loadPriorRound(pool, projectId);
+  const valuation = computeValuation(model.params, { declared_stage: declared, claims, prior_round: prior?.prior ?? null });
+  const priorSummary = prior
+    ? {
+        round_id: prior.roundId,
+        round_implied_value: prior.prior.round_implied_value,
+        accepted_micro_usd: String(prior.prior.accepted_micro_usd),
+        target_micro_usd: String(prior.prior.target_micro_usd),
+        eligible_buyers: prior.prior.buyer_allocations_micro_usd.length,
+      }
+    : null;
 
   const root = evidenceRoot(rows.map((row) => row.content_hash));
   const inputHash = sha256(
-    canonicalJson({ model_hash: model.modelHash, declared_stage: declared, claims: rows.map((row) => [row.id, row.status, row.content_hash]), prior_round: null }),
+    canonicalJson({
+      model_hash: model.modelHash,
+      declared_stage: declared,
+      claims: rows.map((row) => [row.id, row.status, row.content_hash]),
+      prior_round: priorSummary,
+    }),
   );
 
   const scores = {
@@ -163,6 +227,8 @@ export async function previewValuation(pool: Pool, projectId: string): Promise<V
     composite: valuation.scores.composite,
   };
   const explanationInputs = {
+    demand: valuation.demand,
+    priorRound: priorSummary,
     scenarios: valuation.scenarios,
     alpha: valuation.alpha,
     operating: valuation.operating,
@@ -171,7 +237,7 @@ export async function previewValuation(pool: Pool, projectId: string): Promise<V
     claimCount: rows.length,
   };
 
-  const snapshot = await recordSnapshot(pool, { projectId, model, valuation, scores, explanationInputs, inputHash, evidenceRoot: root });
+  const snapshot = await recordSnapshot(pool, { projectId, model, valuation, scores, explanationInputs, inputHash, evidenceRoot: root, prior: priorSummary });
   return {
     modelVersion: { id: model.params.id, status: model.status },
     modelHash: model.modelHash,
@@ -202,6 +268,7 @@ async function recordSnapshot(
     explanationInputs: ValuationPreview["explanationInputs"];
     inputHash: string;
     evidenceRoot: string;
+    prior: { round_id: string } | null;
   },
 ): Promise<ValuationPreview["snapshot"]> {
   const client = await pool.connect();
@@ -247,8 +314,9 @@ async function recordSnapshot(
       `insert into valuation_snapshots
          (valuation_run_id, project_id, model_version_id, model_hash, declared_stage, effective_stage,
           current_operating_value, scenario_value, model_reference_value, demand_score, demand_multiplier,
-          round_implied_value, reference_units, unit_price_micro_usd, scenario_details, assumptions, input_hash, evidence_root)
-       values ($1, $2, $3, $4, $5::project_stage, $6::project_stage, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          round_implied_value, reference_units, unit_price_micro_usd, scenario_details, assumptions, input_hash, evidence_root,
+          prior_round_id)
+       values ($1, $2, $3, $4, $5::project_stage, $6::project_stage, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        returning id, calculated_at`,
       [
         runId,
@@ -272,11 +340,12 @@ async function recordSnapshot(
           operating: valuation.operating,
           demand: valuation.demand,
           stage: valuation.stage,
-          prior_round: null,
+          prior_round: input.prior,
           notes: ["current_net_cash = 0: no net-cash metric yet", "default_sector envelopes: no per-sector parameters yet"],
         }),
         input.inputHash,
         input.evidenceRoot,
+        input.prior?.round_id ?? null,
       ],
     );
     await client.query("commit");

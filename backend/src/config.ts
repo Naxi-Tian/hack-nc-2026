@@ -30,6 +30,8 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_MODEL: z.string().min(1).default("google/gemini-2.5-flash"),
   GITHUB_TOKEN: z.string().min(1).optional(),
+  // Deployed Anchor program (BACKEND_STACK §12). Unset: rounds stop at AWAITING_PROGRAM.
+  PROGRAM_ID: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, "must be a base58 Solana address").optional(),
   // Comma-separated founder-provided LinkedIn snapshot files (MARKET ARCHITECTURE §6.5),
   // e.g. ../db/fixtures/demo-linkedin-snapshot.json. Unset: LinkedIn links stay unreadable.
   PROFILE_SNAPSHOT_FILES: z

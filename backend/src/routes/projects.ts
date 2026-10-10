@@ -1,15 +1,13 @@
-import { createHash } from "node:crypto";
-
 import { Hono, type Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 
 import { normalizeUrl } from "../evidence/research/urls.js";
-import { canonicalJson } from "../valuation/model-value.js";
 import { STAGES } from "../valuation/quality-scores.js";
 import { ValuationServiceError, previewValuation } from "../valuation/service.js";
 import { rejectForeignOrigin } from "./guards.js";
+import { onceForKey, requireIdempotencyKey } from "./idempotency.js";
 
 export interface ProjectsRouterDependencies {
   pool: Pool;
@@ -56,7 +54,6 @@ export function slugBase(name: string): string {
   return !base ? "project" : UUID.test(base) ? `p-${base}`.slice(0, 60) : base;
 }
 
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 const fail = (status: 400 | 403 | 404 | 409, code: string, message: string) =>
   new HTTPException(status, { res: Response.json({ error: { code, message } }, { status }) });
 
@@ -87,6 +84,7 @@ interface PublicProjectRow {
   contact_email: string | null;
   founders: { display_name: string; role_title: string | null; role: string }[];
   valuation: Record<string, unknown> | null;
+  round: Record<string, unknown> | null;
 }
 
 /** Public profile: listing fields, founders, published contact, latest valuation. Never private evidence. */
@@ -108,7 +106,14 @@ async function loadPublicProject(pool: Pool, where: "slug" | "id", value: string
                       'scores', (select json_build_object('execution', s.execution_score, 'market', s.market_score, 'product', s.product_score,
                                                           'traction', s.traction_score, 'economics', s.economics_score, 'composite', s.composite_score)
                                    from score_snapshots s where s.valuation_run_id = v.valuation_run_id limit 1))
-               from valuation_snapshots v where v.project_id = p.id order by v.calculated_at desc limit 1) as valuation
+               from valuation_snapshots v where v.project_id = p.id order by v.calculated_at desc limit 1) as valuation,
+            -- Current round: the latest one that reached the chain (drafts and cancellations stay private).
+            (select json_build_object('id', r.id, 'round_number', r.round_number, 'status', r.status, 'opens_at', r.opens_at,
+                                      'closes_at', r.closes_at, 'unit_price_micro_usd', r.unit_price_micro_usd::text,
+                                      'max_units', r.max_units::text, 'target_amount_micro_usd', r.target_amount_micro_usd::text,
+                                      'total_committed_micro_usd', r.total_committed_micro_usd::text)
+               from rounds r where r.project_id = p.id and r.status not in ('DRAFT', 'CANCELLED')
+              order by r.round_number desc limit 1) as round
        from projects p
        join identities i on i.id = p.founder_identity_id
        join auth."user" u on u.id = i.auth_user_id
@@ -128,10 +133,7 @@ export function createProjectsRouter(deps: ProjectsRouterDependencies): Hono {
     const foreign = rejectForeignOrigin(context, deps.publicOrigin);
     if (foreign) return foreign;
     const { identityId } = await deps.requireIdentity(context);
-    const key = context.req.header("idempotency-key");
-    if (!key || key.length < 8 || key.length > 128) {
-      return context.json({ error: { code: "MISSING_IDEMPOTENCY_KEY", message: "Send an Idempotency-Key header (8–128 characters)." } }, 400);
-    }
+    const key = requireIdempotencyKey(context);
     const parsed = createProjectSchema.safeParse(await context.req.json().catch(() => null));
     if (!parsed.success) return context.json({ error: { code: "INVALID_INPUT", message: parsed.error.issues[0]?.message ?? "Invalid input." } }, 400);
     const body = parsed.data;
@@ -140,53 +142,32 @@ export function createProjectsRouter(deps: ProjectsRouterDependencies): Hono {
       website = normalizeUrl(body.website_url);
       if (!website) return context.json({ error: { code: "INVALID_INPUT", message: "website_url must be a public http(s) URL." } }, 400);
     }
-    const requestHash = sha256(canonicalJson(body));
 
     const client = await deps.pool.connect();
     try {
       await client.query("begin");
-      const claimed = await client.query(
-        `insert into idempotency_keys (identity_id, operation, key, request_hash) values ($1, 'create_project', $2, $3)
-         on conflict do nothing returning key`,
-        [identityId, key, requestHash],
-      );
-      if (claimed.rowCount === 0) {
-        const prior = await client.query<{ request_hash: string; response_status: number | null; response_body: unknown }>(
-          `select request_hash, response_status, response_body from idempotency_keys where identity_id = $1 and operation = 'create_project' and key = $2`,
-          [identityId, key],
+      const result = await onceForKey(client, { identityId, operation: "create_project", key, body }, async () => {
+        const owned = await client.query<{ n: string }>(`select count(*)::text as n from projects where founder_identity_id = $1`, [identityId]);
+        if (Number(owned.rows[0].n) >= MAX_PROJECTS_PER_FOUNDER) {
+          throw fail(409, "PROJECT_LIMIT", `A founder can create at most ${MAX_PROJECTS_PER_FOUNDER} projects in the demo.`);
+        }
+        const slug = await freeSlug(client, slugBase(body.name));
+        const created = await client.query<{ id: string }>(
+          `insert into projects
+             (slug, name, tagline, stage, entity_type, legal_name, formation_state, website_url, sector_code, publish_contact_email, founder_identity_id)
+           values ($1, $2, $3, $4::project_stage, $5::entity_type, $6, $7, $8, $9, $10, $11)
+           returning id`,
+          [slug, body.name, body.tagline, body.stage, body.entity_type, body.legal_name ?? null, body.formation_state ?? null, website, body.sector_code ?? null, body.publish_contact_email, identityId],
         );
-        await client.query("rollback");
-        const row = prior.rows[0];
-        if (!row || row.request_hash !== requestHash) throw fail(409, "IDEMPOTENCY_CONFLICT", "This Idempotency-Key was used for a different request.");
-        if (row.response_status === null) throw fail(409, "REQUEST_IN_PROGRESS", "The same request is still being processed.");
-        return context.json(row.response_body as object, row.response_status as 201);
-      }
-
-      const owned = await client.query<{ n: string }>(`select count(*)::text as n from projects where founder_identity_id = $1`, [identityId]);
-      if (Number(owned.rows[0].n) >= MAX_PROJECTS_PER_FOUNDER) {
-        throw fail(409, "PROJECT_LIMIT", `A founder can create at most ${MAX_PROJECTS_PER_FOUNDER} projects in the demo.`);
-      }
-      const slug = await freeSlug(client, slugBase(body.name));
-      const created = await client.query<{ id: string }>(
-        `insert into projects
-           (slug, name, tagline, stage, entity_type, legal_name, formation_state, website_url, sector_code, publish_contact_email, founder_identity_id)
-         values ($1, $2, $3, $4::project_stage, $5::entity_type, $6, $7, $8, $9, $10, $11)
-         returning id`,
-        [slug, body.name, body.tagline, body.stage, body.entity_type, body.legal_name ?? null, body.formation_state ?? null, website, body.sector_code ?? null, body.publish_contact_email, identityId],
-      );
-      const projectId = created.rows[0].id;
-      await client.query(
-        `insert into project_members (project_id, identity_id, role, display_name, role_title) values ($1, $2, 'FOUNDER', $3, $4)`,
-        [projectId, identityId, body.founder.display_name, body.founder.role_title ?? null],
-      );
-      const response = { project: { id: projectId, slug, status: "DRAFT" } };
-      await client.query(
-        `update idempotency_keys set response_status = 201, response_body = $4, completed_at = now()
-          where identity_id = $1 and operation = 'create_project' and key = $2 and request_hash = $3`,
-        [identityId, key, requestHash, JSON.stringify(response)],
-      );
+        const projectId = created.rows[0].id;
+        await client.query(
+          `insert into project_members (project_id, identity_id, role, display_name, role_title) values ($1, $2, 'FOUNDER', $3, $4)`,
+          [projectId, identityId, body.founder.display_name, body.founder.role_title ?? null],
+        );
+        return { status: 201, body: { project: { id: projectId, slug, status: "DRAFT" } } };
+      });
       await client.query("commit");
-      return context.json(response, 201);
+      return context.json(result.body, result.status);
     } catch (error) {
       await client.query("rollback").catch(() => undefined);
       if ((error as { code?: string }).code === "23503") throw fail(400, "UNKNOWN_SECTOR", "sector_code is not a known sector.");

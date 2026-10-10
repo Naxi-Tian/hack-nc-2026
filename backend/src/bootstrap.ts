@@ -54,6 +54,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
   const app = createApi({
     pool,
     publicOrigin: config.PUBLIC_ORIGIN,
+    programId: config.PROGRAM_ID ?? null,
+    allowDraftModel: config.DEMO_MODE,
     ai: new GoogleGenAI({ apiKey: config.GEMINI_API_KEY }),
     model: config.GEMINI_MODEL,
     githubToken: config.GITHUB_TOKEN,

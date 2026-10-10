@@ -262,6 +262,22 @@ Unallocated remainder from pro-rata flooring (`target − Σaccepted`) is simply
 
 ---
 
+### 6.4 Backend ↔ program contract (built backend side; program pending)
+
+The backend half of M§7.2–7.3 is built (`backend/src/rounds/`, `backend/src/settlement/math.ts`, `backend/src/routes/{wallets,rounds}.ts`). The program must accept exactly what `POST /projects/:id/rounds` returns in `chain.instructions`:
+
+| Instruction | Args (strings in JSON; on-chain types) |
+| --- | --- |
+| `create_project` (only while `projects.solana_project_pda` is null) | `project_id`: the project uuid as 16 bytes (hex, no dashes) |
+| `open_round` | `round_number` u16 · `opens_at`, `closes_at` i64 unix seconds · `unit_price_micro_usd`, `max_units`, `target_amount`, `max_subscription_amount` u64 · `model_hash`, `evidence_root` [u8; 32] (hex) |
+
+- **Seeds** are §6.1's; the response lists them with the project uuid and `round_number` as u16 LE filled in. With `PROGRAM_ID` unset, `chain.status` is `AWAITING_PROGRAM`; the backend builds, signs, and submits nothing yet.
+- **Policy the `Config` account must mirror** (`backend/src/rounds/policy.ts`, `round-policy-v0.1`): fee 100 bps, founder share 4000 bps (M§4.12), `max_units ≤ 200,000` per round, 1–30 day rounds (default 14), default per-person cap 10% of target. All but the fees are INVENTED demo limits.
+- **`RoundOpened` event** must carry the round PDA, project PDA, receipt mint, and every `open_round` arg. The indexer calls `recordRoundOpened`, which moves the round out of `DRAFT` (to `SCHEDULED`/`OPEN`) only if all terms equal the Tiger row; a mismatch is refused, never adopted. After that, the `rounds_guard_terms` trigger freezes the terms, including `max_subscription_micro_usd`.
+- **Settlement math** in TypeScript (`settlement/math.ts`) reproduces §6.3 and every case in `docs/fixtures/nessie-purchase-cases.json`; the program's Rust must produce the same numbers. It is used for quotes and for reconciling the mirror, never as settlement authority.
+- **Next round:** once a round is `FINALIZED` and its `subscriptions` mirror is filled, the next valuation applies M§4.9 demand from it (founder, team, and flagged identities excluded) and records `valuation_snapshots.prior_round_id`.
+- **DEMO SHORTCUT:** with `DEMO_MODE=true`, rounds may cite the DRAFT `valuation-v0.1` (its `model_hash` still pins the exact parameters). Otherwise a round needs an `ACTIVE` model.
+
 ## 7. HTTP API (M§9.2 plus required additions)
 
 Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev` (local) proxies `/api/*` to the backend. Every `/api` response is `Cache-Control: no-store`.
@@ -272,8 +288,8 @@ Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev
 | POST `/auth/sign-in/email-otp` | none | Better Auth: `{email, otp}` → session cookie (first sign-in registers the user) |
 | POST `/auth/sign-out` | session | Better Auth: revoke session |
 | GET `/me` | session | `{identityId, verified, wallets[]}`; creates the identity on first call |
-| POST `/wallets/challenge` | session | `{address}` → SIWS-style message + nonce |
-| POST `/wallets/verify` | session | `{address, signature(base58)}` → bind wallet (max 2 active per identity, enforced in the database) |
+| POST `/wallets/challenge` | session | `{address}` → SIWS-style message + nonce (built) |
+| POST `/wallets/verify` | session | `{address, signature(base58)}` → bind wallet (max 2 active per identity, enforced in the database). Built: ed25519 check, single-use nonce, first wallet is primary, `WALLET_TAKEN` / `WALLET_LIMIT` / `WALLET_NOT_VERIFIED` 409 |
 | POST `/funding` | session + wallet | Nessie-backed mock USDC funding (§9) |
 | GET `/projects` | none | Discovery list (public fields) |
 | POST `/projects` | session + wallet | Create project, returns `create_project` tx to sign. **Demo (built):** session only, no wallet or tx yet; body `{name, tagline, stage, entity_type, legal_name?, formation_state?, website_url?, sector_code?, publish_contact_email, founder: {display_name, role_title?}}`; creates a DRAFT with a server-chosen slug; `Idempotency-Key` required; at most 5 per founder |
@@ -284,8 +300,10 @@ Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev
 | POST `/projects/:id/evidence/extract` | founder | Gemini claim extraction proposal (not saved until founder confirms) |
 | POST `/evidence/:id/verify` | reviewer | Set verification status |
 | POST `/projects/:id/valuation/preview` | founder | Deterministic valuation (M§9.3 contract). Records score + valuation snapshots (shared `valuation_run_id`); identical inputs reuse the latest snapshot. No rounds yet, so demand multiplier is 1 |
-| POST `/projects/:id/rounds` | founder | Freeze snapshot, hash, return `open_round` tx to sign |
-| GET `/rounds/:id` | none | Round mirror + progress |
+| POST `/projects/:id/rounds` | founder | Freeze snapshot, hash, return `open_round` tx to sign. Built up to the chain: `{max_units?, duration_days?, opens_at?, max_subscription_micro_usd?}` + `Idempotency-Key` → DRAFT round frozen to the snapshot, plus `chain.instructions` (§6.4); needs a published project and a bound wallet |
+| GET `/rounds/:id` | none | Round mirror + progress, plus the frozen snapshot's values and scores ("why is this the price?"). Drafts: editors only |
+| GET `/rounds/:id/quote?gross_micro_usd=` | none | Estimated accepted/fee/units/refund/dust with current commitments (§6.3); may shrink pro rata at close |
+| DELETE `/rounds/:id` | founder | Withdraw a DRAFT round (before `open_round`) |
 | POST `/rounds/:id/eligibility` | session + wallet | Eligibility decision with reasons |
 | POST `/rounds/:id/subscribe/prepare` | session + wallet | `{grossAmountMicroUsd}` → relayer-co-signed tx (base64) + fee/units preview |
 | GET `/rounds/:id/subscriptions/me` | session | Caller's subscription mirror |

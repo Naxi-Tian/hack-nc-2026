@@ -13,12 +13,18 @@ import { createAuthRouter } from "./routes/auth.js";
 import { createEvidenceIntakeRouter } from "./routes/evidence-intake.js";
 import { createProfilesRouter } from "./routes/profiles.js";
 import { createProjectsRouter } from "./routes/projects.js";
+import { createRoundsRouter } from "./routes/rounds.js";
+import { createWalletsRouter } from "./routes/wallets.js";
 import { createResearchRouter } from "./routes/research.js";
 
 export interface ApiDependencies {
   pool: Pool;
   /** PUBLIC_ORIGIN: non-GET requests must carry this Origin (BACKEND_STACK §7). */
   publicOrigin: string;
+  /** PROGRAM_ID of the deployed program; null until it exists. */
+  programId?: string | null;
+  /** DEMO_MODE only: rounds may cite the DRAFT model (its hash still pins the parameters). */
+  allowDraftModel?: boolean;
   ai: GoogleGenAI;
   model: string;
   /** Optional; raises GitHub's unauthenticated limit of 60 requests/hour. */
@@ -62,6 +68,16 @@ export function createApi(dependencies: ApiDependencies): Hono {
   };
   app.route("/api", createProjectsRouter({ ...routeGuards, requireProjectEditor: requireEditor }));
   app.route("/api", createProfilesRouter(routeGuards));
+  app.route("/api", createWalletsRouter(routeGuards));
+  app.route(
+    "/api",
+    createRoundsRouter({
+      ...routeGuards,
+      requireProjectEditor: requireEditor,
+      programId: dependencies.programId ?? null,
+      allowDraftModel: dependencies.allowDraftModel ?? false,
+    }),
+  );
   app.route("/api", createEvidenceIntakeRouter({ ...dependencies, requireProjectEditor: requireEditor }));
   app.route(
     "/api",

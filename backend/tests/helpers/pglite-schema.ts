@@ -8,7 +8,7 @@ import type { Pool } from "pg";
 
 const read = (name: string) => readFileSync(new URL(`../../../db/migrations/${name}`, import.meta.url), "utf8").split("-- migrate:down")[0];
 
-/** 0001 through valuation snapshots, plus idempotency keys, then all of 0002. */
+/** 0001 through valuation snapshots, idempotency keys, rounds, subscriptions, then all of 0002. */
 export function coreSchemaSql(): string {
   const m0001 = read("0001_market_schema.sql");
   const end = m0001.indexOf("-- Traction points");
@@ -17,8 +17,15 @@ export function coreSchemaSql(): string {
     .replace("create extension if not exists timescaledb;", "")
     .replace(/\) with \(\s*tsdb\.[\s\S]*?\n\);/g, ");");
   const idempotency = /create table idempotency_keys \([\s\S]*?\n\);/.exec(m0001)?.[0];
-  if (!idempotency || end < 0) throw new Error("0001 layout changed; update tests/helpers/pglite-schema.ts");
-  return `${core}\n${idempotency}\ncreate role prospecto_app;\n${read("0002_evidence_research.sql")}`;
+  // Rounds with their terms guard and the snapshot back-reference, then the subscription mirror.
+  const roundsStart = m0001.indexOf("create table rounds (");
+  const roundsEnd = m0001.indexOf("-- Mirror of Subscription PDAs");
+  const subscriptions = /create table subscriptions \([\s\S]*?\n\);/.exec(m0001)?.[0];
+  if (!idempotency || !subscriptions || end < 0 || roundsStart < 0 || roundsEnd < roundsStart) {
+    throw new Error("0001 layout changed; update tests/helpers/pglite-schema.ts");
+  }
+  const rounds = m0001.slice(roundsStart, roundsEnd);
+  return `${core}\n${idempotency}\n${rounds}\n${subscriptions}\ncreate role prospecto_app;\n${read("0002_evidence_research.sql")}`;
 }
 
 /** A pg Pool look-alike over one PGlite connection (transactions run on that connection). */
