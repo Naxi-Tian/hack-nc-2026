@@ -455,6 +455,8 @@ create table rounds (
   unit_price_micro_usd bigint not null check (unit_price_micro_usd > 0),
   max_units bigint not null check (max_units > 0),
   target_amount_micro_usd bigint not null check (target_amount_micro_usd > 0),
+  -- §10.2 per-identity round cap; the Round PDA's max_subscription_amount.
+  max_subscription_micro_usd bigint not null check (max_subscription_micro_usd > 0),
   protocol_fee_bps integer not null default 100 check (protocol_fee_bps between 0 and 10000),
   founder_fee_share_bps integer not null default 4000 check (founder_fee_share_bps between 0 and 10000),
   model_version_id text not null references model_versions(id),
@@ -472,7 +474,8 @@ create table rounds (
   check (closes_at > opens_at),
   -- Units are floor((accepted - fee) / price) and accepted <= target, so this keeps
   -- total allocation within max_units.
-  check (target_amount_micro_usd::numeric <= max_units::numeric * unit_price_micro_usd)
+  check (target_amount_micro_usd::numeric <= max_units::numeric * unit_price_micro_usd),
+  check (max_subscription_micro_usd between unit_price_micro_usd and target_amount_micro_usd)
 );
 
 create unique index rounds_one_active_per_project
@@ -498,12 +501,12 @@ begin
 
   if tg_op = 'UPDATE' and old.status <> 'DRAFT' and (
        new.project_id, new.round_number, new.opens_at, new.closes_at, new.unit_price_micro_usd,
-       new.max_units, new.target_amount_micro_usd, new.protocol_fee_bps, new.founder_fee_share_bps,
+       new.max_units, new.target_amount_micro_usd, new.max_subscription_micro_usd, new.protocol_fee_bps, new.founder_fee_share_bps,
        new.model_version_id, new.valuation_snapshot_id, new.valuation_calculated_at,
        new.model_hash, new.evidence_root
      ) is distinct from (
        old.project_id, old.round_number, old.opens_at, old.closes_at, old.unit_price_micro_usd,
-       old.max_units, old.target_amount_micro_usd, old.protocol_fee_bps, old.founder_fee_share_bps,
+       old.max_units, old.target_amount_micro_usd, old.max_subscription_micro_usd, old.protocol_fee_bps, old.founder_fee_share_bps,
        old.model_version_id, old.valuation_snapshot_id, old.valuation_calculated_at,
        old.model_hash, old.evidence_root
      ) then
