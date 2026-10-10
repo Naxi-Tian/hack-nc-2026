@@ -18,7 +18,7 @@ export default function LaunchPage() {
           <span className="kicker">Seven questions · about 3 minutes</span>
         </div>
         <LaunchInterview />
-        <div className="foot"><Link href="/">← Front page</Link><Link href="/rounds/">Browse rounds →</Link></div>
+        <div className="foot"><Link href="/">← Front page</Link><Link href="/rounds/">Back a startup →</Link></div>
       </main>
     </div>
   );

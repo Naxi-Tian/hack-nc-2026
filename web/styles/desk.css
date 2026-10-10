@@ -1,0 +1,54 @@
+/* /desk/ page styles, scoped under .S-desk (moved from the landing page). */
+.S-desk .desk{display:grid;grid-template-columns:7fr 5fr;border-top:1px solid var(--ink)}
+.S-desk .desk-l{padding:18px 32px 30px 0;border-right:1px solid var(--rule);min-width:0}
+.S-desk .desk > *{min-width:0}
+.S-desk .desk-r{padding:18px 0 30px 32px}
+.S-desk .stages{display:flex;flex-wrap:wrap;border:1px solid var(--rule);margin:18px 0 22px}
+.S-desk .stages button{flex:1;min-width:90px;font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;padding:11px 6px;background:transparent;color:var(--carbon);border:0;border-left:1px solid var(--rule);cursor:pointer}
+.S-desk .stages button:first-child{border-left:0}
+.S-desk .stages button[aria-pressed=true]{background:var(--ink);color:var(--ground)}
+.S-desk .sliders{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
+.S-desk .sl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon);margin-bottom:6px}
+.S-desk .sl label b{color:var(--ink);font-weight:500}
+.S-desk .sl .hint{font-size:13.5px;font-style:italic;color:var(--carbon);margin-top:5px;min-height:2.6em;line-height:1.35}
+.S-desk input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer}
+.S-desk input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
+.S-desk input[type=range]::-moz-range-track{height:1px;background:var(--ink)}
+.S-desk input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-7px;background:var(--ground);border:1px solid var(--ink);transform:rotate(45deg)}
+.S-desk input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:0;background:var(--ground);border:1px solid var(--ink);transform:rotate(45deg)}
+.S-desk input[type=range]:focus-visible::-webkit-slider-thumb{background:var(--green);border-color:var(--green)}
+.S-desk .result{margin-top:28px;border-top:1px solid var(--ink);padding-top:14px}
+.S-desk .result .big{font-family:var(--serif);font-weight:500;font-size:clamp(48px,6vw,88px);letter-spacing:-.03em;line-height:1.05;margin-top:10px;font-variant-numeric:tabular-nums lining-nums}
+.S-desk .band{position:relative;height:30px;margin:18px 0 6px}
+.S-desk .band .axis{position:absolute;left:0;right:0;top:14px;height:1px;background:var(--rule)}
+.S-desk .band .rng{position:absolute;top:8px;height:13px;background:repeating-linear-gradient(90deg,var(--green) 0 2px,transparent 2px 5px)}
+.S-desk .band .est-pin{position:absolute;top:2px;width:1px;height:26px;background:var(--ink)}
+.S-desk .band-l{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--carbon)}
+.S-desk .facts{display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;border-top:1px solid var(--rule)}
+.S-desk .facts div{padding:12px 0 0}
+.S-desk .facts div+div{padding-left:14px;border-left:1px solid var(--rule)}
+.S-desk .facts span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+.S-desk .facts b{font-family:var(--mono);font-weight:500;font-size:17px}
+.S-desk .clip{border:1px dashed #4a463e;padding:18px 18px 16px;margin-top:16px;position:relative;background:#0d0d0b}
+.S-desk .clip pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink);white-space:pre-wrap}
+.S-desk .clip pre .c{color:var(--carbon)}
+.S-desk .clip pre .k{color:var(--green)}
+.S-desk .note{font-size:14px;font-style:italic;color:var(--carbon);margin-top:12px;line-height:1.45}
+.S-desk .advert{margin-top:30px;border:3px double var(--ink);padding:20px;text-align:center}
+.S-desk .advert .kicker{display:block;margin-bottom:6px}
+.S-desk .advert h3{font-family:var(--serif);font-weight:500;font-size:34px;letter-spacing:-.02em;line-height:1.02;margin-bottom:14px}
+.S-desk .advert code{display:block;font-family:var(--mono);font-size:12px;color:#cfc8b6;background:#070706;border:1px solid var(--rule);padding:12px;text-align:left;overflow-x:auto;white-space:nowrap}
+.S-desk .advert code .t{color:var(--green)}
+.S-desk .invest-link{display:inline-flex;align-items:center;gap:10px;margin-top:16px;font-family:var(--serif);font-size:19px;font-style:italic;text-decoration:none;border-bottom:1px solid var(--green);color:var(--ink);padding-bottom:2px}
+.S-desk .invest-link b{font-style:normal;color:var(--green)}
+@media (max-width:960px){
+.S-desk .desk{grid-template-columns:1fr}
+.S-desk .desk-l{padding-right:0;border-right:0}
+.S-desk .desk-r{padding-left:0;border-top:1px solid var(--rule)}
+}
+@media (max-width:620px){
+.S-desk .sliders{grid-template-columns:1fr}
+.S-desk .stages button{min-width:0;flex:1 0 30%;border-bottom:1px solid var(--rule)}
+.S-desk .facts{grid-template-columns:1fr 1fr}
+.S-desk .facts div:nth-child(3){grid-column:1/-1;border-left:0;padding-left:0}
+}

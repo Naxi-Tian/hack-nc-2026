@@ -29,7 +29,7 @@ export default function RoundsFeed() {
           const full = c.sub >= 100, lead = i === 0 && list.length > 2;
           return (
             <article key={c.t} className={`card enter${lead ? " lead" : ""}`} style={{ "--n": i } as CSSProperties}>
-              <Link className="cover" href="/#rounds" aria-label={`Back ${c.n}`} />
+              <Link className="cover" href={`/round/?co=${c.t}`} aria-label={`Back ${c.n}`} />
               <span className="k"><b>{c.s}</b> · {c.city} · {c.e}</span>
               {lead && <div className="plate"><div className="ridge" /><div className="sun" /></div>}
               <h2>{c.h}</h2>

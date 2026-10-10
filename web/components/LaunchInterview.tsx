@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { DRAFT_KEY } from "@/components/RoundView";
 import type { Stage } from "@/lib/fixtures";
+import { normalizeLinkedIn } from "@/lib/linkedin";
 
 // Demo anchors from MEGA_PLAN §10 (illustrative only; the real estimate comes from the server valuation module).
 const ANCHOR: Record<Stage, number> = { IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, REVENUE: 2000000, GROWTH: 5000000 };
@@ -35,6 +37,20 @@ export default function LaunchInterview() {
 
   useEffect(() => { firstInput.current?.focus({ preventScroll: true }); }, [cur, done]);
 
+  // Demo stand-in for publishing: keep a preview in this tab so Publish can show the round page.
+  // Only public fields go in (the founder card, LinkedIn included); contact emails stay out. Nothing leaves the browser.
+  useEffect(() => {
+    if (!done) return;
+    const stage = (data.stage as Stage) || "IDEA";
+    const draft = {
+      t: (data.name || "NEW").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) || "NEW",
+      n: data.name || "Your company", s: stage, e: data.entity === "Incorporated" ? "Incorporated" : "Unincorporated",
+      p: ANCHOR[stage] / 1e6, h: data.line || "", dek: "Preview of your round. Nothing is published until the Prospecto backend is live.",
+      f: data.fname ? [{ n: data.fname, r: data.role || "Founder", li: normalizeLinkedIn(data.li) ?? undefined }] : [],
+    };
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* private mode: preview page shows "No round here" */ }
+  }, [done, data]);
+
   // Slide the question out, swap, slide the next one in.
   const go = (i: number) => {
     setErr("");
@@ -47,6 +63,7 @@ export default function LaunchInterview() {
   };
   const next = (d: Data = data, skip = false) => {
     if (!skip && step.req && !summary(step, d)) { setErr("Needed to publish."); return; }
+    if (!skip && step.k === "founder" && d.li && !normalizeLinkedIn(d.li)) { setErr("Use your LinkedIn profile link, like linkedin.com/in/your-name."); return; }
     if (cur < STEPS.length - 1) go(cur + 1); else setDone(true);
   };
   const pick = (v: string) => { const d = { ...data, [step.k]: v }; setData(d); next(d); };
@@ -80,7 +97,7 @@ export default function LaunchInterview() {
           <div className="row">
             <button className="btn ghost" type="button" onClick={() => { setDone(false); setCur(0); }}>← Edit answers</button>
             <button className="btn" type="button" onClick={async () => { try { await navigator.clipboard.writeText(link); setCopied(true); } catch { setCopied(false); } }}>{copied ? "Copied" : "Copy link"}</button>
-            <Link className="btn go" href="/rounds/">Publish →</Link>
+            <Link className="btn go" href="/round/?co=draft">Publish →</Link>
           </div>
           <p className="kicker" style={{ marginTop: 18, textTransform: "none", letterSpacing: ".02em" }}>Demo only: simulated units, illustrative estimate.</p>
         </div>
