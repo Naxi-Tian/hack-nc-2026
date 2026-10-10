@@ -732,6 +732,8 @@ The founder flow is **paste two links (startup website and LinkedIn), and the sy
 
 **Prior shipped work (`metrics-v2`, approved 2026-10-10).** §2.3 lists "a shipped project" and "a documented competition result" as evidence, and §4.3 says prior founder success may inform `shipped_work`. `prior_shipped_products` counts products the founders previously shipped to real users, excluding this startup, and feeds `shipped_work`. Its demo rubric maps 0 to the neutral 0.5 (no penalty for having no record), 1 to 0.75, and 3 or more to 1; these thresholds are invented priors pending sign-off. When several claims feed one sub-factor with equal confidence, the higher rubric level wins, so a past project can add credit but never erase credit for this startup's own launched product. Founders usually describe a product ("built and shipped X") without stating a count, so the verifier accepts a value of 1 when the verbatim quote contains a shipping verb; larger counts must be stated. A competition result alone is not yet scored.
 
+**Prior-venture traction (`metrics-v3`, approved 2026-10-10).** `prior_venture_users` (peak users) and `prior_venture_revenue_usd` (annual revenue) of a venture a founder built before this startup feed `shipped_work`. Each claim names the venture in `subject`, so two ventures never contradict each other. From a profile they are founder-attested (each bounded to [0.325, 0.675]); a third-party page naming both the venture and a founder raises one to public-weak. Demo rubrics map 0 to neutral 0.5, users ≥ 1,000 to 0.75 and ≥ 10,000 to 1, revenue ≥ $10,000 to 0.75 and ≥ $100,000 to 1; invented priors pending sign-off.
+
 **Long-term options**
 
 | Option | What it provides | Limits |

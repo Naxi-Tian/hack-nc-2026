@@ -168,3 +168,86 @@ describe("verifyResearch", () => {
     expect(verifyResearch(input).proposals[0].id).toMatch(/^[a-f0-9]{32}$/);
   });
 });
+
+// metrics-v3 / verifier-v3: a founder's past traction (M§6.5), usually from a LinkedIn snapshot.
+describe("prior-venture claims", () => {
+  const PROFILE = "Ana Ruiz. Co-founded Lanternly, a tutoring marketplace that grew to 12,000 users before it was acquired.";
+  const PRESS =
+    "Lanternly, the tutoring marketplace co-founded by Ana Ruiz, passed 12,000 users this spring, the company said. ".repeat(3);
+  const OTHER_ANA = "A different Lanternly, a candle shop in Ohio, now ships to 12,000 customers. ".repeat(4);
+  const venture = {
+    ...base,
+    project: { ...base.project, founderNames: ["Ana Ruiz"] },
+    founderText: PROFILE,
+    sources: [
+      ...base.sources,
+      source({ url: "https://news.example.com/lanternly", origin: "SEARCH_CITATION", founderControlled: false, text: PRESS }),
+      source({ url: "https://ohio.example.com/candles", origin: "SEARCH_CITATION", founderControlled: false, text: OTHER_ANA }),
+      source({ url: "https://lanternly.com/about", origin: "SEARCH_CITATION", founderControlled: false, text: PRESS }),
+    ],
+  };
+  const ventureClaim = (source_url: string, quote: string, subject: string | null = "Lanternly") => ({
+    ...claim("prior_venture_users", "12000", source_url, quote),
+    subject,
+  });
+
+  it("keeps founder-provided traction founder-attested, with its subject", () => {
+    const { proposals } = verifyResearch({ ...venture, founderClaims: [ventureClaim("founder_text", "grew to 12,000 users")] });
+    expect(proposals).toEqual([
+      expect.objectContaining({ metric_code: "prior_venture_users", subject: "Lanternly", value_numeric: "12000", status: "FOUNDER_ATTESTED", droppable: true }),
+    ]);
+  });
+
+  it("raises it to PUBLIC_WEAK when a third-party page names the venture and the founder", () => {
+    const { proposals } = verifyResearch({
+      ...venture,
+      corroborationClaims: [ventureClaim("https://news.example.com/lanternly", "passed 12,000 users this spring")],
+    });
+    expect(proposals).toEqual([expect.objectContaining({ subject: "Lanternly", status: "PUBLIC_WEAK", droppable: false })]);
+  });
+
+  it("rejects a missing subject, a page without the founder, and the venture's own site", () => {
+    const { proposals, rejected } = verifyResearch({
+      ...venture,
+      corroborationClaims: [
+        ventureClaim("https://news.example.com/lanternly", "passed 12,000 users this spring", null),
+        { ...ventureClaim("https://ohio.example.com/candles", "now ships to 12,000 customers") },
+        ventureClaim("https://lanternly.com/about", "passed 12,000 users this spring"),
+      ],
+    });
+    expect(proposals).toEqual([]);
+    expect(rejected.map((r) => r.reason)).toEqual(["SUBJECT_REQUIRED", "ENTITY_UNCONFIRMED", "SELF_PUBLISHED_SOURCE"]);
+  });
+
+  it("rejects a subject the source never mentions", () => {
+    const { rejected } = verifyResearch({ ...venture, founderClaims: [ventureClaim("founder_text", "grew to 12,000 users", "Brightpath")] });
+    expect(rejected.map((r) => r.reason)).toEqual(["SUBJECT_NOT_IN_SOURCE"]);
+  });
+
+  it("does not treat two different ventures as a contradiction", () => {
+    const text = `${PROFILE} Earlier, built Quillpad, which reached 300 users.`;
+    const { proposals } = verifyResearch({
+      ...venture,
+      founderText: text,
+      founderClaims: [
+        ventureClaim("founder_text", "grew to 12,000 users"),
+        { ...claim("prior_venture_users", "300", "founder_text", "Quillpad, which reached 300 users"), subject: "Quillpad" },
+      ],
+    });
+    expect(proposals.map((p) => [p.subject, p.status])).toEqual(
+      expect.arrayContaining([
+        ["Lanternly", "FOUNDER_ATTESTED"],
+        ["Quillpad", "FOUNDER_ATTESTED"],
+      ]),
+    );
+  });
+
+  it("ignores a subject on ordinary metrics", () => {
+    const { proposals } = verifyResearch({
+      ...venture,
+      founderText: base.founderText,
+      founderClaims: [{ ...claim("full_time_founders", "2", "founder_text", "We have 2 full-time founders"), subject: "Lanternly" }],
+    });
+    expect(proposals[0].subject).toBeNull();
+  });
+});

@@ -3,7 +3,7 @@
 // so prestige or demographic attributes (M§2.3) have no field to land in.
 // Rubric thresholds live in model_versions.normalization_rules, never here.
 
-export const METRIC_CATALOG_VERSION = "metrics-v2";
+export const METRIC_CATALOG_VERSION = "metrics-v3";
 
 export const SUBFACTORS = {
   execution: ["shipped_work", "relevant_domain_ability", "execution_velocity", "team_coverage", "commitment_evidence"],
@@ -57,6 +57,26 @@ export const METRICS = {
     max: "50",
     description:
       "Products, apps, or projects the founders previously shipped to real users (publicly usable, e.g. a deployed hackathon project), not counting this startup. Never schools or employer prestige.",
+  },
+  // metrics-v3 (approved 2026-10-10): a founder's past traction, usually from their LinkedIn
+  // profile (M§6.5). Each claim names the prior venture in `subject`; never this startup.
+  prior_venture_users: {
+    subfactors: ["shipped_work"],
+    kind: "integer",
+    unit: "users",
+    min: "0",
+    max: "10000000000",
+    description:
+      "Peak users or customers of a product or venture a founder previously built, not this startup. Set subject to that venture's name.",
+  },
+  prior_venture_revenue_usd: {
+    subfactors: ["shipped_work"],
+    kind: "decimal",
+    unit: "USD",
+    min: "0",
+    max: "100000000000",
+    description:
+      "Annual revenue in USD that a venture a founder previously built reached, not this startup. Set subject to that venture's name.",
   },
   relevant_experience_years: {
     subfactors: ["relevant_domain_ability"],
@@ -230,6 +250,9 @@ export const METRICS = {
 
 export type MetricCode = keyof typeof METRICS;
 export const METRIC_CODES = Object.keys(METRICS) as MetricCode[];
+
+/** Metrics about something other than this startup; their claims must name it in `subject`. */
+export const SUBJECT_METRICS: ReadonlySet<string> = new Set<MetricCode>(["prior_venture_users", "prior_venture_revenue_usd"]);
 
 // Judgment-heavy sub-factors Gemini may assess with citations (decision (b), EVIDENCE_RESEARCH §4).
 // Each assessment is stored as an AI_ASSESSED claim under `assessment.<subfactor>`.

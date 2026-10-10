@@ -12,7 +12,7 @@ import { useEffect } from "react";
 const ANCHOR = { IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, REVENUE: 2000000, GROWTH: 5000000 } as const;
 type Stage = keyof typeof ANCHOR;
 
-const FORMULA = '<span class="c"># valuation-model-v1 · demo anchors, not market data</span>\nscore      = <span class="k">0.30</span>·product + <span class="k">0.30</span>·traction\n           + <span class="k">0.25</span>·team    + <span class="k">0.15</span>·financial\nmultiplier = 0.50 + score / 100\nanchor     = stage_anchor × multiplier\nband       = [anchor × 0.60, anchor × 1.50]\nunit_price = anchor / founder_units';
+const FORMULA = '<span class="c"># illustrative sketch · not the valuation-v0.1 model, not market data</span>\nscore      = <span class="k">0.30</span>·product + <span class="k">0.30</span>·traction\n           + <span class="k">0.25</span>·team    + <span class="k">0.15</span>·financial\nmultiplier = 0.50 + score / 100\nanchor     = stage_anchor × multiplier\nband       = [anchor × 0.60, anchor × 1.50]\nunit_price = anchor / founder_units';
 
 const fmt$ = (n: number, d = 0) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const $ = (id: string) => document.getElementById(id) as HTMLElement;

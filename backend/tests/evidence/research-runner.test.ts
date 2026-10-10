@@ -26,11 +26,14 @@ begin raise exception '% is append-only; % is not allowed', tg_table_name, tg_op
 create table identities (id uuid primary key default gen_random_uuid());
 create table projects (
   id uuid primary key default gen_random_uuid(), name text not null, description text not null default '',
-  sector_code text, stage project_stage not null);
+  tagline text not null default '', sector_code text, stage project_stage not null);
+create table project_members (
+  project_id uuid not null references projects(id), identity_id uuid not null references identities(id),
+  display_name text, joined_at timestamptz not null default now(), primary key (project_id, identity_id));
 create table ai_intake_proposals (id uuid primary key default gen_random_uuid());
 create table evidence_claims (
   id uuid primary key default gen_random_uuid(), project_id uuid not null references projects(id),
-  metric_code text not null check (length(metric_code) between 1 and 80), value_numeric numeric(30, 8), value_text text, unit text,
+  metric_code text not null check (length(metric_code) between 1 and 80), subject text, value_numeric numeric(30, 8), value_text text, unit text,
   period_start date, period_end date, source_type evidence_source_type not null, source_uri text,
   content_hash text not null check (content_hash ~ '^[a-f0-9]{64}$'), ai_intake_proposal_id uuid references ai_intake_proposals(id),
   created_by_identity_id uuid not null references identities(id), supersedes_claim_id uuid unique references evidence_claims(id),
@@ -242,6 +245,49 @@ describe("research runner + confirm (PostgreSQL)", () => {
       [started.runId, PROFILE],
     );
     expect(stored.rows[0]).toEqual({ fetch_status: "FOUNDER_PROVIDED", text_excerpt: PROFILE_TEXT });
+  });
+
+  it("passes profile leads and founder names to corroboration and stores the prior venture as subject", async () => {
+    const PROFILE = "https://www.linkedin.com/in/ana";
+    const PROFILE_TEXT = "Ana Lee. Built Quietly, a study timer used by 300 students, at HackNC 2026.";
+    await db.query(`insert into project_members (project_id, identity_id, display_name) values ($1, $2, 'Ana Lee')`, [projectId, identityId]);
+    let seen: Parameters<ResearchModel["corroborationPass"]>[0] | null = null;
+    const model: ResearchModel = {
+      ...workingModel,
+      founderPass: async () => ({
+        output: {
+          claims: [{ metric_code: "prior_venture_users", value: "300", period_end: null, source_url: PROFILE, quote: "Quietly, a study timer used by 300 students", subject: "Quietly" }],
+          warnings: [],
+        },
+        telemetry,
+      }),
+      corroborationPass: async (input) => {
+        seen = input;
+        return workingModel.corroborationPass(input);
+      },
+    };
+    const tasks: (() => Promise<void>)[] = [];
+    const started = await startResearchRun(
+      {
+        ...deps(model, tasks),
+        lookupProfileSnapshot: async (url) => (url === PROFILE ? { profileUrl: PROFILE, capturedAt: "2026-10-10", text: PROFILE_TEXT } : null),
+      },
+      { projectId, identityId, request: { website_url: SITE, urls: [PROFILE] } },
+    );
+    await Promise.all(tasks.map((task) => task()));
+
+    expect(seen!.founderNames).toEqual(["Ana Lee"]);
+    expect(seen!.founderProfile).toContain(PROFILE_TEXT);
+    const run = await getResearchRun(pool, projectId, started.runId);
+    const prior = run.result!.proposals.find((p) => p.metric_code === "prior_venture_users")!;
+    expect(prior).toMatchObject({ subject: "Quietly", status: "FOUNDER_ATTESTED", droppable: true });
+
+    await confirmResearchRun(pool, { projectId, runId: started.runId, identityId, accept: [prior.id], dispute: [] });
+    const stored = await db.query<{ subject: string; unit: string }>(
+      `select subject, unit from evidence_claims where research_run_id = $1 and metric_code = 'prior_venture_users'`,
+      [started.runId],
+    );
+    expect(stored.rows).toEqual([{ subject: "Quietly", unit: "users" }]);
   });
 
   it("searches after visiting: corroboration gets the founder site's own title/description", async () => {

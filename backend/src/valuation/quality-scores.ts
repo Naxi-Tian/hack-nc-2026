@@ -8,7 +8,7 @@ import { compareDecimal, isDecimal } from "../evidence/decimal.js";
 import { METRICS, METRIC_CODES, PRODUCT_STATUSES, SUBFACTORS, type Category, type Subfactor } from "../evidence/metrics.js";
 
 const CATEGORIES = Object.keys(SUBFACTORS) as Category[];
-const STAGES = ["IDEA", "PROTOTYPE", "LAUNCHED", "EARLY_REVENUE", "REPEATABLE_REVENUE"] as const;
+export const STAGES = ["IDEA", "PROTOTYPE", "LAUNCHED", "EARLY_REVENUE", "REPEATABLE_REVENUE"] as const;
 const STATUSES = ["INDEPENDENTLY_VERIFIED", "REVIEWER_VERIFIED", "PUBLIC_WEAK", "FOUNDER_ATTESTED", "AI_ASSESSED", "MISSING_OR_CONTRADICTED"] as const;
 const RUBRIC_LEVELS = new Set([0, 0.25, 0.5, 0.75, 1]);
 const WEIGHT_EPSILON = 1e-9;
@@ -19,6 +19,16 @@ export type ClaimStatus = (typeof STATUSES)[number];
 const level = z.number().refine((value) => RUBRIC_LEVELS.has(value), "rubric level must be 0, 0.25, 0.5, 0.75, or 1");
 const unit = z.number().min(0).max(1);
 const sumsToOne = (record: Record<string, number>) => Math.abs(Object.values(record).reduce((a, b) => a + b, 0) - 1) <= WEIGHT_EPSILON;
+
+// Evidence a declared stage needs before its weights and scenario priors apply (approved 2026-10-10).
+const stageRequirementSchema = z
+  .object({
+    metric: z.string(),
+    values: z.array(z.string()).min(1).optional(),
+    min: z.string().refine(isDecimal).optional(),
+    min_multiplier: unit,
+  })
+  .refine((rule) => (rule.values === undefined) !== (rule.min === undefined), "a stage requirement needs exactly one of values or min");
 
 const rubricSchema = z.union([
   z.object({ map: z.record(z.string(), level) }),
@@ -44,6 +54,8 @@ export const qualityParamsSchema = z
         strong_min_multiplier: unit,
         bands_pct: z.array(z.tuple([z.number().int().min(0).max(100), level])).min(1),
       }),
+      // All requirements listed for a stage must hold. IDEA needs none.
+      stage_evidence: z.record(z.enum(STAGES), z.array(stageRequirementSchema)),
     }),
   })
   .superRefine((params, context) => {
@@ -61,6 +73,11 @@ export const qualityParamsSchema = z
     }
     for (const code of METRIC_CODES) {
       if (!params.normalization_rules.rubrics[code]) issue(`no rubric for metric ${code}`);
+    }
+    for (const [stage, rules] of Object.entries(params.normalization_rules.stage_evidence)) {
+      if (stage === "IDEA" && rules.length > 0) issue("IDEA must not require evidence");
+      if (stage !== "IDEA" && rules.length === 0) issue(`stage ${stage} needs at least one evidence requirement`);
+      for (const rule of rules) if (!(METRIC_CODES as readonly string[]).includes(rule.metric)) issue(`stage ${stage} requires unknown metric ${rule.metric}`);
     }
     const productRubric = params.normalization_rules.rubrics.product_status;
     if (productRubric && (!("map" in productRubric) || PRODUCT_STATUSES.some((status) => productRubric.map[status] === undefined))) {
@@ -95,6 +112,39 @@ export interface QualityScores {
   categories: Record<Category, { score: number; weight: number; contribution: number }>;
   composite: number;
   subfactors: SubfactorScore[];
+}
+
+export interface EffectiveStage {
+  declared: Stage;
+  effective: Stage;
+  /** Claims that satisfied the effective stage's requirements (empty for IDEA). */
+  claim_ids: string[];
+}
+
+/**
+ * The stage valuation prices on: the highest stage at or below the declared one whose evidence
+ * requirements all hold (MARKET §4.4/§4.6 inputs; approved 2026-10-10). A founder can declare any
+ * stage, but its weights and scenario priors apply only when confirmed claims support it.
+ */
+export function effectiveStage(params: QualityParams, declared: Stage, claims: ScoringClaim[]): EffectiveStage {
+  const rules = params.normalization_rules;
+  const satisfying = (requirement: z.infer<typeof stageRequirementSchema>) =>
+    claims.find(
+      (claim) =>
+        claim.metric_code === requirement.metric &&
+        rules.confidence_multipliers[claim.status] >= requirement.min_multiplier &&
+        (requirement.values
+          ? claim.value_text !== null && requirement.values.includes(claim.value_text)
+          : claim.value_numeric !== null && compareDecimal(claim.value_numeric, requirement.min!) >= 0),
+    );
+  for (let i = STAGES.indexOf(declared); i > 0; i--) {
+    const stage = STAGES[i];
+    const matched = (rules.stage_evidence[stage] ?? []).map(satisfying);
+    if (matched.length > 0 && matched.every(Boolean)) {
+      return { declared, effective: stage, claim_ids: matched.map((claim) => claim!.id) };
+    }
+  }
+  return { declared, effective: "IDEA", claim_ids: [] };
 }
 
 function rubricLevel(params: QualityParams, claim: ScoringClaim): number | null {

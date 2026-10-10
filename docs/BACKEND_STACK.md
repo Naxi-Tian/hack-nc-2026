@@ -171,7 +171,7 @@ M§4.3 formulas and M§4.4 table verbatim. Assert each stage's weights sum to 1 
 ### 5.6 Unit price (M§4.10), the money boundary
 ```text
 REFERENCE_UNITS = 1_000_000
-unit_price_micro_usd = round_half_up(round_implied_value_usd × 1_000_000 / REFERENCE_UNITS)
+unit_price_micro_usd = floor(round_implied_value_usd × 1_000_000 / REFERENCE_UNITS)   # M§4.10; the valuation_snapshots check enforces floor
 require unit_price_micro_usd ≥ 1
 ```
 

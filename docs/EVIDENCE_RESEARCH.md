@@ -34,13 +34,13 @@ POST /api/projects/:id/research-runs/:runId/confirm {accept[], dispute[]}
   → evidence_claims + evidence_verifications (append-only), once per run
 ```
 
-Code: `backend/src/evidence/` (`metrics.ts`, `decimal.ts`, `research/*`), `backend/src/routes/research.ts`, `backend/src/valuation/quality-scores.ts`. Migration: `db/migrations/0002_evidence_research.sql`. Model parameters: `db/seeds/valuation-v0.1.json`.
+Code: `backend/src/evidence/` (`metrics.ts`, `decimal.ts`, `research/*`), `backend/src/routes/research.ts`, `backend/src/valuation/quality-scores.ts`, `backend/src/valuation/model-value.ts`. Migration: `db/migrations/0002_evidence_research.sql`. Model parameters: `db/seeds/valuation-v0.1.json`.
 
 **Transport (`RESEARCH_PROVIDER`).** `gemini` uses the direct Gemini API with URL context and Google Search grounding (`research/gemini.ts`). `openrouter` (`research/openrouter.ts`) runs the same prompts, schemas, and verifier through OpenRouter: the founder pass sends page text our server already fetched (no paid URL tool), and the corroboration pass makes one Exa web search (5 results, $0.007 per request at OpenRouter's listed price) whose `url_citation` annotations feed step 6. Exa search is a different index from Google Search, so corroboration may find different pages; every cited page is still re-fetched and quote-checked. Adopted 2026-10-10 because the direct Gemini project's prepaid balance blocked all calls.
 
 **Visit, then search (`research-corroboration-v2`).** The corroboration pass starts once our own fetch of the founder's website finishes, and receives that page's `<title>` and meta description as untrusted `<site_summary>` plus the bare domain, so it searches by domain and product, not by a name other companies may share. It never cites the summary. OpenRouter calls use temperature 0 (repeatable extraction on Gemini 2.5; the Gemini 3 "keep 1.0" guidance in §2 still applies to the direct adapter). The JSON schemas sent to the model carry only small array bounds (1–3 citations per assessment, at most 4 assessments): Gemini rejects schemas with large bounds, and zod still enforces every limit.
 
-## 4. Evidence status rules (`verifier.ts`, version `verifier-v2`)
+## 4. Evidence status rules (`verifier.ts`, version `verifier-v3`)
 
 | Origin | Condition | Status |
 |---|---|---|
@@ -54,15 +54,23 @@ Code: `backend/src/evidence/` (`metrics.ts`, `decimal.ts`, `research/*`), `backe
 | Founder-provided LinkedIn snapshot (M§6.5) | Never fetched. Treated as founder-controlled and complete: the quote must be found in the snapshot text (no "unverifiable" allowance); stored with fetch status `FOUNDER_PROVIDED` | `FOUNDER_ATTESTED` |
 | Any | Value not literally in its quote, quote not in source, unknown metric, out of range | Dropped (listed in `rejected`) |
 | `prior_shipped_products` = 1 (verifier-v2) | The quote contains a shipping verb (shipped, deployed, launched, released, published, "live at") instead of the numeral; larger counts still need the number | Same status rules as above |
-| Contradiction | Same metric/period differs by >25%: weaker claims that disagree with the strongest tier, or the whole group if the strongest tier disagrees internally | `MISSING_OR_CONTRADICTED` |
+| `prior_venture_users` / `prior_venture_revenue_usd` (metrics-v3) | Must name the prior venture in `subject`, and the venture's name must appear in the checked source. From founder text or a LinkedIn snapshot | `FOUNDER_ATTESTED` |
+| Same, third-party page (search-found or founder-submitted) | Quote found, page names the venture **and** a founder (`project_members.display_name`), and is not the venture's own site (host label equals the venture name) | `PUBLIC_WEAK`; otherwise dropped (search) or `FOUNDER_ATTESTED` (founder link) |
+| Contradiction | Same metric/subject/period differs by >25%: weaker claims that disagree with the strongest tier, or the whole group if the strongest tier disagrees internally | `MISSING_OR_CONTRADICTED` |
 
 Gemini's grounding metadata (`url_context_result`, `url_citation`) is recorded (`grounding_seen`) but is not sufficient on its own; the server-side quote check is the gate. A page on the founder's own domain is never more than founder-attested, however official it looks.
+
+**Prior ventures (`research-corroboration-v3`).** The corroboration pass also receives the founders' listing names and any founder-provided profile text as untrusted `<founder_profile>`, and searches for third-party coverage naming both a prior venture and a founder. Names can collide (two people called Ana Lee); requiring venture and founder on one page is the minimum, and founder disputes plus reviewers handle the rest.
 
 Pedigree (M§2.3): the metric vocabulary in `metrics.ts` is closed and is passed to Gemini as an enum, so schools, demographics, and employer prestige have no field to occupy. A regex on assessment rationales is a backstop only.
 
 ## 5. Scoring (`quality-scores.ts`)
 
 Implements M§4.3–4.5 and BACKEND_STACK §5.1: rubric → `s ∈ {0, .25, .5, .75, 1}`; `adjusted = c·s + (1−c)·0.5`; per sub-factor the highest-`c` claim wins, then the higher rubric level `s`, then most recent, then metric code and claim id. `evidence_quality` is derived (share of claims with `c ≥ 0.65`, `c = 1`). Missing evidence is neutral, never negative.
+
+**Effective stage (approved 2026-10-10).** Weights and scenario priors use the highest stage at or below the founder's declared stage whose `normalization_rules.stage_evidence` requirements all hold: PROTOTYPE needs `product_status` ≥ prototype, LAUNCHED needs `launched` (founder-attested suffices), EARLY_REVENUE needs MRR ≥ $1 and REPEATABLE_REVENUE MRR ≥ $5,000 plus ≥ 50% recurring, both at reviewer-verified strength (`c ≥ 0.85`, M§4.7 "verified revenue"). Without it, the stage dropdown alone moved the neutral scenario value 3.8× (IDEA $416k vs REPEATABLE_REVENUE $1.58M). Snapshots store both stages.
+
+**Valuation (`model-value.ts`).** M§4.6–4.10: scenario probabilities `softmax(ln p_k + β_k(Q − 0.5))`; present values over `H = 5`; operating value `net_cash + ARR × stage multiple` at revenue stages (ARR = 12 × the strongest MRR claim with `c ≥ 0.85`), else 0; blend with M§4.8's `alpha_stage`; demand multiplier `exp(0.40(D − 0.5))` clamped to [0.75×, 1.5×] the previous round, or 1 for a first round. Model outputs are rounded to 8 decimals; the unit price is `floor(round_implied × 10^6 / 1,000,000)` micro-USD in exact integer arithmetic (M§4.10 and the `valuation_snapshots` check constraint; BACKEND_STACK §5.6 said round-half-up and was corrected). No net-cash metric exists yet, so `current_net_cash = 0`. Only `default_sector` envelopes exist, so sector does not yet change the value.
 
 **Rubric thresholds in `valuation-v0.1.json` are invented demo priors** and need team sign-off before the model version leaves `DRAFT`. Stage and factor weights are M§4.3–4.4 verbatim.
 

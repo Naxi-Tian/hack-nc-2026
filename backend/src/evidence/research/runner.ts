@@ -71,8 +71,12 @@ interface RunInput {
 interface ProjectRow {
   name: string;
   description: string;
+  /** The founder's one-liner; research context only, never cited or scored. */
+  tagline: string;
   sector_code: string | null;
   stage: string;
+  /** Listing names of the founders and team (never scored); attribute prior ventures. */
+  founder_names: string[];
 }
 
 export interface ResearchResult {
@@ -116,13 +120,27 @@ export function inputHash(input: RunInput, project: ProjectRow): string {
   return sha256(
     JSON.stringify({
       input: { ...input, founder_text: input.founder_text?.replace(/\s+/g, " ").trim() ?? null },
-      project: { name: project.name, description: project.description, sector: project.sector_code, stage: project.stage },
+      project: {
+        name: project.name,
+        description: project.description,
+        tagline: project.tagline,
+        sector: project.sector_code,
+        stage: project.stage,
+        founders: project.founder_names,
+      },
     }),
   );
 }
 
 async function loadProject(db: Pool | PoolClient, projectId: string): Promise<ProjectRow> {
-  const { rows } = await db.query<ProjectRow>(`select name, description, sector_code, stage from projects where id = $1`, [projectId]);
+  const { rows } = await db.query<ProjectRow>(
+    `select p.name, p.description, p.tagline, p.sector_code, p.stage,
+            coalesce(array(select m.display_name from project_members m
+                            where m.project_id = p.id and m.display_name is not null
+                            order by m.joined_at, m.display_name), '{}') as founder_names
+       from projects p where p.id = $1`,
+    [projectId],
+  );
   if (!rows[0]) throw new ResearchError("NOT_FOUND", 404, "Project not found.");
   return rows[0];
 }
@@ -296,7 +314,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
 
     const founderFetches = mapLimit(fetchable, FETCH_CONCURRENCY, deps.fetchPage);
     const github = Promise.all(githubTargets.map((target) => deps.collectGithub(target, projectSiteKey)));
-    const projectContext = { name: project.name, oneLiner: project.description, sector: project.sector_code, stage: project.stage };
+    const projectContext = { name: project.name, oneLiner: project.tagline || project.description, sector: project.sector_code, stage: project.stage };
     const founderText = [input.founder_text, ...profileTexts].filter((text): text is string => Boolean(text)).join("\n\n") || null;
     const [founderPass, corroborationPass] = await Promise.allSettled([
       deps.model.founderPass({ project: projectContext, urls: geminiUrls, founderText }),
@@ -306,7 +324,12 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
         const index = input.website_url ? fetchable.indexOf(input.website_url) : -1;
         const summary = index >= 0 ? fetched[index]?.summary : undefined;
         const siteSummary = [summary?.title, summary?.description].filter(Boolean).join(" — ") || null;
-        return deps.model.corroborationPass({ project: { ...projectContext, website: input.website_url }, siteSummary });
+        return deps.model.corroborationPass({
+          project: { ...projectContext, website: input.website_url },
+          siteSummary,
+          founderNames: project.founder_names,
+          founderProfile: profileTexts.join("\n\n") || null,
+        });
       }),
     ]);
 
@@ -364,7 +387,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
 
     // 3. Deterministic verification.
     const verified = verifyResearch({
-      project: { name: project.name, siteKey: projectSiteKey },
+      project: { name: project.name, siteKey: projectSiteKey, founderNames: project.founder_names },
       founderText,
       sources: [...sources.values()],
       founderClaims: founder?.output.claims ?? [],
@@ -497,7 +520,7 @@ export const confirmRequestSchema = z.object({
 
 export function claimContentHash(proposal: EvidenceProposal): string {
   return sha256(
-    JSON.stringify([proposal.metric_code, proposal.value_numeric, proposal.value_text, proposal.period_end, proposal.source_type, proposal.source_url, proposal.quote]),
+    JSON.stringify([proposal.metric_code, proposal.subject ?? null, proposal.value_numeric, proposal.value_text, proposal.period_end, proposal.source_type, proposal.source_url, proposal.quote]),
   );
 }
 
@@ -549,8 +572,8 @@ export async function confirmResearchRun(
       const inserted = await client.query<{ id: string }>(
         `insert into evidence_claims
            (project_id, metric_code, value_numeric, value_text, unit, period_end, source_type, source_uri, content_hash,
-            created_by_identity_id, source_quote, research_run_id, research_source_id)
-         values ($1, $2, $3, $4, $5, $6, $7::evidence_source_type, $8, $9, $10, $11, $12, $13)
+            created_by_identity_id, source_quote, research_run_id, research_source_id, subject)
+         values ($1, $2, $3, $4, $5, $6, $7::evidence_source_type, $8, $9, $10, $11, $12, $13, $14)
          returning id`,
         [
           params.projectId,
@@ -566,6 +589,7 @@ export async function confirmResearchRun(
           proposal.quote?.slice(0, 600) ?? null,
           params.runId,
           proposal.source_url ? (sourceIds.get(proposal.source_url) ?? null) : null,
+          proposal.subject ?? null,
         ],
       );
       const claimId = inserted.rows[0].id;

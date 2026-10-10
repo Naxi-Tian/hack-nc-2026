@@ -4,13 +4,13 @@
 import { createHash } from "node:crypto";
 
 import { compareDecimal, differsBeyond, isDecimal, isInteger, normalizeDecimal, valueAppearsInText } from "../decimal.js";
-import { METRICS, PRODUCT_STATUSES, assessmentMetricCode, isMetricCode, type MetricCode } from "../metrics.js";
+import { METRICS, PRODUCT_STATUSES, SUBJECT_METRICS, assessmentMetricCode, isMetricCode, type MetricCode } from "../metrics.js";
 import type { CorroborationPassOutput, ProposedClaim } from "./gemini.js";
 import type { CollectedClaim } from "./github.js";
 import type { FetchStatus } from "./safe-fetch.js";
-import { normalizeUrl } from "./urls.js";
+import { hostOf, normalizeUrl } from "./urls.js";
 
-export const VERIFIER_VERSION = "verifier-v2";
+export const VERIFIER_VERSION = "verifier-v3";
 
 export type EvidenceStatus =
   | "INDEPENDENTLY_VERIFIED"
@@ -36,7 +36,8 @@ export interface SourceRecord {
 }
 
 export interface VerifyInput {
-  project: { name: string; siteKey: string | null };
+  /** founderNames: listing names (project_members.display_name), used to attribute prior ventures. */
+  project: { name: string; siteKey: string | null; founderNames?: string[] };
   founderText: string | null;
   sources: SourceRecord[];
   founderClaims: ProposedClaim[];
@@ -48,6 +49,8 @@ export interface VerifyInput {
 export interface EvidenceProposal {
   id: string;
   metric_code: string;
+  /** The prior venture a prior_venture_* claim describes; null means this startup. */
+  subject: string | null;
   value_numeric: string | null;
   value_text: string | null;
   period_end: string | null;
@@ -128,6 +131,29 @@ function proposalId(parts: (string | null)[]): string {
 // counts still need the number written out. The quote itself is still checked against its source.
 const SHIPPED_ONE = /\b(shipped|deployed|launched|released|published|live at)\b/i;
 
+/**
+ * verifier-v3 (metrics-v3): prior-venture claims must name the venture, and the venture's name
+ * must appear in the source we checked. Returns the subject (null for other metrics) or a reason.
+ */
+function subjectOf(code: MetricCode, claim: ProposedClaim, sourceText: string | null): string | null | { reason: string } {
+  if (!SUBJECT_METRICS.has(code)) return null;
+  const subject = claim.subject?.trim();
+  if (!subject) return { reason: "SUBJECT_REQUIRED" };
+  if (sourceText !== null && !mentions(sourceText, subject)) return { reason: "SUBJECT_NOT_IN_SOURCE" };
+  return subject;
+}
+
+/** A page attributes a prior venture to this team only if it names the venture and a founder. */
+function namesVentureAndFounder(text: string, subject: string, founderNames: readonly string[]): boolean {
+  return mentions(text, subject) && founderNames.some((name) => mentions(text, name));
+}
+
+/** The prior venture's own site is self-published, like this startup's (e.g. acme.io for "Acme"). */
+function isVentureOwnSite(url: string, subject: string): boolean {
+  const slug = subject.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return slug.length >= 3 && hostOf(url).replace(/[^a-z0-9.]/g, "").split(".").some((label) => label === slug);
+}
+
 /** Validates the value against the metric's kind and range; returns [value_numeric, value_text] or a reason. */
 function validateValue(code: MetricCode, value: string, quote: string): [string | null, string | null] | string {
   const definition = METRICS[code];
@@ -166,7 +192,7 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
 
   const push = (proposal: Omit<EvidenceProposal, "id">) =>
     proposals.push({
-      id: proposalId([proposal.metric_code, proposal.value_numeric, proposal.value_text, proposal.source_url, proposal.quote, proposal.source_type]),
+      id: proposalId([proposal.metric_code, proposal.subject, proposal.value_numeric, proposal.value_text, proposal.source_url, proposal.quote, proposal.source_type]),
       ...proposal,
     });
 
@@ -185,6 +211,7 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
     }
     const base = {
       metric_code: claim.metric_code,
+      subject: null as string | null,
       value_numeric: value[0],
       value_text: value[1],
       period_end: claim.period_end,
@@ -196,6 +223,12 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
         reject("QUOTE_NOT_IN_SOURCE");
         continue;
       }
+      const subject = subjectOf(claim.metric_code, claim, input.founderText);
+      if (subject !== null && typeof subject === "object") {
+        reject(subject.reason);
+        continue;
+      }
+      base.subject = subject;
       push({ ...base, source_type: "FOUNDER_STATEMENT", source_url: null, status: "FOUNDER_ATTESTED", method: "system:founder-text", reasons: [], droppable: true });
       continue;
     }
@@ -210,8 +243,17 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
       reject("QUOTE_NOT_IN_SOURCE");
       continue;
     }
+    const subject = subjectOf(claim.metric_code, claim, state === "verified" ? source.text : null);
+    if (subject !== null && typeof subject === "object") {
+      reject(subject.reason);
+      continue;
+    }
+    base.subject = subject;
     const reasons = state === "unverifiable" ? ["QUOTE_UNVERIFIABLE"] : [];
-    if (!source.founderControlled && state === "verified" && source.text && mentions(source.text, input.project.name)) {
+    const attributed =
+      source.text !== null &&
+      (subject !== null ? namesVentureAndFounder(source.text, subject, input.project.founderNames ?? []) : mentions(source.text, input.project.name));
+    if (!source.founderControlled && state === "verified" && attributed && !(subject !== null && isVentureOwnSite(source.url, subject))) {
       push({ ...base, source_type: "LINK", source_url: source.url, status: "PUBLIC_WEAK", method: "system:quote-check;third-party", reasons, droppable: false });
     } else {
       if (!source.founderControlled) reasons.push("THIRD_PARTY_UNCONFIRMED");
@@ -246,9 +288,25 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
       reject(state === "absent" ? "QUOTE_NOT_IN_SOURCE" : "QUOTE_UNVERIFIABLE");
       continue;
     }
-    // Company-specific facts must name the company and, unless the founder submitted the page,
-    // its domain too. Student startups often share names with unrelated companies.
-    if (!MARKET_METRICS.has(claim.metric_code)) {
+    const subject = subjectOf(claim.metric_code, claim, source.text);
+    if (subject !== null && typeof subject === "object") {
+      reject(subject.reason);
+      continue;
+    }
+    if (subject !== null) {
+      // Prior ventures: a third-party page must name the venture and one of this team's founders.
+      // Common names can still collide; a founder can dispute, and a reviewer decides.
+      if (isVentureOwnSite(source.url, subject)) {
+        reject("SELF_PUBLISHED_SOURCE");
+        continue;
+      }
+      if (!namesVentureAndFounder(source.text ?? "", subject, input.project.founderNames ?? [])) {
+        reject("ENTITY_UNCONFIRMED");
+        continue;
+      }
+    } else if (!MARKET_METRICS.has(claim.metric_code)) {
+      // Company-specific facts must name the company and, unless the founder submitted the page,
+      // its domain too. Student startups often share names with unrelated companies.
       const text = source.text ?? "";
       const namesCompany = mentions(text, input.project.name);
       const namesDomain = input.project.siteKey !== null && mentions(text, input.project.siteKey);
@@ -259,6 +317,7 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
     }
     push({
       metric_code: claim.metric_code,
+      subject,
       value_numeric: value[0],
       value_text: value[1],
       period_end: claim.period_end,
@@ -290,6 +349,7 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
     }
     push({
       metric_code: code,
+      subject: null,
       value_numeric: normalizeDecimal(["0", "0.25", "0.5", "0.75", "1"][assessment.level]),
       value_text: assessment.rationale,
       period_end: null,
@@ -307,6 +367,7 @@ export function verifyResearch(input: VerifyInput): VerifyResult {
   for (const claim of input.collected) {
     push({
       metric_code: claim.metric_code,
+      subject: null,
       value_numeric: normalizeDecimal(claim.value_numeric),
       value_text: claim.detail,
       period_end: null,
@@ -332,7 +393,7 @@ function dedupe(proposals: EvidenceProposal[]): EvidenceProposal[] {
   return [...proposals]
     .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
     .filter((proposal) => {
-      const key = [proposal.metric_code, proposal.value_numeric, proposal.metric_code.startsWith("assessment.") ? "" : proposal.value_text, proposal.period_end, proposal.status].join("|");
+      const key = [proposal.metric_code, proposal.subject ?? "", proposal.value_numeric, proposal.metric_code.startsWith("assessment.") ? "" : proposal.value_text, proposal.period_end, proposal.status].join("|");
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -353,7 +414,8 @@ function markContradictions(proposals: EvidenceProposal[]): EvidenceProposal[] {
   const groups = new Map<string, EvidenceProposal[]>();
   for (const proposal of proposals) {
     if (proposal.source_type === "AI_ASSESSMENT") continue;
-    const key = `${proposal.metric_code}|${proposal.period_end ?? ""}`;
+    // Different prior ventures are different facts, never contradictions of each other.
+    const key = `${proposal.metric_code}|${proposal.subject ?? ""}|${proposal.period_end ?? ""}`;
     groups.set(key, [...(groups.get(key) ?? []), proposal]);
   }
   const contradicted = new Set<string>();
