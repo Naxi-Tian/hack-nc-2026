@@ -1,0 +1,56 @@
+/* "Meet the founders" calling cards. Used inside .L (landing) and .S (round pages); both define the same tokens. */
+.founders{margin:70px auto 0;max-width:1360px;padding:0 var(--gutter) 30px}
+.founders .fhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px 20px;flex-wrap:wrap;border-top:3px double var(--ink);padding:18px 0;border-bottom:1px solid var(--ink)}
+.founders .fhead h2{font-family:var(--serif);font-weight:500;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.02em;line-height:1}
+.founders .fhead h2 i{font-weight:400;color:var(--green)}
+.founders .fdeck{display:flex;justify-content:center;align-items:flex-start;padding:64px 0 80px}
+.founders .card{position:relative;flex:0 1 360px;min-width:0;margin:0 -16px;padding:22px 22px 20px;background:#ECE5D3;color:#0A0A09;
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.85),0 2px 0 rgba(0,0,0,.3);transition:transform .7s cubic-bezier(.16,1,.3,1),box-shadow .7s cubic-bezier(.16,1,.3,1)}
+.founders .card:nth-child(3n+1){transform:rotate(-5deg) translateY(18px)}
+.founders .card:nth-child(3n+2){transform:rotate(1.5deg);z-index:2}
+.founders .card:nth-child(3n){transform:rotate(6deg) translateY(30px)}
+.founders .fdeck[data-n="1"] .card{transform:rotate(-2deg)}
+.founders .card:hover,.founders .card:focus-within{transform:rotate(0) translateY(-18px) scale(1.03);z-index:5;box-shadow:0 50px 80px -24px rgba(0,0,0,.9),0 2px 0 rgba(0,0,0,.3)}
+.founders canvas.fp{display:block;width:100%;max-width:100%;aspect-ratio:16/10;border:1px solid #c9c1ad;cursor:crosshair}
+.founders .card h3{font-family:var(--serif);font-weight:500;font-size:32px;letter-spacing:-.02em;line-height:1;margin:16px 0 6px}
+.founders .role{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#2f7a3a}
+.founders .from{font-family:var(--serif);font-style:italic;font-size:15px;color:#5d594f;margin-top:3px}
+.founders .asks{list-style:none;margin:14px 0 18px;padding:0;border-top:1px solid #c9c1ad}
+.founders .asks li{display:grid;grid-template-columns:58px 1fr;gap:10px;padding:9px 0;border-bottom:1px dotted #b3ab96;font-family:var(--serif);font-size:14.5px;line-height:1.4}
+.founders .asks li span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5d594f;padding-top:3px}
+/* Connect */
+.founders .cx{position:relative;isolation:isolate;overflow:hidden;display:flex;width:100%;align-items:center;justify-content:center;gap:12px;height:50px;padding:0 20px;
+  font:700 13px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:#0A0A09;border:0;text-decoration:none;cursor:pointer;
+  transition:color .3s cubic-bezier(.16,1,.3,1),transform .16s cubic-bezier(.2,.7,.2,1),box-shadow .3s}
+.founders .cx::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--green);transform:scaleX(0);transform-origin:left;transition:transform .5s cubic-bezier(.16,1,.3,1)}
+.founders .cx:hover,.founders .cx.sent{color:#071208}
+.founders .cx:hover{box-shadow:0 12px 26px -12px rgba(47,158,68,.7)}
+.founders .cx:hover::before,.founders .cx.sent::before{transform:scaleX(1)}
+.founders .cx svg{width:14px;height:14px;flex:none;transition:transform .4s cubic-bezier(.16,1,.3,1)}
+.founders .cx:hover svg.ar{transform:translate(3px,-3px)}
+.founders .cx:active{transform:translateY(1px) scale(.985)}
+.founders .cx:focus-visible{outline:2px solid #2f9e44;outline-offset:3px}
+.founders .cx .ck path{stroke-dasharray:24;stroke-dashoffset:24;animation:cx-check .45s .08s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes cx-check{to{stroke-dashoffset:0}}
+.founders .cx.off{background:transparent;color:#5d594f;border:1px dashed #a39b87;cursor:not-allowed;box-shadow:none}
+.founders .cx.off::before{display:none}
+.founders .cx.off:hover{color:#0A0A09;border-color:#5d594f}
+.founders .cx.off.nope{animation:cx-nope .34s cubic-bezier(.36,.07,.19,.97)}
+@keyframes cx-nope{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+.founders .cx-tip{display:block;min-height:1.6em;margin-top:8px;font:11px/1.5 var(--mono);color:#5d594f;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .35s cubic-bezier(.16,1,.3,1)}
+.founders .cx-tip:not(:empty){opacity:1;transform:none}
+.founders .cx-tip.demo{opacity:0}
+.founders .cx:hover+.cx-tip.demo,.founders .cx:focus-visible+.cx-tip.demo{opacity:1;transform:none}
+.founders .cx.off:hover+.cx-tip,.founders .cx.off:focus-visible+.cx-tip,.founders .cx-tip.show{opacity:1;transform:none}
+.founders .fnote{display:flex;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--rule);font:11px/1.5 var(--mono);color:var(--carbon)}
+/* the card stock carries its own selection colour */
+.founders .card ::selection{background:#0A0A09;color:#ECE5D3}
+@media (max-width:960px){
+.founders{margin-top:50px}
+.founders .fdeck{flex-direction:column;align-items:center;gap:24px;padding:36px 0 44px}
+.founders .card{margin:0;width:100%;max-width:440px;transform:none!important}
+}
+@media (prefers-reduced-motion:reduce){
+.founders .card,.founders .cx,.founders .cx::before,.founders .cx-tip,.founders .cx svg{transition:none}
+.founders .cx.off.nope,.founders .cx .ck path{animation:none;stroke-dashoffset:0}
+}
