@@ -1,0 +1,34 @@
+/* /how/ page styles, scoped under .S-how (moved from the landing page). */
+.S-how .cols5{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--ink)}
+.S-how .step{padding:20px 20px 26px;border-left:1px solid var(--rule)}
+.S-how .step:first-child{border-left:0;padding-left:0}
+.S-how .step .no{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--carbon)}
+.S-how .step h3{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.015em;line-height:1.05;margin:4px 0 10px}
+.S-how .step p{font-size:15.5px;line-height:1.5;color:#cfc8b6}
+.S-how .step .stamp{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--green)}
+.S-how .dropcap:first-letter{font-family:var(--serif);font-weight:500;float:left;font-size:4.1em;line-height:.8;padding:6px 8px 0 0;color:var(--green)}
+@media (max-width:960px){
+.S-how .cols5{grid-template-columns:1fr 1fr}
+.S-how .step{border-left:0;padding:18px 0;border-top:1px solid var(--rule)}
+.S-how .step:nth-child(even){padding-left:16px;border-left:1px solid var(--rule)}
+}
+@media (max-width:620px){
+.S-how .cols5{grid-template-columns:1fr}
+.S-how .step:nth-child(even){padding-left:0;border-left:0}
+}
+
+/* Classifieds: one fictional ad per stage (moved from the landing page). */
+.S-how .classifieds{margin-top:64px;border-top:3px double var(--ink);padding-top:18px}
+.S-how .sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;margin-bottom:18px;flex-wrap:wrap}
+.S-how .sec-head h2{font-family:var(--serif);font-weight:500;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.02em;line-height:1}
+.S-how .sec-head h2 i{font-weight:400}
+.S-how .ads{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);margin-top:6px}
+.S-how .ad{padding:18px 18px 22px;border-left:1px solid var(--rule);transition:background-color .2s}
+.S-how .ad:first-child{border-left:0;padding-left:0}
+.S-how .ad .what{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.S-how .ad p{font-size:15.5px;line-height:1.5;color:#cfc8b6;margin-top:8px}
+.S-how .ad .meta{display:block;margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--carbon)}
+@media (max-width:620px){
+.S-how .ads{grid-template-columns:1fr}
+.S-how .ad{border-left:0;padding:16px 0;border-top:1px solid var(--rule)}
+}
