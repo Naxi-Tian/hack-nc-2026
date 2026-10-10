@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>List Your Company · Prospecto</title>
+<meta name="color-scheme" content="dark">
+<script>try{if(sessionStorage.getItem('pt')){document.documentElement.classList.add('pt-in');sessionStorage.removeItem('pt')}}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sub.css">
+<link rel="stylesheet" href="motion.css">
+<style>
+.desk{display:grid;grid-template-columns:260px 1fr;border:1px solid var(--rule);min-height:520px;margin-top:6px}
+.nb{border-right:1px solid var(--rule);padding:20px;background:#0d0d0b}
+.nb .kicker{display:block;margin-bottom:10px}
+.nb button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px dotted #2f2d28;padding:9px 0;cursor:pointer;transition:opacity .3s}
+.nb button span{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon)}
+.nb button b{font-weight:500;font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb button.todo{opacity:.4}
+.nb button.cur span{color:var(--green)}
+.nb button:hover b{color:var(--green)}
+.stage{padding:34px 48px 30px;display:flex;flex-direction:column;min-width:0}
+.folio{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon)}
+.dots{display:flex;gap:4px;margin-top:10px}
+.dots i{flex:1;height:3px;background:#1f1e1b;transition:background .4s}
+.dots i.on{background:var(--green)}
+.q{margin-top:36px;transition:opacity .28s ease,transform .38s cubic-bezier(.22,1,.36,1)}
+.q.out{opacity:0;transform:translateX(-18px)}
+.q.in{opacity:0;transform:translateX(18px);transition:none}
+.q h2{font-weight:500;font-size:clamp(32px,4vw,50px);letter-spacing:-.02em;line-height:1.04}
+.q h2 i{color:var(--green);font-weight:400}
+.q label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon);margin-top:22px}
+.q input{display:block;width:100%;background:transparent;border:0;border-bottom:2px solid var(--rule);color:var(--ink);font-family:var(--serif);font-size:clamp(22px,2.6vw,30px);padding:8px 0;outline:none;transition:border-color .25s}
+.q input:focus{border-bottom-color:var(--green)}
+.q input::placeholder{color:#45423c;font-style:italic}
+.q .hint{font-style:italic;color:var(--carbon);font-size:15px;margin-top:12px}
+.q .err{color:var(--red);font-family:var(--mono);font-size:11px;margin-top:8px;min-height:1em}
+.opts{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.opts button{font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding:16px 20px;border:1px solid var(--rule);background:transparent;cursor:pointer;transition:all .2s}
+.opts button:hover{border-color:var(--ink)}
+.opts button[aria-pressed=true]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.acts{margin-top:auto;padding-top:34px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.acts .enter{font-family:var(--mono);font-size:11px;color:var(--carbon)}
+.acts kbd{border:1px solid var(--rule);padding:1px 6px;font-family:var(--mono)}
+.done{display:none;grid-template-columns:1.1fr 1fr;border:1px solid var(--rule);margin-top:6px}
+.done.on{display:grid;animation:pt-rise .7s cubic-bezier(.22,1,.36,1) both}
+.done > div{padding:30px}
+.done > div + div{border-left:1px solid var(--rule);background:#0d0d0b}
+.ad{border:3px double var(--ink);padding:18px;margin-top:14px}
+.ad .what{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.ad h3{font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1.05;margin:8px 0 6px}
+.ad p{color:var(--ink-2);font-size:16px}
+.ad .meta{display:block;font-family:var(--mono);font-size:11px;color:var(--carbon);margin-top:12px;overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);margin-top:18px}
+.stats div{padding-top:12px}
+.stats div+div{border-left:1px solid var(--rule);padding-left:14px}
+.stats span{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+.stats b{font-family:var(--mono);font-weight:500;font-size:18px}
+.snip{display:block;font-family:var(--mono);font-size:12.5px;background:#070706;border:1px solid var(--rule);padding:14px;margin:12px 0 14px;overflow-x:auto;white-space:nowrap;color:var(--ink-2)}
+.snip em{font-style:normal;color:var(--green)}
+.done h2{font-weight:500;font-size:clamp(32px,3.6vw,48px);letter-spacing:-.02em;line-height:1.02}
+.done h2 i{color:var(--green);font-weight:400}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:860px){
+  .desk{grid-template-columns:1fr;min-height:0}
+  .nb{display:none}
+  .stage{padding:24px 18px}
+  .done{grid-template-columns:1fr}
+  .done > div + div{border-left:0;border-top:1px solid var(--rule)}
+  .done > div{padding:22px 18px}
+}
+@media (prefers-reduced-motion:reduce){.q,.q.out,.q.in{transition:none;transform:none;opacity:1}.done.on{animation:none}}
+</style>
+</head>
+<body>
+<div class="pt" aria-hidden="true"><b>P</b><i></i></div>
+
+<header class="page top">
+  <a class="back" href="index.html"><span>←</span> Front page</a>
+  <a class="mark" href="index.html">The Prospecto</a>
+  <nav class="tabs"><a href="rounds.html">Rounds</a><a href="launch.html" aria-current="page">List</a><a href="news.html">News</a></nav>
+</header>
+
+<main class="page">
+  <div class="head">
+    <h1 data-hero-reveal>List your <i>company.</i></h1>
+    <span class="kicker">Seven questions · about 3 minutes</span>
+  </div>
+
+  <section class="desk" id="desk">
+    <aside class="nb" id="nb"><span class="kicker">Your answers</span></aside>
+    <div class="stage">
+      <div class="folio"><span id="folio">Question 1 of 7</span><span id="sec">Identity</span></div>
+      <div class="dots" id="dots"></div>
+      <form class="q" id="q" autocomplete="on" novalidate></form>
+      <div class="acts">
+        <button class="btn ghost" type="button" id="prev">← Back</button>
+        <span class="enter">Press <kbd>Enter ↵</kbd></span>
+        <span class="row"><button class="btn ghost" type="button" id="skip">Skip</button><button class="btn go" type="button" id="next">Next →</button></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="done" id="done" aria-live="polite">
+    <div>
+      <span class="kicker">Proof · how backers see you</span>
+      <div class="ad">
+        <span class="what">Wanted: first believers</span>
+        <h3 id="p-name"></h3>
+        <p id="p-line"></p>
+        <span class="meta" id="p-meta"></span>
+      </div>
+      <div class="stats">
+        <div><span>Anchor</span><b id="p-anchor"></b></div>
+        <div><span>Unit price</span><b class="up" id="p-price"></b></div>
+        <div><span>Cap</span><b>100,000</b></div>
+      </div>
+    </div>
+    <div>
+      <h2>Ready to <i>print.</i></h2>
+      <p class="kicker" style="margin-top:16px">Your “Invest in us” link</p>
+      <code class="snip" id="snip"></code>
+      <div class="row">
+        <button class="btn ghost" type="button" id="edit">← Edit answers</button>
+        <button class="btn" type="button" id="copy">Copy link</button>
+        <a class="btn go" href="rounds.html">Publish →</a>
+      </div>
+      <p class="kicker" style="margin-top:18px;text-transform:none;letter-spacing:.02em">Demo only: simulated units, illustrative estimate.</p>
+    </div>
+  </section>
+
+  <div class="foot"><a href="index.html">← Front page</a><a href="rounds.html">Browse rounds →</a></div>
+</main>
+
+<script src="motion.js"></script>
+<script>
+(() => {
+  const ANCHOR = {IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, REVENUE: 2000000, GROWTH: 5000000};
+  const STEPS = [
+    {k: 'name', sec: 'Identity', q: 'What’s it <i>called?</i>', fields: [{k: 'name', ph: 'Mothlight'}], hint: 'A working title is fine.', req: true},
+    {k: 'line', sec: 'Identity', q: 'Say it in <i>one line.</i>', fields: [{k: 'line', ph: 'Quiet study rooms at 2 a.m.'}], req: true},
+    {k: 'stage', sec: 'Stage', q: 'How far <i>along</i> is it?', opts: Object.keys(ANCHOR), req: true},
+    {k: 'entity', sec: 'Stage', q: 'Is it <i>incorporated?</i>', opts: ['Unincorporated', 'Incorporated'], hint: 'Either is fine. We label it honestly.', req: true},
+    {k: 'site', sec: 'Web', q: 'Where can backers <i>see it?</i>', fields: [{k: 'site', ph: 'https://mothlight.app', type: 'url'}], hint: 'No site? A Notion, Figma or demo link works.'},
+    {k: 'founder', sec: 'Founders', q: 'Who’s <i>building</i> it?', fields: [{k: 'fname', l: 'Name', ph: 'Ana Ruiz'}, {k: 'role', l: 'Role', ph: 'CEO'}, {k: 'li', l: 'LinkedIn', ph: 'linkedin.com/in/ana-ruiz', type: 'url'}]},
+    {k: 'contact', sec: 'Contact', q: 'How do backers <i>reach you?</i>', fields: [{k: 'pub', l: 'Public contact', ph: 'hello@mothlight.app', type: 'email'}, {k: 'acct', l: 'Account email · private', ph: 'ana@unc.edu', type: 'email'}]},
+  ];
+  const data = {};
+  let cur = 0;
+  const $ = id => document.getElementById(id);
+  const q = $('q'), nb = $('nb'), dots = $('dots');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+
+  STEPS.forEach((s, i) => {
+    dots.appendChild(document.createElement('i'));
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = `<span>${s.sec}</span><b>—</b>`;
+    b.onclick = () => go(i);
+    nb.appendChild(b);
+  });
+  const summary = s => s.fields ? s.fields.map(f => data[f.k]).filter(Boolean).join(' · ') : data[s.k];
+
+  function paint() {
+    const s = STEPS[cur];
+    $('folio').textContent = `Question ${cur + 1} of ${STEPS.length}`;
+    $('sec').textContent = s.sec;
+    [...dots.children].forEach((d, i) => d.classList.toggle('on', i <= cur));
+    [...nb.querySelectorAll('button')].forEach((b, i) => {
+      b.querySelector('b').textContent = summary(STEPS[i]) || '—';
+      b.classList.toggle('todo', !summary(STEPS[i]) && i !== cur);
+      b.classList.toggle('cur', i === cur);
+    });
+    let h = `<h2>${s.q}</h2>`;
+    if (s.opts) h += `<div class="opts">${s.opts.map(o => `<button type="button" aria-pressed="${data[s.k] === o}" data-v="${o}">${o}</button>`).join('')}</div>`;
+    else h += s.fields.map(f => `${f.l ? `<label for="f-${f.k}">${f.l}</label>` : ''}<input id="f-${f.k}" name="${f.k}" type="${f.type || 'text'}" placeholder="${f.ph}" value="${esc(data[f.k] || '')}" aria-label="${f.l || s.sec}">`).join('');
+    h += `${s.hint ? `<p class="hint">${s.hint}</p>` : ''}<p class="err" id="err"></p>`;
+    q.innerHTML = h;
+    q.querySelectorAll('.opts button').forEach(b => b.onclick = () => { data[s.k] = b.dataset.v; next(); });
+    $('prev').style.visibility = cur ? 'visible' : 'hidden';
+    $('skip').style.display = s.req ? 'none' : '';
+    const first = q.querySelector('input'); if (first) first.focus({preventScroll: true});
+  }
+  function save() { q.querySelectorAll('input').forEach(i => data[i.name] = i.value.trim()); }
+  function go(i) {
+    save();
+    if (reduce) { cur = i; paint(); return; }
+    q.classList.add('out');
+    setTimeout(() => { cur = i; paint(); q.classList.remove('out'); q.classList.add('in'); requestAnimationFrame(() => requestAnimationFrame(() => q.classList.remove('in'))); }, 220);
+  }
+  function next(skip) {
+    save();
+    const s = STEPS[cur];
+    if (!skip && s.req && !summary(s)) { $('err').textContent = 'Needed to publish.'; return; }
+    if (cur < STEPS.length - 1) go(cur + 1); else finish();
+  }
+  function finish() {
+    const anchor = ANCHOR[data.stage] || ANCHOR.IDEA, price = anchor / 1e6;
+    const slug = (data.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'company';
+    $('p-name').textContent = data.name;
+    $('p-line').textContent = `${data.line.replace(/[.!?]+$/, '')}. ${data.entity === 'Incorporated' ? 'Incorporated' : 'Unincorporated project'} · ${data.stage}.`;
+    $('p-meta').textContent = [data.site, data.pub, data.fname && `${data.fname}${data.role ? ', ' + data.role : ''}`].filter(Boolean).join(' · ') || 'Add links any time.';
+    $('p-anchor').textContent = '$' + anchor.toLocaleString();
+    $('p-price').textContent = '$' + price.toFixed(2);
+    $('snip').innerHTML = `&lt;a href=<em>"https://prospecto.finance/i/${esc(slug)}"</em>&gt;Invest in us →&lt;/a&gt;`;
+    $('desk').style.display = 'none';
+    $('done').classList.add('on');
+  }
+  $('next').onclick = () => next();
+  $('skip').onclick = () => next(true);
+  $('prev').onclick = () => cur && go(cur - 1);
+  $('edit').onclick = () => { $('done').classList.remove('on'); $('desk').style.display = ''; go(0); };
+  $('copy').onclick = async e => { try { await navigator.clipboard.writeText($('snip').textContent); e.target.textContent = 'Copied'; } catch (err) { e.target.textContent = 'Select & copy'; } };
+  q.addEventListener('submit', e => { e.preventDefault(); next(); });
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); next(); } });
+  paint();
+})();
+</script>
+</body>
+</html>

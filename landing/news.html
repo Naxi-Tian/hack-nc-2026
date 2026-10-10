@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>News · Prospecto</title>
+<meta name="color-scheme" content="dark">
+<script>try{if(sessionStorage.getItem('pt')){document.documentElement.classList.add('pt-in');sessionStorage.removeItem('pt')}}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sub.css">
+<link rel="stylesheet" href="motion.css">
+<style>
+.tabs2{display:flex;gap:26px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--ink);overflow-x:auto;white-space:nowrap}
+.tabs2 button{background:none;border:0;color:var(--carbon);padding:0 0 12px;cursor:pointer;transition:color .2s,box-shadow .25s}
+.tabs2 button:hover{color:var(--ink)}
+.tabs2 button[aria-pressed=true]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--green)}
+.row{border-bottom:1px solid var(--rule);transition:background .25s}
+.row:hover,.row.open{background:#0f0f0d}
+.row > button{display:grid;grid-template-columns:150px 1fr 200px;gap:28px;width:100%;text-align:left;background:none;border:0;padding:30px 18px;cursor:pointer}
+.row .sec{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon);padding-top:8px}
+.row .h2{display:block;font-weight:500;font-size:clamp(24px,2.5vw,34px);letter-spacing:-.015em;line-height:1.1}
+.row .dek{display:block;color:var(--carbon);font-size:16.5px;line-height:1.5;margin-top:10px;max-width:640px}
+.row .meta{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;gap:14px;font-family:var(--mono);font-size:11.5px;color:var(--carbon);text-align:right}
+.row .read{color:var(--ink);font-size:12.5px;letter-spacing:.04em;display:inline-flex;gap:8px;align-items:center}
+.row .read span{display:inline-block;transition:transform .3s cubic-bezier(.22,1,.36,1)}
+.row:hover .read{color:var(--green)}
+.row:hover .read span{transform:translateX(4px)}
+.row.open .read span{transform:rotate(90deg)}
+.body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s cubic-bezier(.22,1,.36,1)}
+.row.open .body{grid-template-rows:1fr}
+.body > div{overflow:hidden}
+.body .in{padding:0 18px 30px calc(150px + 28px + 18px);max-width:calc(150px + 28px + 18px + 680px)}
+.body p{color:var(--ink-2);font-size:17px;line-height:1.6}
+.body p:first-child::first-letter{float:left;font-size:3.2em;line-height:.85;padding:4px 8px 0 0;color:var(--green);font-weight:500}
+.body .cta{display:inline-flex;margin-top:16px;font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--green);padding-bottom:2px}
+.row.enter{animation:row-in .55s cubic-bezier(.22,1,.36,1) both;animation-delay:calc(min(var(--n),5) * 70ms)}
+@keyframes row-in{from{opacity:0;transform:translateY(14px)}}
+@media (max-width:760px){
+  .row > button{grid-template-columns:1fr;gap:8px;padding:22px 0}
+  .row .sec{padding-top:0}
+  .row .meta{flex-direction:row;align-items:center}
+  .body .in{padding:0 0 24px}
+}
+@media (prefers-reduced-motion:reduce){.row.enter{animation:none}.body{transition:none}}
+</style>
+</head>
+<body>
+<div class="pt" aria-hidden="true"><b>P</b><i></i></div>
+
+<header class="page top">
+  <a class="back" href="index.html"><span>←</span> Front page</a>
+  <a class="mark" href="index.html">The Prospecto</a>
+  <nav class="tabs"><a href="rounds.html">Rounds</a><a href="launch.html">List</a><a href="news.html" aria-current="page">News</a></nav>
+</header>
+
+<main class="page">
+  <div class="head">
+    <h1 data-hero-reveal>The <i>news.</i></h1>
+    <span class="kicker">Explainers · round reports · dispatches</span>
+  </div>
+
+  <div class="tabs2" id="tabs" role="group" aria-label="Sections"></div>
+  <section id="list" aria-live="polite"></section>
+
+  <div class="foot"><a href="rounds.html">← Rounds</a><a href="launch.html">List your company →</a></div>
+</main>
+
+<script src="motion.js"></script>
+<script>
+(() => {
+  const POSTS = [
+    {sec: 'Explainer', h: 'What you actually own when you back an idea', dek: 'Simulated units, demo credits, and why none of it becomes equity on its own.', date: 'Oct 10, 2026', min: 6, body: 'Buying 1,000 units of Mothlight debits $100 of demo credits, credits Mothlight’s round and issues 1,000 new units, all in one transaction. You don’t get equity, cash value or dividends.', co: ['Mothlight', 'rounds.html']},
+    {sec: 'Round report', h: 'Fernhill Robotics passes 60% with 12 days to go', dek: '214 backers, $144,904 in demo credits, and the price hasn’t moved a cent.', date: 'Oct 9, 2026', min: 3, body: 'The weeding-robot company opened at a fixed $2.36 per unit. 61,400 of 100,000 units are issued. The price stays fixed until the round closes.', co: ['Fernhill', 'index.html#rounds']},
+    {sec: 'Guide', h: 'How to price a company that’s still a napkin sketch', dek: 'Walking through valuation-model-v1, one rubric score at a time.', date: 'Oct 7, 2026', min: 9, body: 'An idea-stage anchor starts at $100,000. Product, traction, team and financial readiness move it between 0.5× and 1.5×. Unknown answers count as zero, not as failure.', co: ['the Estimate Desk', 'index.html#desk']},
+    {sec: 'Dispatch', h: '“We interviewed 40 students. Here’s what they said.”', dek: 'Mothlight’s first founder update since opening its round.', date: 'Oct 6, 2026', min: 4, body: 'Thirty-one of forty said they’d leave the library before 2 a.m. if they could find an empty room. Next: a waitlist test at two dorms.', co: ['Mothlight', 'rounds.html']},
+    {sec: 'Round report', h: 'Kiln Labs’ round fills in nine days', dek: 'The first Growth-stage round on Prospecto is fully issued.', date: 'Oct 6, 2026', min: 2, body: 'All 100,000 units were issued at $5.25. Existing holdings stay exactly as they are; the round simply stops accepting purchases.', co: ['open rounds', 'rounds.html']},
+    {sec: 'Explainer', h: 'Why a fixed price is a feature, not a bug', dek: 'No order book, no resale: what primary issuance means for backers.', date: 'Oct 4, 2026', min: 5, body: 'Every unit comes straight from the startup at the price the founder published. Nobody can bid it up or sell it to you second-hand.', co: ['open rounds', 'rounds.html']},
+  ];
+  const SECS = ['All', 'Explainer', 'Round report', 'Guide', 'Dispatch'];
+  const tabs = document.getElementById('tabs'), list = document.getElementById('list');
+  let active = 'All';
+  SECS.forEach(s => {
+    const b = document.createElement('button'); b.textContent = {All: 'All', Explainer: 'Explainers', 'Round report': 'Round reports', Guide: 'Guides', Dispatch: 'Dispatches'}[s]; b.setAttribute('aria-pressed', s === active);
+    b.onclick = () => { active = s; [...tabs.children].forEach(x => x.setAttribute('aria-pressed', x === b)); render(); };
+    tabs.appendChild(b);
+  });
+  function render() {
+    list.innerHTML = POSTS.filter(p => active === 'All' || p.sec === active).map((p, i) => `
+      <article class="row enter" style="--n:${i}">
+        <button type="button" aria-expanded="false">
+          <span class="sec">${p.sec}</span>
+          <span><span class="h2">${p.h}</span><span class="dek">${p.dek}</span></span>
+          <span class="meta"><span>${p.date} · ${p.min} min</span><span class="read">Read <span>→</span></span></span>
+        </button>
+        <div class="body"><div><div class="in"><p>${p.body}</p><a class="cta" href="${p.co[1]}">See ${p.co[0]} →</a></div></div></div>
+      </article>`).join('');
+    list.querySelectorAll('.row > button').forEach(b => b.onclick = () => {
+      const row = b.parentElement, open = !row.classList.contains('open');
+      list.querySelectorAll('.row.open').forEach(r => { r.classList.remove('open'); r.firstElementChild.setAttribute('aria-expanded', 'false'); });
+      row.classList.toggle('open', open); b.setAttribute('aria-expanded', open);
+    });
+  }
+  render();
+})();
+</script>
+</body>
+</html>
