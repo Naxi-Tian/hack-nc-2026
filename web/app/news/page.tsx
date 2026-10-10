@@ -18,7 +18,7 @@ export default function NewsPage() {
           <span className="kicker">Explainers · round reports · dispatches</span>
         </div>
         <NewsIndex />
-        <div className="foot"><Link href="/rounds/">← Rounds</Link><Link href="/launch/">List your company →</Link></div>
+        <div className="foot"><Link href="/rounds/">← Back a startup</Link><Link href="/launch/">List your company →</Link></div>
       </main>
     </div>
   );

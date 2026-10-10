@@ -6,8 +6,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 /*
  * Imperative effects for the landing page, ported from landing/index.html:
- * ticker tape, split-flap board, Estimate Desk, round page (fills, chart, quote),
- * WebGL halftone plate and the B1 scroll choreography.
+ * ticker tape, split-flap board, WebGL halftone plate and the B1 scroll choreography.
+ * The round terminal itself is <RoundTerminal>; this file only animates it on scroll.
  * Everything it creates is tagged data-gen and torn down in cleanup, so React
  * (including StrictMode double effects) and route changes stay safe.
  */
@@ -109,128 +109,6 @@ export default function LandingFX() {
       paintSub(r);
     }, 2600);
 
-    /* ── estimate desk ── */
-    const STAGES = Object.keys(ANCHOR) as Stage[];
-    const CATS = [
-      { k: "product", l: "Product", w: 0.3, h: ["No milestone evidence", "Milestone described", "Working demo for your stage", "Demo tested with intended users", "Repeated milestones, with evidence"] },
-      { k: "traction", l: "Traction", w: 0.3, h: ["No validation yet", "Informal conversations", "Documented interviews or pilot", "Repeat use or committed pilots", "Multiple corroborated sources"] },
-      { k: "team", l: "Team", w: 0.25, h: ["No information", "Roles and availability described", "Relevant experience, named owners", "Prior relevant delivery", "Complementary and fully committed"] },
-      { k: "financial", l: "Financial readiness", w: 0.15, h: ["No usable inputs", "Business model described", "Consistent assumptions supplied", "Dated budget and runway", "Documented, with scenarios"] },
-    ] as const;
-    const state: { stage: Stage } & Record<(typeof CATS)[number]["k"], number> = { stage: "IDEA", product: 2, traction: 1, team: 2, financial: 1 };
-    const stagesEl = $("stages"), slidersEl = $("sliders");
-    STAGES.forEach((s) => {
-      const b = document.createElement("button"); b.textContent = s; b.setAttribute("aria-pressed", String(s === state.stage)); b.dataset.gen = "";
-      b.onclick = () => { state.stage = s; [...stagesEl.children].forEach((x) => x.setAttribute("aria-pressed", String(x === b))); calc(); };
-      stagesEl.appendChild(b);
-    });
-    CATS.forEach((c) => {
-      const d = document.createElement("div"); d.className = "sl"; d.dataset.gen = "";
-      d.innerHTML = `<label for="r-${c.k}">${c.l} · ${Math.round(c.w * 100)}% <b id="v-${c.k}"></b></label><input type="range" id="r-${c.k}" min="0" max="4" step="1" value="${state[c.k]}"><div class="hint" id="h-${c.k}"></div>`;
-      slidersEl.appendChild(d);
-      d.querySelector("input")!.addEventListener("input", (e) => { state[c.k] = +(e.target as HTMLInputElement).value; calc(); });
-    });
-    let shown = 0, raf = 0;
-    const tweenTo = (el: HTMLElement, to: number) => {
-      cancelAnimationFrame(raf);
-      const from = shown, t0 = performance.now(), dur = reduce ? 1 : 520;
-      const step = (t: number) => {
-        const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
-        shown = from + (to - from) * e; el.textContent = fmt$(Math.round(shown / 1000) * 1000);
-        if (k < 1) raf = requestAnimationFrame(step); else { shown = to; el.textContent = fmt$(to); }
-      };
-      raf = requestAnimationFrame(step);
-    };
-    cleanups.push(() => cancelAnimationFrame(raf));
-    function calc() {
-      let score = 0;
-      CATS.forEach((c) => { const v = state[c.k] * 25; score += c.w * v; $("v-" + c.k).textContent = String(v); $("h-" + c.k).textContent = c.h[state[c.k]]; });
-      const anchor = ANCHOR[state.stage] * (0.5 + score / 100), lo = anchor * 0.6, hi = anchor * 1.5;
-      tweenTo($("est"), Math.round(anchor));
-      $("score").textContent = score.toFixed(1);
-      const unit = Math.round(anchor / 1e6 * 100) / 100;
-      $("unit").textContent = fmt$(unit, 2);
-      $("raise").textContent = fmt$(Math.round(unit * 100000));
-      $("lo").textContent = "Low " + fmt$(Math.round(lo));
-      $("hi").textContent = "High " + fmt$(Math.round(hi));
-      const max = ANCHOR[state.stage] * 1.5 * 1.5, pc = (v: number) => (v / max * 100) + "%";
-      const rng = $("rng"); rng.style.left = pc(lo); rng.style.width = `calc(${pc(hi)} - ${pc(lo)})`;
-      $("est-pin").style.left = pc(anchor);
-    }
-    calc();
-
-    /* ── round page: fills, chart, quote ── */
-    const fills = $("fills");
-    const seedFills: [string, number][] = [["14:22:07", 1000], ["14:21:40", 250], ["14:19:12", 4000], ["14:18:55", 100], ["14:16:03", 1500], ["14:12:47", 500], ["14:11:30", 2000], ["14:09:02", 300], ["14:06:18", 750], ["14:02:44", 1000], ["13:58:09", 120], ["13:55:31", 2500], ["13:51:20", 600], ["13:47:58", 1000], ["13:44:13", 200]];
-    const fillRow = (t: string, u: number, isNew = false) => {
-      const r = document.createElement("div"); r.className = "fr" + (isNew ? " new" : ""); r.dataset.gen = "";
-      r.innerHTML = `<i style="width:${Math.max(4, u / 4000 * 100)}%"></i><span class="t">${t}</span><span class="u">${u.toLocaleString()}</span><span>${fmt$(u * 2.36, 2)}</span>`;
-      return r;
-    };
-    seedFills.forEach(([t, u]) => fills.appendChild(fillRow(t, u)));
-    if (!reduce) every(() => {
-      const t = new Date().toTimeString().slice(0, 8), u = [100, 250, 500, 1000, 1200, 2000][(Math.random() * 6) | 0];
-      fills.insertBefore(fillRow(t, u, true), fills.children[1]);
-      if (fills.children.length > 16) fills.lastElementChild!.remove();
-    }, 3400);
-
-    const svg = $<SVGSVGElement>("chart");
-    let cum = 0, seed = 7; const pts: number[] = [], vols: number[] = [];
-    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i <= 72; i++) {
-      const v = (i < 6 ? 2600 : 380 + rand() * 1100 * (i % 4 === 2 ? 2.4 : 1)) * (i > 60 ? 1.5 : 1);
-      cum += v; pts.push(cum); vols.push(v);
-    }
-    const kk = 61400 / cum; pts.forEach((p, i) => (pts[i] = p * kk)); vols.forEach((v, i) => (vols[i] = v * kk));
-    const MONO = 'style="font-family:var(--mono)"';
-    const drawChart = () => {
-      const W = Math.max(280, svg.clientWidth), Hh = svg.clientHeight || 330, padR = 64, padB = 26;
-      svg.setAttribute("viewBox", `0 0 ${W} ${Hh}`);
-      const yMax = 100000, cx = (i: number) => i / (pts.length - 1) * (W - padR), cy = (v: number) => (Hh - padB) - v / yMax * (Hh - padB - 16);
-      let line = `M0 ${cy(0)}`; pts.forEach((p, i) => { line += ` H${cx(i).toFixed(1)} V${cy(p).toFixed(1)}`; });
-      const vmax = Math.max(...vols), bw = Math.max(2, (W - padR) / pts.length * 0.55);
-      let g = "";
-      [0, 25000, 50000, 75000, 100000].forEach((v) => {
-        g += `<line x1="0" x2="${W - padR}" y1="${cy(v)}" y2="${cy(v)}" stroke="${v === 100000 ? "#5a2a22" : "#1d1c19"}" stroke-dasharray="${v === 100000 ? "0" : "2 4"}"/>`;
-        g += `<text x="${W - padR + 10}" y="${cy(v) + 4}" fill="#8A857A" font-size="11" ${MONO}>${v ? v / 1000 + "K" : "0"}</text>`;
-      });
-      g += `<text x="6" y="${cy(100000) - 6}" fill="#EF5A43" font-size="10.5" ${MONO} letter-spacing="1">CAP · 100,000 UNITS</text>`;
-      vols.forEach((v, i) => { const h = v / vmax * Hh * 0.18; g += `<rect class="vb" x="${(cx(i) - bw / 2).toFixed(1)}" y="${(Hh - padB - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="#5BD06A" opacity=".28"/>`; });
-      g += `<path d="${line} V${cy(0)} Z" fill="url(#gfill)" class="area"/>`;
-      g += `<path d="${line}" fill="none" stroke="#5BD06A" stroke-width="1.6" class="ln"/>`;
-      const ly = cy(pts[pts.length - 1]);
-      g += `<line x1="0" x2="${W - padR}" y1="${ly}" y2="${ly}" stroke="#5BD06A" stroke-dasharray="2 3" opacity=".6"/>`;
-      g += `<rect x="${W - padR + 2}" y="${ly - 10}" width="${padR - 4}" height="20" fill="#5BD06A"/><text x="${W - padR + 8}" y="${ly + 4}" fill="#071208" font-size="11" font-weight="700" ${MONO}>61.4K</text>`;
-      const labels = W < 500 ? ["Sep 22", "Sep 30", "Oct 8"] : ["Sep 22", "Sep 26", "Sep 30", "Oct 4", "Oct 8"];
-      labels.forEach((l, i) => { g += `<text x="${i / (labels.length - 1) * (W - padR - 44) + 4}" y="${Hh - 6}" fill="#8A857A" font-size="11" ${MONO}>${l}</text>`; });
-      svg.innerHTML = `<defs><linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5BD06A" stop-opacity=".22"/><stop offset="1" stop-color="#5BD06A" stop-opacity="0"/></linearGradient></defs>${g}`;
-    };
-    drawChart();
-    let cw = svg.clientWidth;
-    const onResizeChart = () => { if (Math.abs(svg.clientWidth - cw) > 2) { cw = svg.clientWidth; drawChart(); ScrollTrigger.refresh(); } };
-    addEventListener("resize", onResizeChart);
-    cleanups.push(() => { removeEventListener("resize", onResizeChart); svg.innerHTML = ""; });
-
-    const qn = $("qn"), qt = $("qt"), qa = $("qa"), buy = $("buy"), chips = $("chips");
-    const onChip = (e: Event) => {
-      const b = (e.target as Element).closest("button") as HTMLButtonElement | null; if (!b) return;
-      [...chips.children].forEach((x) => x.classList.toggle("on", x === b));
-      const q = +b.dataset.q!;
-      qn.textContent = q.toLocaleString(); qt.textContent = fmt$(q * 2.36, 2);
-      qa.textContent = (q / 1100000 * 100).toFixed(4) + "%"; buy.textContent = `Buy ${q.toLocaleString()} units`;
-    };
-    chips.addEventListener("click", onChip);
-    const onBuy = () => { buy.textContent = "Quote locked · demo"; later(() => (buy.textContent = `Buy ${qn.textContent} units`), 1600); };
-    buy.addEventListener("click", onBuy);
-    cleanups.push(() => { chips.removeEventListener("click", onChip); buy.removeEventListener("click", onBuy); });
-    let left = 12 * 86400 + 4 * 3600 + 11 * 60 + 9;
-    const cd = $("cd");
-    every(() => {
-      left--;
-      const d = Math.floor(left / 86400), h = Math.floor(left % 86400 / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
-      cd.textContent = `${d}d ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-    }, 1000);
-
     /* ── halftone WebGL plate ── */
     cleanups.push(initHalftone($<HTMLCanvasElement>("halftone"), reduce));
 
@@ -244,8 +122,8 @@ export default function LandingFX() {
         gsap.set(".L .t-chrome", { opacity: 0 });
         gsap.set(".L .t-in", { opacity: 0, y: 14 });
         gsap.set("#fills", { clipPath: "inset(0 0 100% 0)" });
-        gsap.set("#chart .ln", { strokeDasharray: 3000, strokeDashoffset: 3000 });
-        gsap.set("#chart .area, #chart .vb", { opacity: 0 });
+        gsap.set("#chart .base .ln", { strokeDasharray: 3000, strokeDashoffset: 3000 });
+        gsap.set("#chart .base .area, #chart .base .vb", { opacity: 0 });
         gsap.timeline({ scrollTrigger: { trigger: "#stage", start: "top 8%", end: "+=1300", scrub: 0.6, pin: true } })
           .to("#paper .paper-head", { opacity: 0, y: -24, duration: 0.4 })
           .to("#paper > div:not(.paper-head) > *", { opacity: 0, y: -18, stagger: 0.04, duration: 0.5 }, "<.05")
@@ -253,15 +131,15 @@ export default function LandingFX() {
           .to(".L .t-chrome", { opacity: 1, duration: 0.4, stagger: 0.05 }, "<")
           .to(".L .t-in", { opacity: 1, y: 0, stagger: 0.05, duration: 0.5 }, "<.1")
           .to("#fills", { clipPath: "inset(0 0 0% 0)", duration: 0.8, ease: "none" }, "<")
-          .to("#chart .ln", { strokeDashoffset: 0, duration: 1.2, ease: "none" }, "<.1")
-          .to("#chart .area", { opacity: 1, duration: 0.6 }, "<.4")
-          .to("#chart .vb", { opacity: 0.28, stagger: 0.006, duration: 0.2 }, "<");
+          .to("#chart .base .ln", { strokeDashoffset: 0, duration: 1.2, ease: "none" }, "<.1")
+          .to("#chart .base .area", { opacity: 1, duration: 0.6 }, "<.4")
+          .to("#chart .base .vb", { opacity: 0.28, stagger: 0.006, duration: 0.2 }, "<");
       });
       cleanups.push(() => mm.revert());
     }
 
     // Board rows and the B1 pin spacer are inserted after Next has already scrolled
-    // to a hash target (e.g. /#desk from /news/), so re-align once layout settles.
+    // to a hash target (e.g. /#rounds from another page), so re-align once layout settles.
     if (location.hash) {
       const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
       if (target) requestAnimationFrame(() => { ScrollTrigger.refresh(); target.scrollIntoView(); });
@@ -372,7 +250,9 @@ function initHalftone(cv: HTMLCanvasElement, reduce: boolean): () => void {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
   resize();
-  addEventListener("resize", resize);
+  // The plate stretches to match the side column (landing.css), so watch the canvas, not just the window.
+  const ro = new ResizeObserver(resize);
+  ro.observe(cv);
   const plate = cv.parentElement!;
   const onMove = (e: PointerEvent) => { const b = cv.getBoundingClientRect(); mouse.tx = (e.clientX - b.left) / b.width; mouse.ty = 1 - (e.clientY - b.top) / b.height; };
   plate.addEventListener("pointermove", onMove);
@@ -383,6 +263,6 @@ function initHalftone(cv: HTMLCanvasElement, reduce: boolean): () => void {
   else { const loop = (t: number) => { if (visible) draw(t); raf = requestAnimationFrame(loop); }; raf = requestAnimationFrame(loop); }
   return () => {
     cancelAnimationFrame(raf); io.disconnect();
-    removeEventListener("resize", resize); plate.removeEventListener("pointermove", onMove);
+    ro.disconnect(); plate.removeEventListener("pointermove", onMove);
   };
 }

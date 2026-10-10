@@ -6,7 +6,7 @@ import SubHeader from "@/components/SubHeader";
 import "@/styles/sub.css";
 import "@/styles/rounds.css";
 
-export const metadata: Metadata = { title: "Open Rounds · Prospecto" };
+export const metadata: Metadata = { title: "Back a startup · Prospecto" };
 
 export default function RoundsPage() {
   return (
