@@ -1,20 +1,21 @@
 import { createHmac } from "node:crypto";
 
-const DOMAIN_PATTERN = /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}$/;
+// A bare TLD is allowed: "edu" accepts every *.edu address.
+const DOMAIN_PATTERN = /^(?:[a-z0-9-]+\.)*[a-z]{2,}$/;
 
 /** Better Auth also lowercases emails; normalizing here keeps hashes and domain checks aligned. */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** Parses CAMPUS_EMAIL_DOMAINS ("unc.edu,duke.edu"). Throws so a misconfigured server fails at startup. */
+/** Parses CAMPUS_EMAIL_DOMAINS ("edu", or "unc.edu,duke.edu"). Throws so a misconfigured server fails at startup. */
 export function parseCampusDomains(raw: string): string[] {
   const domains = raw
     .split(",")
     .map((domain) => domain.trim().toLowerCase())
     .filter((domain) => domain.length > 0);
   if (domains.length === 0) {
-    throw new Error("CAMPUS_EMAIL_DOMAINS is empty; set it to a comma-separated list such as unc.edu");
+    throw new Error("CAMPUS_EMAIL_DOMAINS is empty; set it to edu or a comma-separated list such as unc.edu,duke.edu");
   }
   for (const domain of domains) {
     if (!DOMAIN_PATTERN.test(domain)) {

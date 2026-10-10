@@ -389,7 +389,7 @@ DATABASE_URL=                  # Tiger Data app connection (sslmode=require)
 MIGRATION_DATABASE_URL=        # owner connection for dbmate
 BETTER_AUTH_SECRET=            # 32+ random bytes; signs sessions and hashes stored codes
 EMAIL_HASH_PEPPER=             # HMAC key for campus_email_hash
-CAMPUS_EMAIL_DOMAINS=          # comma-separated, e.g. unc.edu
+CAMPUS_EMAIL_DOMAINS=          # "edu" accepts any .edu address; or a list, e.g. unc.edu,duke.edu
 RESEND_API_KEY=                # optional; DEMO_MODE logs OTPs instead
 OTP_EMAIL_FROM=                # verified Resend sender, e.g. Prospecto <auth@example.com>
 DEMO_MODE=false

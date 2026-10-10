@@ -22,6 +22,16 @@ describe("campus email", () => {
     expect(isCampusEmail("@unc.edu", domains)).toBe(false);
   });
 
+  it("accepts every .edu address when configured with the bare TLD", () => {
+    const anyEdu = parseCampusDomains("edu");
+    expect(anyEdu).toEqual(["edu"]);
+    expect(isCampusEmail("student@unc.edu", anyEdu)).toBe(true);
+    expect(isCampusEmail("student@cs.duke.edu", anyEdu)).toBe(true);
+    expect(isCampusEmail("student@gmail.com", anyEdu)).toBe(false);
+    expect(isCampusEmail("student@edu.evil.com", anyEdu)).toBe(false);
+    expect(isCampusEmail("student@fakeedu", anyEdu)).toBe(false);
+  });
+
   it("hashes the normalized email with the pepper", () => {
     const hash = campusEmailHash(" Student@UNC.edu ", "pepper-a");
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
