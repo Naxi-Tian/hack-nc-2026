@@ -1067,6 +1067,8 @@ Tiger's derived metrics must be rebuildable from canonical chain events plus imm
 
 ## 13. Legal and product boundary
 
+The detailed posture, product language guide and real-money roadmap are in [LEGAL_POSTURE.md](LEGAL_POSTURE.md).
+
 ### 13.1 Hackathon-safe positioning
 
 Use:
