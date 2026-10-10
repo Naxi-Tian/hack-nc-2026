@@ -1,21 +1,25 @@
 # hack-nc-2026
 
-HackNC project exploring broader access to participating early startups through a clear investment workflow.
+HackNC project building a simple investment link for startups at any stage.
 
 ## Project plan
 
-Read the [complete mega plan](docs/MEGA_PLAN.md) for the proposed product, instrument comparison, option economics, MVP, screen flows, architecture, database/API contracts, prioritized backlog, team roles, 24-hour schedule, verification, pitch, and post-event roadmap.
+Read the [complete mega plan](docs/MEGA_PLAN.md) for founder profiles, website/LinkedIn/contact information, an initial valuation algorithm, direct share purchases, backend architecture, balanced credit ledger, atomic share issuance, testing, and the 24-hour schedule.
 
-## Proposed demo
+## Proposed MVP
 
-1. A fictional startup offers the right to buy a fixed number of shares at a set price before a deadline.
-2. A backer pays an upfront premium using demo credits.
-3. The backer either pays the additional exercise cost to receive simulated shares or lets the option expire and loses the premium.
+1. A founder creates a company profile and receives an illustrative valuation suggestion.
+2. The founder approves a fixed price and finite share offering, then adds an “Invest in us” link to their website.
+3. Any registered demo user buys virtual shares directly from the startup with free demo credits.
+4. The backend credits the startup's simulation account and issues shares in one transaction.
+5. Investors see holdings and receipts; founders see proceeds and remaining allocation.
 
-The option model is a proposal; the team has not finalized the investment instrument. The HackNC prototype is planned as a simulation with fictional startups and no real investment transactions.
+**Purchases are from startups only. Investor resale and secondary trading are outside current scope.**
+
+Platform-issued virtual units have no legal ownership or cash value. Actual equity is a future integration requiring a valid issuance/settlement arrangement. Virtual holdings do not automatically convert into actual shares. Valuation v1 is a transparent demo heuristic, not a validated appraisal.
 
 ## Current status
 
-Planning documentation is available. The application, setup commands, and deployed demo are not implemented yet. Start with H01–H03 in the [execution backlog](docs/MEGA_PLAN.md#16-execution-backlog-and-dependency-order).
+Planning documentation is available. The application, setup commands, and deployed demo are not implemented yet. Start with H01–H04 in the [execution backlog](docs/MEGA_PLAN.md#24-github-structure-and-execution-backlog).
 
 Repository: [avidnerd/hack-nc-2026](https://github.com/avidnerd/hack-nc-2026).
