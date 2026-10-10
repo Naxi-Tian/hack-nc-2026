@@ -200,7 +200,7 @@ MARKET does not define these. They are **invented demo calibration priors** (AGE
 }
 ```
 
-The valuation owner MUST write golden tests from this seed (same input + version → identical output) before any API uses it.
+The valuation owner MUST write golden tests from this seed (same input + version → identical output) before any API uses it (`backend/tests/valuation/model-value.test.ts`). Load or refresh the seed with `npm --prefix backend run -s db:model-sql | tiger db query <service> --file /dev/stdin`; it stores `model_hash = sha256(canonical JSON of id + the five parameter groups)`, and the API refuses a row whose parameters no longer match that hash. Until a version is `ACTIVE`, previews use the DRAFT `valuation-v0.1` and say so in `modelVersion.status`.
 
 ---
 
@@ -276,12 +276,14 @@ Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev
 | POST `/wallets/verify` | session | `{address, signature(base58)}` → bind wallet (max 2 active per identity, enforced in the database) |
 | POST `/funding` | session + wallet | Nessie-backed mock USDC funding (§9) |
 | GET `/projects` | none | Discovery list (public fields) |
-| POST `/projects` | session + wallet | Create project, returns `create_project` tx to sign |
-| GET `/projects/:slug` | none | Public profile + latest valuation + current round |
+| POST `/projects` | session + wallet | Create project, returns `create_project` tx to sign. **Demo (built):** session only, no wallet or tx yet; body `{name, tagline, stage, entity_type, legal_name?, formation_state?, website_url?, sector_code?, publish_contact_email, founder: {display_name, role_title?}}`; creates a DRAFT with a server-chosen slug; `Idempotency-Key` required; at most 5 per founder |
+| POST `/projects/:id/publish` | founder | DRAFT → PUBLISHED (demo addition) |
+| GET `/projects/:slug` | none | Public profile + latest valuation + current round. Built: listing fields, founders' names and titles, the founder's campus email when `publish_contact_email`, latest valuation and scores; drafts and lookups by id only for editors (404 otherwise) |
+| GET/POST `/me/profile-snapshots`, DELETE `/me/profile-snapshots/:id` | session | Founder-pasted LinkedIn profile text (M§6.5); replace on re-save, erase on delete |
 | POST `/projects/:id/evidence` | founder | Add claim (immutable; corrections supersede) |
 | POST `/projects/:id/evidence/extract` | founder | Gemini claim extraction proposal (not saved until founder confirms) |
 | POST `/evidence/:id/verify` | reviewer | Set verification status |
-| POST `/projects/:id/valuation/preview` | founder | Deterministic valuation (M§9.3 contract) |
+| POST `/projects/:id/valuation/preview` | founder | Deterministic valuation (M§9.3 contract). Records score + valuation snapshots (shared `valuation_run_id`); identical inputs reuse the latest snapshot. No rounds yet, so demand multiplier is 1 |
 | POST `/projects/:id/rounds` | founder | Freeze snapshot, hash, return `open_round` tx to sign |
 | GET `/rounds/:id` | none | Round mirror + progress |
 | POST `/rounds/:id/eligibility` | session + wallet | Eligibility decision with reasons |

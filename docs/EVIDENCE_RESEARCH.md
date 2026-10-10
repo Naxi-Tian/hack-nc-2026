@@ -92,6 +92,9 @@ Implements M§4.3–4.5 and BACKEND_STACK §5.1: rubric → `s ∈ {0, .25, .5, 
 
 ## 8. Known limits (demo shortcuts)
 
+- Deleting a profile snapshot erases `profile_snapshots.text`, but research runs that already used it keep a copy in `research_sources.text_excerpt` (append-only) and in confirmed claims' quotes. Production follow-up: erase those excerpts through a privileged deletion path.
+- Saved snapshots (`/me/profile-snapshots`) are used only for projects whose founder or members include the snapshot's owner, and are part of the research cache key, so re-saving profile text triggers a fresh run.
+
 - A third party could publish a page naming the startup and its domain with false numbers; it would count as `PUBLIC_WEAK` (0.65). Mitigations: contradiction marking, founder dispute, reviewer queue. Production follow-up: source reputation, domain age, reviewer sampling.
 - `siteKey` approximates the registrable domain without the full Public Suffix List; unknown multi-part suffixes err toward "founder-controlled" (the lower level).
 - PDFs and JS-rendered pages cannot be quote-checked by the server; claims from them stay founder-attested.

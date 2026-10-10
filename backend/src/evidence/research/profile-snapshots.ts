@@ -53,3 +53,36 @@ export async function loadProfileSnapshots(paths: readonly string[]): Promise<Pr
     return key ? (byKey.get(key) ?? null) : null;
   };
 }
+
+/** The canonical form stored in profile_snapshots.profile_url, or null for a non-profile URL. */
+export function canonicalLinkedinUrl(url: string): string | null {
+  const key = linkedinProfileKey(url);
+  return key ? `https://www.linkedin.com/in/${encodeURIComponent(key.slice("linkedin:".length))}` : null;
+}
+
+interface Queryable {
+  query<R extends object>(text: string, values?: unknown[]): Promise<{ rows: R[] }>;
+}
+
+/**
+ * Snapshots founders saved through the API (profile_snapshots), limited to people on this
+ * project, so nobody's profile text is used for a project they are not part of.
+ */
+export function dbProfileSnapshotLookup(db: Queryable, projectId: string): ProfileSnapshotLookup {
+  return async (url) => {
+    const canonical = canonicalLinkedinUrl(url);
+    if (!canonical) return null;
+    const { rows } = await db.query<{ profile_url: string; captured_at: Date; text: string }>(
+      `select s.profile_url, s.captured_at, s.text
+         from profile_snapshots s
+        where s.profile_url = $1 and s.deleted_at is null
+          and s.identity_id in (select founder_identity_id from projects where id = $2
+                                union select identity_id from project_members where project_id = $2)
+        order by s.captured_at desc
+        limit 1`,
+      [canonical, projectId],
+    );
+    const row = rows[0];
+    return row ? { profileUrl: row.profile_url, capturedAt: row.captured_at.toISOString().slice(0, 10), text: row.text } : null;
+  };
+}

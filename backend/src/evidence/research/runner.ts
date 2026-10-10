@@ -18,7 +18,7 @@ import {
   type ResearchModel,
 } from "./gemini.js";
 import type { GithubCollection } from "./github.js";
-import type { ProfileSnapshotLookup } from "./profile-snapshots.js";
+import { dbProfileSnapshotLookup, type ProfileSnapshotLookup } from "./profile-snapshots.js";
 import type { FetchResult, PageFetcher } from "./safe-fetch.js";
 import { classifyUrl, hostOf, isFounderControlled, normalizeUrl, siteKey } from "./urls.js";
 import { VERIFIER_VERSION, verifyResearch, type EvidenceProposal, type RejectedProposal, type SourceRecord } from "./verifier.js";
@@ -77,6 +77,8 @@ interface ProjectRow {
   stage: string;
   /** Listing names of the founders and team (never scored); attribute prior ventures. */
   founder_names: string[];
+  /** Live profile snapshots of the team, so saving new profile text invalidates the cache. */
+  profile_hashes: string[];
 }
 
 export interface ResearchResult {
@@ -127,6 +129,7 @@ export function inputHash(input: RunInput, project: ProjectRow): string {
         sector: project.sector_code,
         stage: project.stage,
         founders: project.founder_names,
+        profiles: project.profile_hashes,
       },
     }),
   );
@@ -137,7 +140,12 @@ async function loadProject(db: Pool | PoolClient, projectId: string): Promise<Pr
     `select p.name, p.description, p.tagline, p.sector_code, p.stage,
             coalesce(array(select m.display_name from project_members m
                             where m.project_id = p.id and m.display_name is not null
-                            order by m.joined_at, m.display_name), '{}') as founder_names
+                            order by m.joined_at, m.display_name), '{}') as founder_names,
+            coalesce(array(select s.content_hash from profile_snapshots s
+                            where s.deleted_at is null
+                              and s.identity_id in (select p.founder_identity_id
+                                                    union select m.identity_id from project_members m where m.project_id = p.id)
+                            order by s.content_hash), '{}') as profile_hashes
        from projects p where p.id = $1`,
     [projectId],
   );
@@ -261,6 +269,9 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     const geminiUrls: string[] = [];
     const githubTargets: { owner: string; repo: string | null }[] = [];
     const profileTexts: string[] = [];
+    // Snapshots saved through the API first, then the demo fixture files (PROFILE_SNAPSHOT_FILES).
+    const fromDb = dbProfileSnapshotLookup(deps.pool, projectId);
+    const lookupSnapshot = async (url: string) => (await fromDb(url)) ?? (await deps.lookupProfileSnapshot?.(url)) ?? null;
 
     // 1. Classify and fetch founder links (deterministic, no AI).
     const founderUrls = [...(input.website_url ? [input.website_url] : []), ...input.urls];
@@ -268,7 +279,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     for (const url of founderUrls) {
       const kind = classifyUrl(url);
       if (kind.kind === "unsupported") {
-        const snapshot = kind.reason === "LOGIN_REQUIRED" ? ((await deps.lookupProfileSnapshot?.(url)) ?? null) : null;
+        const snapshot = kind.reason === "LOGIN_REQUIRED" ? await lookupSnapshot(url) : null;
         if (snapshot) {
           // Never fetched: the founder supplied this text. It is quote-checked like a page, and
           // founderControlled keeps every claim from it FOUNDER_ATTESTED (EVIDENCE_RESEARCH §4).

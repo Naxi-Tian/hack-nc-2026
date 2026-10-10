@@ -26,7 +26,10 @@ begin raise exception '% is append-only; % is not allowed', tg_table_name, tg_op
 create table identities (id uuid primary key default gen_random_uuid());
 create table projects (
   id uuid primary key default gen_random_uuid(), name text not null, description text not null default '',
-  tagline text not null default '', sector_code text, stage project_stage not null);
+  tagline text not null default '', sector_code text, stage project_stage not null, founder_identity_id uuid references identities(id));
+create table profile_snapshots (
+  id uuid primary key default gen_random_uuid(), identity_id uuid not null references identities(id), profile_url text not null,
+  text text, content_hash text, captured_at timestamptz not null default now(), deleted_at timestamptz);
 create table project_members (
   project_id uuid not null references projects(id), identity_id uuid not null references identities(id),
   display_name text, joined_at timestamptz not null default now(), primary key (project_id, identity_id));

@@ -4,17 +4,21 @@ import type { Pool } from "pg";
 import { GoogleGenAI } from "@google/genai";
 
 import type { ProspectoAuth } from "./auth/better-auth.js";
-import { requireProjectEditor } from "./auth/identity.js";
+import { requireIdentity, requireProjectEditor } from "./auth/identity.js";
 import { createGeminiResearchModel, type ResearchModel } from "./evidence/research/gemini.js";
 import type { ProfileSnapshotLookup } from "./evidence/research/profile-snapshots.js";
 import { collectGithub } from "./evidence/research/github.js";
 import { safeFetch } from "./evidence/research/safe-fetch.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createEvidenceIntakeRouter } from "./routes/evidence-intake.js";
+import { createProfilesRouter } from "./routes/profiles.js";
+import { createProjectsRouter } from "./routes/projects.js";
 import { createResearchRouter } from "./routes/research.js";
 
 export interface ApiDependencies {
   pool: Pool;
+  /** PUBLIC_ORIGIN: non-GET requests must carry this Origin (BACKEND_STACK §7). */
+  publicOrigin: string;
   ai: GoogleGenAI;
   model: string;
   /** Optional; raises GitHub's unauthenticated limit of 60 requests/hour. */
@@ -51,6 +55,13 @@ export function createApi(dependencies: ApiDependencies): Hono {
 
   app.get("/api/health", (context) => context.json({ status: "ok" }));
   app.route("/api", createAuthRouter({ ...identityDependencies, demoSignIn: dependencies.demoSignIn }));
+  const routeGuards = {
+    pool: dependencies.pool,
+    publicOrigin: dependencies.publicOrigin,
+    requireIdentity: (context: Context) => requireIdentity(context, identityDependencies),
+  };
+  app.route("/api", createProjectsRouter({ ...routeGuards, requireProjectEditor: requireEditor }));
+  app.route("/api", createProfilesRouter(routeGuards));
   app.route("/api", createEvidenceIntakeRouter({ ...dependencies, requireProjectEditor: requireEditor }));
   app.route(
     "/api",
