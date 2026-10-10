@@ -1,482 +1,446 @@
 # Backend Tech Stack & Implementation Spec
 
 Audience: AI coding agents and backend teammates.  
-Scope: **backend tech stack, structure, and implementation rules only.** Business rules (valuation formula, offering lifecycle, invariants, fixtures) live in [MEGA_PLAN.md](MEGA_PLAN.md); section references below (`§N`) point there. Where this file and MEGA_PLAN §13/§20 disagree on *technology* (MEGA_PLAN mentions Supabase), **this file wins**.  
-Time budget: 24-hour hackathon. Prefer the simplest option that preserves settlement correctness.
+Scope: **backend + on-chain implementation only.** The frontend is the Next.js static export in `web/` (built to `web/out/`) and is owned by the frontend developer.
 
-Keywords **MUST**, **MUST NOT**, **SHOULD** are normative.
+## 0. Precedence
+
+1. **[MARKET ARCHITECTURE.md](MARKET%20ARCHITECTURE.md) is the source of truth for backend behavior**: product rules, valuation formulas, Solana settlement, data schema, APIs, reliability, security. Section references below (`M§N`) point there.
+2. This file turns that spec into concrete technology choices, layout, contracts, and build order. Where MARKET leaves a choice open, §14 records the decision taken here.
+3. [AGENTS.md](../AGENTS.md) governs working style, commit format, and the Nessie demo-banking boundary.
+4. **[NESSIE_PURCHASE_FLOW.md](NESSIE_PURCHASE_FLOW.md)** supplies the full Nessie funding/subscription contract and recovery rules, superseding this file's abbreviated funding, timeout, and event-key rules. Nessie is required for the sponsor demo path; valuation and settlement formulas stay as specified.
+5. [MEGA_PLAN.md](MEGA_PLAN.md) backend sections (§9–§21, §24 layout: Postgres credit ledger, virtual shares, quotes, valuation v1, Supabase) are **superseded** and MUST NOT be implemented.
+
+Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour hackathon.
 
 ---
 
-## 1. Stack (fixed — do not substitute)
+## 1. Stack (fixed)
 
 | Concern | Choice | Notes |
 | --- | --- | --- |
-| Language | TypeScript, `strict: true` | No `any` in `lib/` |
-| Runtime | Node.js 22 LTS or newer | All route handlers use the Node runtime, not Edge |
-| Web + API | Next.js (App Router), route handlers in `app/api/**/route.ts` | Single app for UI + API |
-| Database | **Tiger Data** (Tiger Cloud managed PostgreSQL) | Single source of truth for money, shares, orders. Plain Postgres features only; no hypertables needed |
-| DB driver | `pg` (node-postgres), one shared `Pool` | **No ORM.** Same driver is used by Better Auth |
-| Auth | **Better Auth** (email + password), tables stored in the same Postgres | Session cookie; server reads session via `auth.api.getSession` |
-| Atomic mutations | PL/pgSQL functions called as `select public.fn(...)` | See §5 |
-| Validation | `zod` | Every request body, query, header, and AI output |
-| Migrations | **dbmate** (`db/migrations/*.sql`, plain SQL with `-- migrate:up` / `-- migrate:down`) | Run as the owner role (§4.1) |
-| Local DB | Docker `postgres:17` via `docker-compose.yml` | Hosted DB is Tiger Data |
-| AI | **Gemini API** via `@google/genai`, server-only | Optional P2 features only (§8). Never in the settlement path |
-| Tests | `vitest` (unit + integration against local Postgres) | §10 |
-| Hosting | Vercel (app) + Tiger Data (DB) | |
-| Package manager | `pnpm` | Pin exact versions in `package.json` |
+| Language | TypeScript `strict: true` (server); Rust (program) | No `any` in server domain code |
+| Runtime | Node.js 22 LTS or newer | Long-lived process (websocket subscription + worker), so no serverless |
+| HTTP server | **Hono** on `@hono/node-server` | One modular monolith (M§9.1). Also serves the frontend's static export `web/out/`, so frontend and API are same-origin |
+| Validation | `zod` + `@hono/zod-validator` | Same schemas validate Gemini output (M§12) |
+| Database | **Tiger Data** (Tiger Cloud PostgreSQL + TimescaleDB) | Relational tables + hypertables + continuous aggregates (M§6.1) |
+| DB access | `pg` (node-postgres) with parameterized SQL | MARKET allows Drizzle or SQL; this spec picks **SQL only** |
+| Migrations | **dbmate**, plain SQL | Forward-only, reviewable (AGENTS.md) |
+| Chain | Solana **Devnet** | Never mainnet |
+| Program | **Rust + Anchor** (latest stable via `avm`, pinned in `Anchor.toml`) | `chain/programs/prospecto` |
+| Tokens | **Token-2022** for both mints: mock USDC (6 decimals, no extensions) and one receipt mint per project (`NonTransferable`, 0 decimals) | One token program for everything |
+| Chain client (server) | `@coral-xyz/anchor` + `@solana/web3.js` + `@solana/spl-token` | Builds/partially signs transactions, parses events |
+| Signature verification | `@noble/curves/ed25519` + `bs58` | Wallet challenge (M§12) |
+| AI | **Gemini** via `@google/genai`, Flash-class model, structured JSON output | Advisory only (M§6.2) |
+| Demo banking | **Capital One Nessie** REST API behind a server adapter | Funds demo wallets only (AGENTS.md) |
+| Email OTP delivery | Resend (optional); `DEMO_MODE=true` logs codes to server console | Campus email verification |
+| Tests | `vitest` (server); `anchor test` (program) | §11 |
+| Hosting | One web/API service + one worker service on **Railway** (Render acceptable) | `WORKER_IN_PROCESS=true` fallback runs the worker inside the web process |
+| Package manager | `pnpm` workspace (`server`, `chain`) | Pin exact versions |
 
-### Explicitly banned for the MVP
+### Banned for the MVP
 
-Prisma, Drizzle, TypeORM, Kysely-as-ORM, any second migration system; Supabase SDKs; a separate Express/FastAPI/Nest server; microservices; Redis; message queues (BullMQ, Kafka, SQS); GraphQL; Edge runtime; client-side DB access; any external HTTP call (including Gemini) inside a settlement transaction; letting AI output set prices, valuations, balances, or verification status.
+Next.js API routes, server actions or any Next.js server runtime (the frontend is `output: "export"` only); Supabase; Better Auth; Prisma/Drizzle/any ORM; Kafka, Redis, Kubernetes, queues; multiple deployed backend services; a bespoke indexer cluster; custom oracles; an order book or AMM; mainnet funds; storing user private keys; any Gemini call in a settlement path; letting Gemini set scores, prices, allocations, fees or verification status.
 
 ---
 
-## 2. Repository layout
+## 2. Repository layout and ownership
 
 ```text
-app/
-  api/
-    auth/[...all]/route.ts                     Better Auth handler (toNextJsHandler)
-    companies/route.ts                         GET list
-    companies/[slug]/route.ts                  GET detail
-    founder/companies/route.ts                 POST create
-    founder/companies/[id]/route.ts            PATCH
-    founder/companies/[id]/valuations/route.ts POST (deterministic v1)
-    founder/companies/[id]/valuations/[vid]/explain/route.ts  POST (Gemini, P2)
-    founder/companies/[id]/prefill/route.ts    POST (Gemini, P2)
-    founder/offerings/route.ts                 POST draft
-    founder/offerings/[id]/publish/route.ts    POST
-    founder/offerings/[id]/close/route.ts      POST
-    founder/dashboard/route.ts                 GET
-    credits/grant/route.ts                     POST (idempotent, one per generation)
-    quotes/route.ts                            POST
-    purchases/route.ts                         POST (Idempotency-Key header)
-    purchases/by-key/route.ts                  GET
-    orders/[id]/route.ts                       GET
-    portfolio/route.ts                         GET
-    demo/reset/route.ts                        POST (controller only)
-    demo/reconcile/route.ts                    POST (controller only)
-lib/
-  auth/
-    auth.ts            betterAuth({ database: pool, emailAndPassword }) server instance
-    session.ts         requireUser(): { id, email } or throw UNAUTHENTICATED
-    client.ts          createAuthClient() for the frontend
+web/                          FRONTEND (Next.js 15 + React 19 + TS, output: "export" to web/out/): frontend owner only
+landing/                      legacy static prototype that web/ replaced; frontend owner only, not served
+server/                       BACKEND
+  package.json
+  src/
+    index.ts                  Hono app: /api/* routes + serveStatic(web/out/)
+    worker.ts                 indexer + reconciliation + settlement crank (§8)
+    config.ts                 zod-parsed env (§12); fail fast on missing vars
+    db/
+      pool.ts                 singleton pg Pool
+      sql.ts                  query<T>(), tx(fn) helpers
+    http/
+      errors.ts               ERROR_CODES, AppError, status map
+      middleware.ts           requestId, session, originCheck, rateLimit, idempotency
+    identity/                 email OTP, sessions, wallet challenge/verify, eligibility
+    projects/                 projects, members, sectors
+    evidence/                 claims, verification status, content hashes
+    valuation/                PURE: factor scores, scenarios, blend, demand, unit price (M§4)
+    rounds/                   round lifecycle, subscribe/prepare, allocation math (pure)
+    solana/                   program client, tx builders, relayer key, PDAs
+    indexing/                 event parsing, chain_events ingest, mirrors
+    analytics/                hypertable writes, continuous-aggregate reads
+    ai/                       Gemini wrapper, prompts, cache
+    banking/                  Nessie adapter + funding saga
   db/
-    pool.ts            singleton pg Pool (app role); import "server-only"
-    sql.ts             query<T>(), callFn<T>(name, args), withTx() helpers
-    owner.ts           owner-role pool; ONLY for seed/reset scripts and tests
-  http/
-    handler.ts         withHandler(): request ID, auth, zod parse, error mapping, retry
-    errors.ts          ERROR_CODES, AppError, HTTP status map, pg error mapper
-    idempotency.ts     header parsing + request hashing (sha256 of canonical JSON)
-  domain/
-    money.ts           cents helpers, bounds, safe int8 conversion
-    pricing.ts         price/supply/dilution math (§11); pure
-    schemas.ts         zod schemas shared with frontend
-  valuation/
-    v1.ts              scoreValuation(input); pure, deterministic (§10)
-    rubric.ts          versioned constants: anchors, weights, bands
-  ai/
-    gemini.ts          single Gemini wrapper: timeout, zod-validated JSON, fallback
-    prompts.ts         versioned prompt templates
-db/
-  migrations/
-    0001_auth_tables.sql          Better Auth schema (user, session, account, verification)
-    0002_roles_and_core_schema.sql
-    0003_ledger.sql
-    0004_fn_journal.sql
-    0005_fn_grant_quote_purchase.sql
-    0006_fn_offering_lifecycle.sql
-    0007_fn_demo_reset_reconcile.sql
-    0008_ai_cache.sql             (P2)
-  seed.sql             fictional fixtures (§23)
+    migrations/*.sql
+    seed.sql                  sectors, model_versions (valuation-v0.1), fictional projects
+  tests/
+chain/                        ON-CHAIN
+  Anchor.toml
+  programs/prospecto/src/lib.rs (+ instructions/, state/, errors.rs, events.rs)
+  tests/prospecto.ts
 scripts/
-  seed.ts              runs db/seed.sql with the owner pool
-tests/
-  domain/              vitest, pure functions
-  integration/         vitest against local Postgres
-docker-compose.yml     postgres:17 on localhost:5432
+  devnet-setup.ts             create mock USDC mint, init protocol config, fund relayer
+docker-compose.yml            timescale/timescaledb-ha:pg17 for local dev
+pnpm-workspace.yaml
 .env.example
 ```
 
+Backend and chain contributors MUST NOT edit `web/` or `landing/`. The frontend calls the API in §7 over `fetch` and never imports server code; shared types, if wanted, are copied or generated, not imported across packages.
+
+Static-export constraints the API must respect: `trailingSlash: true` means pages live at `/rounds/`, `/launch/`, `/news/`; there is no Next.js server, so dynamic pages such as a single project read their id from the query string or hash and fetch `/api/...` client-side. The Hono static handler serves `web/out/<path>/index.html` for directory paths and `404.html` otherwise, and never shadows `/api/*`.
+
 ---
 
-## 3. Layer responsibilities
+## 3. Sources of truth (from M§3.2, made concrete)
 
-| Layer | MUST do | MUST NOT do |
+| Data | Authority | Tiger role |
 | --- | --- | --- |
-| Route handler (`app/api`) | Validate with zod, `requireUser()`, authorize ownership, call **one** SQL function or run reads, map errors | Compute persisted prices/balances; run multiple dependent writes outside a function |
-| `lib/domain`, `lib/valuation` | Pure functions, no I/O, fully unit-tested | Import `pg`, Next.js, or Gemini |
-| `lib/ai` | Call Gemini with timeout, validate output with zod, return a fallback on any failure | Write to money/share tables; be awaited inside a DB transaction |
-| SQL functions | All writes to ledger, holdings, share events, orders, quotes, offering status, grants | Trust any price/total/balance from the client |
-
-Rule of thumb: **if a request changes credits, shares, quotes, or offering status, it is exactly one SQL function call.** Profile/valuation-input edits may be ordinary parameterized `insert`/`update` statements scoped by `owner_id = $actor`.
-
-All SQL MUST be parameterized (`$1, $2…`). No string-interpolated SQL.
-
----
-
-## 4. Database conventions
-
-- Better Auth user IDs are `text`; every `owner_id`, `investor_id`, `actor_id` column is `text references "user"(id)`.
-- Other primary keys: `uuid default gen_random_uuid()`.
-- Timestamps: `timestamptz default now()`; all deadline comparisons use database `now()`, never client time.
-- Money: `bigint` cents. Quantities: `bigint`, `CHECK (quantity > 0)`.
-- JS-safe range: app-level bounds keep every value below 2^53 (quantity ≤ 10,000,000; unit price ≤ 100,000,000 cents); add matching `CHECK` constraints. `pg` returns `int8` as strings — convert only via `toSafeInt()` in `lib/domain/money.ts`, which throws if `!Number.isSafeInteger`.
-- Enums: Postgres `enum` types for `stage`, `entity_status`, `offering_status`, `instrument_type`, `order_status`, `evidence_status`.
-- Every mutable money/share table carries `scenario_id` + `generation` (§23 isolation).
-- Required unique constraints (§14): `(actor_id, operation, idempotency_key)`; `orders(quote_id)`; one primary journal per order; one issuance `share_event` per order; `holdings(owner_id, instrument_id)`; one grant per `(account, scenario_id, generation)`; partial unique index `offerings(company_id) WHERE status = 'PUBLISHED'`; `follows(user_id, company_id)`.
-- Naming: tables `snake_case` plural; functions `snake_case` verbs; parameters `p_`, locals `v_`.
-
-### 4.1 Roles (replaces RLS)
-
-There is no Supabase RLS layer. Access control is: **authorization in the route handler + database privileges that make direct ledger writes impossible for the app.**
-
-```sql
--- 0002: run as the Tiger Data admin (tsdbadmin) / owner connection
-create role app_owner nologin;           -- owns tables + SECURITY DEFINER functions
-create role app_user  login;            -- used by the Next.js app
--- Set the password manually per environment (never in a migration):
---   alter role app_user password '<secret>';
-
-grant usage on schema public to app_user;
-grant select on all tables in schema public to app_user;
--- Founder-editable tables only:
-grant insert, update on companies, founder_profiles, company_sources, valuation_inputs,
-  valuations, offerings, follows, company_updates, ai_explanations to app_user;
--- Better Auth tables: full DML (it manages its own rows)
-grant select, insert, update, delete on "user", session, account, verification to app_user;
--- Ledger/share/order tables: NO insert/update/delete for app_user.
-```
-
-- Every ledger-mutating function is `security definer`, owned by `app_owner`, `set search_path = public, pg_temp`, with `revoke all ... from public` and `grant execute ... to app_user`.
-- `offerings` status changes (`PUBLISHED`, `CLOSED`, `SOLD_OUT`) and `sold_units` happen **only** inside functions; enforce with a `before update` trigger that rejects changes to those columns unless `current_user = 'app_owner'`.
-- If Tiger Data does not permit `create role` on your plan, fall back to a single role: keep the "only functions write the ledger" rule by code review, skip the integration test that asserts direct inserts fail, and note the fallback in the README.
+| Mock USDC balances, subscriptions, accepted amounts, units, fees, refunds, receipts | **Solana program accounts** | Mirror only, rebuilt from `chain_events`; never overwrites chain state |
+| Round parameters once opened | **Round PDA** | `rounds` mirror |
+| Identities, wallets, projects, evidence, verification | **Tiger** | Authoritative |
+| Model versions and valuation snapshots | **Tiger** (immutable rows) | Authoritative; hash anchored on-chain at `open_round` |
+| Dashboards | Tiger continuous aggregates | Derived |
+| Gemini output | Never authoritative | Cached proposal |
+| Nessie balances/transfers | Nessie mock API | Saga intent + reconciliation trail only |
+| Funded mock tokens and funding replay guard | Solana `FundingReceipt` PDA | Durable bank-to-chain intent and finalized proof; see [purchase flow](NESSIE_PURCHASE_FLOW.md) |
 
 ---
 
-## 5. SQL function catalog
+## 4. Database (Tiger Data)
 
-Without `auth.uid()`, the **server passes the verified actor ID** as the first parameter. Route handlers MUST take it from `requireUser()`, never from the request body.
+Implement the M§8 schema exactly, plus the support tables below.
 
-```sql
-create or replace function public.<name>(p_actor_id text, <params>)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  -- ...
-begin
-  if p_actor_id is null or not exists (select 1 from "user" where id = p_actor_id) then
-    raise exception 'UNAUTHENTICATED' using errcode = 'P0001';
-  end if;
-  -- ...
-end;
-$$;
+**Conventions**
+- UUID PKs (`gen_random_uuid()`), `timestamptz`, parameterized SQL only.
+- **Chain amounts** (micro-USD, receipt units): `numeric(20,0)` in Postgres, `bigint` (JS BigInt) in TypeScript, **decimal strings** in JSON. Never JS `number`.
+- **Valuation values** (USD) and scores: `numeric`; computed in TS with `number`, rounded explicitly when stored (USD to 2 dp, scores to 6 dp). The **only** valuation-to-money boundary is `unit_price_micro_usd` (§5.6), computed once with explicit rounding.
+- Claims, model versions, valuation snapshots, and `chain_events` are append-only (M§8.1, AGENTS.md).
 
-alter function public.<name>(text, <param types>) owner to app_owner;
-revoke all on function public.<name>(text, <param types>) from public;
-grant execute on function public.<name>(text, <param types>) to app_user;
-```
+**Hypertables** (M§6.1): `traction_metrics(observed_at)`, `score_snapshots(calculated_at)`, `valuation_snapshots(calculated_at)`, `market_metrics(observed_at)`.
+- Any unique index or PK on a hypertable MUST include its time column (e.g. `valuation_snapshots` PK `(id, calculated_at)`).
+- Do not declare foreign keys that *reference* hypertables. `rounds` stores `valuation_snapshot_id` + `valuation_calculated_at` and the application checks they exist.
 
-**Error convention:** business errors are `raise exception '<ERROR_CODE>' using errcode = 'P0001'`. The message is exactly one code from §7. Optional detail goes in `using detail = '...'` (no private data).
+**Continuous aggregates** (M§8.3) are built on hypertables only. The indexer therefore writes a `market_metrics` row for every money-relevant event (`subscription_gross`, `accepted_amount`, `units_minted`, `refund`, `founder_reward`, `unique_participant`) in addition to `chain_events`. Create `project_metrics_1m`, `project_metrics_1h`, `round_funding_progress`, `project_valuation_daily`, `project_participant_growth`, `project_founder_rewards_daily` with refresh policies.
 
-| Function | Signature | Purpose |
-| --- | --- | --- |
-| `post_journal` | `(p_operation text, p_order_id uuid, p_lines jsonb) returns uuid` | **Internal only** (no grant to `app_user`). Inserts entry + lines, asserts `sum = 0`, updates cached balances, asserts non-negative for every non-source account |
-| `grant_demo_credits` | `(p_actor_id text) returns jsonb` | One $1,000 grant per user per scenario generation; returns balance |
-| `create_quote` | `(p_actor_id text, p_offering_id uuid, p_quantity bigint) returns jsonb` | Reads published price from DB, computes total, `expires_at = least(now() + interval '60 seconds', close_at)`; returns §19 quote JSON |
-| `purchase` | `(p_actor_id text, p_quote_id uuid, p_idempotency_key text, p_request_hash text) returns jsonb` | Atomic settlement (§5.1) |
-| `get_purchase_by_key` | `(p_actor_id text, p_idempotency_key text) returns jsonb` | Timeout recovery; caller's own records only |
-| `publish_offering` | `(p_actor_id text, p_offering_id uuid) returns jsonb` | Verifies founder owns company, locks company row, validates, sets `PUBLISHED`, snapshots terms |
-| `close_offering` | `(p_actor_id text, p_offering_id uuid) returns jsonb` | Verifies ownership, locks offering row (same lock as purchase), sets `CLOSED` |
-| `demo_reset` | `(p_actor_id text, p_scenario_id uuid) returns jsonb` | Controller-only (checked in route **and** via `demo_scenarios.controller_id`); increments generation, invalidates quotes; never deletes journals |
-| `demo_reconcile` | `(p_actor_id text, p_scenario_id uuid) returns jsonb` | Runs every check in §18; returns `{ ok, checks: [{ name, ok, detail }] }` |
+**Support tables (additions to M§8)**
 
-### 5.1 `purchase` lock order (MUST follow exactly)
-
-```text
-1. pg_advisory_xact_lock(hashtextextended(p_actor_id || ':purchase:' || p_idempotency_key, 0))
-2. idempotency_records lookup:
-     found + same request_hash   -> return stored result
-     found + different hash      -> raise IDEMPOTENCY_CONFLICT
-3. select quote ... for update          (must belong to p_actor_id)
-     quote already consumed         -> raise IDEMPOTENCY_CONFLICT (detail: existing order id)
-4. select offering ... for update       (common gate for purchase AND close)
-5. select ledger_accounts where id in (investor, startup)
-     order by id for update             (sorted UUID order)
-6. select instrument ... for update; then holding row for update (insert if absent)
-7. revalidate: generation, quote unexpired (db now()), offering PUBLISHED, now() < close_at,
-   price/terms unchanged, investor != founder, per-order + cumulative investor limits,
-   remaining capacity >= quantity, investor available balance >= total
-8. insert order (status SETTLED, settled_at = now())
-9. post_journal('PURCHASE', order_id, [investor -total, startup +total])
-10. insert share_event (PRIMARY_ISSUANCE); update holding qty + cost basis;
-    update instruments.total_issued; update offerings.sold_units; set SOLD_OUT if sold_units = cap
-11. mark quote consumed (consumed_order_id = order_id)
-12. insert audit_events, outbox_events, idempotency_records(result jsonb)
-13. return result jsonb { order, balanceCents, holding }
-```
-
-Any `raise` rolls back everything. MUST NOT add `exception when others` blocks that swallow errors.
-
----
-
-## 6. Server code patterns
-
-### 6.1 DB pool and helpers
-
-```ts
-// lib/db/pool.ts
-import "server-only";
-import { Pool } from "pg";
-
-const g = globalThis as unknown as { pgPool?: Pool };
-
-export const pool =
-  g.pgPool ??
-  new Pool({
-    connectionString: process.env.DATABASE_URL, // app_user; Tiger Data pooler URL if available
-    max: Number(process.env.PG_POOL_MAX ?? 3),   // keep small on serverless
-    idleTimeoutMillis: 10_000,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: true } : undefined,
-  });
-
-if (process.env.NODE_ENV !== "production") g.pgPool = pool;
-```
-
-```ts
-// lib/db/sql.ts
-import { pool } from "./pool";
-
-export async function callFn<T>(name: string, args: unknown[]): Promise<T> {
-  if (!/^[a-z_]+$/.test(name)) throw new Error("invalid function name");
-  const placeholders = args.map((_, i) => `$${i + 1}`).join(", ");
-  const { rows } = await pool.query(`select public.${name}(${placeholders}) as result`, args);
-  return rows[0].result as T;
-}
-```
-
-### 6.2 Auth
-
-```ts
-// lib/auth/auth.ts
-import { betterAuth } from "better-auth";
-import { pool } from "@/lib/db/pool";
-
-export const auth = betterAuth({
-  database: pool,
-  emailAndPassword: { enabled: true, requireEmailVerification: false }, // demo only
-  secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
-});
-```
-
-```ts
-// app/api/auth/[...all]/route.ts
-import { auth } from "@/lib/auth/auth";
-import { toNextJsHandler } from "better-auth/next-js";
-export const { GET, POST } = toNextJsHandler(auth);
-```
-
-```ts
-// lib/auth/session.ts
-import { headers } from "next/headers";
-import { auth } from "./auth";
-import { AppError } from "@/lib/http/errors";
-
-export async function requireUser() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) throw new AppError("UNAUTHENTICATED");
-  return { id: session.user.id, email: session.user.email };
-}
-```
-
-Generate the Better Auth schema once with `pnpm dlx @better-auth/cli generate` and paste the SQL into `0001_auth_tables.sql` so it is managed by dbmate like everything else.
-
-### 6.3 Route handler
-
-```ts
-// app/api/purchases/route.ts
-import { z } from "zod";
-import { withHandler } from "@/lib/http/handler";
-import { callFn } from "@/lib/db/sql";
-import { requireIdempotencyKey, hashRequest } from "@/lib/http/idempotency";
-
-export const runtime = "nodejs";
-
-const Body = z.object({ quoteId: z.string().uuid() });
-
-export const POST = withHandler(
-  { auth: true, body: Body, retrySettlement: true },
-  async ({ user, body, req }) => {
-    const key = requireIdempotencyKey(req); // throws MISSING_IDEMPOTENCY_KEY (8–128 chars)
-    return callFn("purchase", [user.id, body.quoteId, key, hashRequest(body)]);
-  },
-);
-```
-
-`withHandler` responsibilities:
-
-1. Generate `requestId` (`crypto.randomUUID()`), return it as `x-request-id`.
-2. When `auth: true`, call `requireUser()` and pass `user` to the handler.
-3. Parse body/query with zod; failures become `INVALID_INPUT` (400) with field paths.
-4. Map errors: `pg` error with `code === "P0001"` → `message` is the app error code; `40001`/`40P01` → retry, then `RETRYABLE_SETTLEMENT_ERROR`; `23505` (unique violation) on a non-function write → `CONFLICT`-family code; anything else → 500 `INTERNAL` with no internals leaked.
-5. When `retrySettlement: true`: up to 3 attempts on `40001`/`40P01`, jittered 50–200 ms, **same idempotency key**.
-6. Log `{ requestId, route, userId, errorCode, durationMs }` only; never balances, financial inputs, emails, or prompts.
-
-Response shapes:
-
-```jsonc
-// success: the function/domain JSON directly, HTTP 200 (201 for creates)
-// error:
-{ "error": { "code": "INSUFFICIENT_CREDITS", "message": "Not enough demo credits.", "requestId": "..." } }
-```
-
----
-
-## 7. Error codes → HTTP status
-
-| Code | HTTP |
+| Table | Purpose |
 | --- | --- |
-| `UNAUTHENTICATED` | 401 |
-| `FORBIDDEN` | 403 |
-| `NOT_FOUND` | 404 |
-| `INVALID_INPUT`, `INVALID_QUANTITY`, `INVALID_VALUATION_INPUT`, `MISSING_IDEMPOTENCY_KEY` | 400 |
-| `QUOTE_EXPIRED`, `ROUND_CLOSED`, `ALLOCATION_UNAVAILABLE`, `INSUFFICIENT_CREDITS`, `SELF_PURCHASE_FORBIDDEN`, `STALE_GENERATION`, `OFFERING_ALREADY_ACTIVE`, `IDEMPOTENCY_CONFLICT`, `CONFLICT` | 409 |
-| `RATE_LIMITED` | 429 |
-| `AI_UNAVAILABLE` | 503 (UI shows deterministic fallback) |
-| `RETRYABLE_SETTLEMENT_ERROR` | 503 |
-| `INTERNAL` | 500 |
+| `sectors` | Referenced by `projects.sector_id`; per-sector valuation overrides key |
+| `sessions` | `token_hash` (sha256), `identity_id`, `expires_at`, `revoked_at` |
+| `email_otps` | `email_hash`, `code_hash`, `expires_at` (10 min), `attempts` (max 5), `consumed_at` |
+| `wallet_challenges` | `identity_id`, `address`, `nonce`, `message`, `expires_at` (5 min), `used_at` |
+| `reviewers` | `identity_id` allowed to verify evidence and open/cancel rounds on behalf of the protocol |
+| `idempotency_records` | `(identity_id, operation, key)` unique, `request_hash`, `response jsonb`, `created_at` |
+| `rate_limits` | `(bucket, window_start)` counters for per-identity, per-wallet, per-IP limits (M§10.2) |
+| `ai_cache` | `(task, content_hash, prompt_version, model)` unique → `output jsonb` |
+| `indexer_state` | Last processed signature/slot per program |
+| `funding_intents` | Full durable saga in [purchase flow §5](NESSIE_PURCHASE_FLOW.md#5-durable-data-model): immutable intent, generation, wallet, amount, request hash, bank/chain attempts, explicit uncertain states; unique identity/key |
+| `banking_accounts`, `banking_attempts`, `funding_chain_attempts`, `funding_transitions` | Server-managed mock account ownership and persisted external-write/recovery evidence; full fields/constraints in purchase flow §5 |
+| `subscription_intents` | Identity/round reservation, exact prepared transaction message, signature/expiry; prevents two verified wallets bypassing one-subscription rule |
 
-Keep this list in `lib/http/errors.ts` as a `const` object. SQL functions may only raise codes from it.
+Campus email is stored only as `campus_email_hash = HMAC-SHA256(lowercase(email), EMAIL_HASH_PEPPER)` (M§8.1). Plaintext email exists only in memory while sending the OTP.
 
 ---
 
-## 8. Gemini integration (P2 — build last, cut first)
+## 5. Valuation implementation (M§4)
 
-Gemini is **assistive only**. The deterministic valuation (`lib/valuation/v1.ts`) is the only source of numbers. Two features:
+`server/src/valuation/` is **pure TypeScript** (no I/O). It implements M§4.3–4.10 exactly. Parameters live in `model_versions` (M§8.1) and are loaded by version ID. Code MUST NOT hard-code weights.
 
-| Feature | Input | Output (zod-validated JSON) | Rules |
-| --- | --- | --- | --- |
-| Valuation explanation | Saved valuation row: stage, category scores, contributions, band, evidence quality, model version | `{ summary: string, drivers: string[], caveats: string[] }` | Prompt includes only fields the founder marked public or the founder is viewing their own; UI renders numbers from the DB row, **never** from model text |
-| Profile prefill | Text the founder **pastes** (pitch, about page) | `{ name?, sector?, stage?, problem?, solution?, businessModel? }` | Founder reviews and saves each field; stored with evidence status `SELF_REPORTED`; no URL fetching in MVP |
+### 5.1 Inputs → factor sub-scores
+- Every sub-factor (e.g. `shipped_work`) is scored from claims by a rubric to `s ∈ {0, 0.25, 0.5, 0.75, 1}`, stored in `normalization_rules`.
+- Apply M§4.5: `adjusted = c·s + (1−c)·0.5`, where `c` comes from the claim's `verification_status`. Missing/contradicted means `c = 0`, which gives `0.5` (neutral, **not zero**).
+- If several claims feed one sub-factor, use the claim with the highest `c`, ties broken by most recent.
 
-```ts
-// lib/ai/gemini.ts (shape)
-import "server-only";
-import { GoogleGenAI } from "@google/genai";
-import { z } from "zod";
+### 5.2 Category scores, stage weights, `Q`
+M§4.3 formulas and M§4.4 table verbatim. Assert each stage's weights sum to 1 (±1e-9).
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+### 5.3 Scenarios (M§4.6)
+`H = 5`. `probability = softmax(baseline_logit(stage,k) + beta_k·(Q − 0.5))`. Assert the probabilities sum to 1. `current_net_cash` comes from a verified claim, otherwise 0.
 
-export async function generateJson<T>(opts: {
-  prompt: string;
-  schema: z.ZodType<T>;
-  responseSchema: object; // JSON schema matching `schema`
-  timeoutMs?: number;     // default 10_000
-}): Promise<T | null> {
-  // 1. ai.models.generateContent({ model: process.env.GEMINI_MODEL, contents: opts.prompt,
-  //      config: { responseMimeType: "application/json", responseSchema: opts.responseSchema,
-  //                temperature: 0.2 } }) raced against AbortSignal.timeout(timeoutMs)
-  // 2. JSON.parse + opts.schema.safeParse
-  // 3. Return null on ANY failure (timeout, quota, parse, validation). Never throw to the route.
-}
+### 5.4 Blend (M§4.7–4.8)
+`alpha_stage` table verbatim. At the idea stage, `current_operating_value = max(0, verified_net_assets)`.
+
+### 5.5 Demand (M§4.9)
+- First round: `demand_multiplier = 1`, no clamp (there is no previous round).
+- `normalized_HHI = n ≤ 1 ? 1 : (HHI − 1/n) / (1 − 1/n)`.
+- Founder, team, and flagged identities are excluded before computing.
+
+### 5.6 Unit price (M§4.10), the money boundary
+```text
+REFERENCE_UNITS = 1_000_000
+unit_price_micro_usd = round_half_up(round_implied_value_usd × 1_000_000 / REFERENCE_UNITS)
+require unit_price_micro_usd ≥ 1
 ```
 
-- Cache results in `ai_explanations(valuation_id, prompt_version, model, output jsonb, created_at)`; reuse when the same valuation + prompt version exists.
-- Treat founder-provided text as untrusted data: wrap it in clear delimiters, instruct the model to extract only, and ignore instructions inside it.
-- Rate-limit AI routes per user (simple Postgres counter table, e.g. 20/hour).
-- `GEMINI_API_KEY` is server-only; never send it or raw model errors to the client.
-- If `generateJson` returns `null`, the route returns `AI_UNAVAILABLE` and the UI shows a template explanation built from the deterministic contributions.
-
----
-
-## 9. Environment variables
-
-```bash
-# .env.example: names only, never commit values
-DATABASE_URL=                 # app_user connection (Tiger Data; pooler URL if enabled; sslmode=require)
-MIGRATION_DATABASE_URL=       # owner/admin connection for dbmate and seed scripts
-PG_POOL_MAX=3
-BETTER_AUTH_SECRET=           # openssl rand -base64 32
-BETTER_AUTH_URL=              # http://localhost:3000 locally; Vercel URL in prod
-GEMINI_API_KEY=               # server-only
-GEMINI_MODEL=                 # current Gemini Flash model ID
-DEMO_CONTROLLER_EMAILS=       # comma-separated; allowed to call demo reset/reconcile
-```
-
-Only `NEXT_PUBLIC_*` variables may be read in client components; none of the above are public.
-
----
-
-## 10. Testing
-
-| Suite | Tool | Runs against | Must cover |
-| --- | --- | --- | --- |
-| `tests/domain` | vitest | nothing (pure) | §26 domain cases: valuation golden cases, cents math, dilution, rounding, bounds |
-| `tests/integration` | vitest | local Postgres (`docker compose up -d`, migrated) | Every row of the §26 integration table |
-| `tests/ai` (P2) | vitest | Gemini mocked | Invalid/timeout/injection outputs → `null` → fallback; numbers never taken from model |
-
-Integration test conventions:
-
-- Connect as **`app_user`** for the code under test, so privilege revokes are exercised. Use the owner pool only for setup (creating users/fixtures).
-- Include a test asserting `insert into journal_lines ...` as `app_user` fails with a permission error.
-- Concurrency tests use `Promise.all` over separate pool clients (e.g. two buyers × 7 units on a 10-unit offering → exactly one success, one `ALLOCATION_UNAVAILABLE`).
-- Every integration test ends by calling `demo_reconcile` and asserting `ok === true`.
-- Each test file uses its own scenario so files can run in parallel.
-
----
-
-## 11. Commands (`package.json` scripts)
+### 5.7 `valuation-v0.1` seed parameters
+MARKET does not define these. They are **invented demo calibration priors** (AGENTS.md: label assumptions), stored in `model_versions`, and changeable only by a new model version.
 
 ```jsonc
 {
-  "dev": "next dev",
-  "build": "next build",
-  "db:up": "docker compose up -d",
-  "db:migrate": "dbmate --env MIGRATION_DATABASE_URL --migrations-dir db/migrations --no-dump-schema up",
-  "db:rollback": "dbmate --env MIGRATION_DATABASE_URL --migrations-dir db/migrations --no-dump-schema rollback",
-  "db:seed": "tsx scripts/seed.ts",
-  "db:reset:local": "docker compose down -v && docker compose up -d && sleep 3 && pnpm db:migrate && pnpm db:seed",
-  "test": "vitest run",
-  "test:domain": "vitest run tests/domain",
-  "test:int": "vitest run tests/integration",
-  "lint": "next lint && tsc --noEmit"
+  "horizon_years": 5,
+  "scenarios": ["failure", "small", "base", "breakout"],
+  "baseline_probabilities": {            // converted to logits with ln(p)
+    "idea":              [0.70, 0.20, 0.08, 0.02],
+    "prototype":         [0.60, 0.25, 0.12, 0.03],
+    "launched":          [0.50, 0.30, 0.16, 0.04],
+    "early_revenue":     [0.40, 0.33, 0.21, 0.06],
+    "repeatable_revenue":[0.30, 0.35, 0.27, 0.08]
+  },
+  "beta": [-2.0, 0.0, 1.0, 1.5],
+  "default_sector": {                    // per-sector overrides in sectors table
+    "terminal_revenue_usd": [0, 200000, 2000000, 20000000],
+    "multiple":             [0, 1.0, 3.0, 6.0],
+    "discount_rate":        [0, 0.30, 0.40, 0.50]
+  },
+  "stage_revenue_multiple": { "early_revenue": 2.0, "repeatable_revenue": 4.0 },
+  "demand": { "target_unique_buyers": 10, "k": 0.40, "clamp_low": 0.75, "clamp_high": 1.50 }
 }
 ```
 
-A migration is done when `pnpm db:reset:local && pnpm lint && pnpm test` passes.
+The valuation owner MUST write golden tests from this seed (same input + version → identical output) before any API uses it.
 
 ---
 
-## 12. Deployment
+## 6. Solana program (`chain/programs/prospecto`)
 
-1. Tiger Data: create the service (or use the hackathon-provided one). Copy the admin connection string → `MIGRATION_DATABASE_URL`. Enable the connection pooler if available.
-2. Run `pnpm db:migrate` against Tiger Data; set the `app_user` password; build `DATABASE_URL` for `app_user` (pooler endpoint if enabled, `sslmode=require`).
-3. Seed once with `pnpm db:seed`. Never run `db:reset:local` against the hosted DB.
-4. Vercel: import the repo, set all §9 env vars (`BETTER_AUTH_URL` = production URL), deploy from `main`.
-5. Hosted smoke test: sign up → grant → quote → purchase → refresh portfolio → founder dashboard → `/api/demo/reconcile` returns `ok: true`.
+Implements M§6.3 and M§7. All arithmetic uses `checked_*` and errors on overflow.
+
+### 6.1 Accounts and PDA seeds
+
+| Account | Seeds | Key fields (M§6.3 plus additions) |
+| --- | --- | --- |
+| `Config` | `["config"]` | `admin`, `relayer` (fee payer + eligibility authority), `payment_mint`, `protocol_fee_bps` (100), `founder_share_bps` (4000), `protocol_fee_vault`, `paused` |
+| `Project` | `["project", project_uuid(16 bytes)]` | M§6.3 fields + `bump` |
+| `receipt_mint` | `["receipt_mint", project]` | Token-2022, `NonTransferable`, decimals 0, mint authority = `Project` PDA |
+| `project_vault` | `["project_vault", project]` | Payment-mint token account; authority = `Project` PDA |
+| `founder_reward_vault` | `["founder_reward_vault", project]` | Same |
+| `Round` | `["round", project, round_number u16 LE]` | M§6.3 fields + `max_subscription_amount`, `total_accepted`, `total_units_minted`, `bump` |
+| `round_vault` | `["round_vault", round]` | Holds commitments until settlement |
+| `FundingReceipt` | `["funding", intent_uuid(16 bytes)]` | Immutable intent, wallet, amount, mint, bank-proof hash, funded flag; one guarded mint per intent |
+| `Subscription` | `["subscription", round, buyer]` | M§6.3 fields + `minted: bool`, `refunded: bool` |
+
+Creating the `NonTransferable` mint: use Anchor's token-extension constraints if the pinned Anchor version supports `NonTransferable`. Otherwise CPI `initialize_non_transferable_mint` before `initialize_mint2`. Verify against the docs for the pinned version (AGENTS.md).
+
+### 6.2 Instructions (M§6.3 names)
+
+| Instruction | Signers | Rules |
+| --- | --- | --- |
+| `fund_mock_usdc(intent_id, amount, bank_proof_hash)` | configured relayer | Verified Nessie saga only; atomically create/validate FundingReceipt PDA and mint exact mock amount. Matching replay mints nothing; mismatched replay fails. See purchase flow §6. |
+| `initialize_protocol` | admin | Once; sets config |
+| `create_project` | founder wallet + relayer | Creates `Project`, receipt mint, vaults |
+| `open_round` | founder wallet + relayer | `opens_at < closes_at`, `unit_price_micro_usd ≥ 1`, `max_units > 0`, `target_amount = max_units × unit_price` (checked), caps ≤ config limits; stores `model_hash`, `evidence_root` |
+| `subscribe(gross_amount)` | buyer wallet + **relayer** | Relayer co-signature **is** the eligibility attestation (M§7.4 step 3). It expires with the blockhash, and the backend signs only for eligible identities. Requires `opens_at ≤ now < closes_at`, `buyer ≠ founder_wallet`, `unit_price ≤ gross ≤ max_subscription_amount`, not paused. Transfers gross → `round_vault`, inits `Subscription` (one per buyer per round), adds to `total_committed`, emits `SubscriptionAccepted` |
+| `finalize_round` | anyone (crank) | `now ≥ closes_at`; status → `Finalized` (or `Expired` if `total_committed = 0`); records `filled = total_committed ≥ target_amount` |
+| `mint_final_allocation(subscription)` | anyone (crank) | After finalize, once (`minted`). Applies §6.3 math: mints units to the buyer's receipt ATA and moves fee/reward/net from `round_vault` |
+| `refund_excess(subscription)` | anyone (crank) | After finalize or cancel, once (`refunded`); refunds `gross − accepted` to the buyer |
+| `cancel_and_refund` | founder or admin | Only before finalize; status → `Refunding`; every subscription's accepted = 0 |
+| `withdraw_project_proceeds` | founder wallet | `project_vault` → founder token account |
+| `withdraw_founder_rewards` | founder wallet | `founder_reward_vault` → founder token account |
+
+Events: `MockWalletFunded`, `ProjectCreated`, `RoundOpened`, `SubscriptionAccepted`, `RoundFinalized`, `AllocationMinted`, `ExcessRefunded`, `RoundCancelled`, `ProceedsWithdrawn`, `FounderRewardsWithdrawn`.
+
+### 6.3 Settlement math (deterministic, integer micro-USD; M§4.11–4.12)
+
+```text
+if total_committed ≤ target_amount: accepted = gross
+else:                               accepted = floor(gross × target_amount / total_committed)   // u128 intermediate
+protocol_fee   = floor(accepted × protocol_fee_bps / 10_000)
+founder_reward = floor(protocol_fee × founder_share_bps / 10_000)
+platform_rev   = protocol_fee − founder_reward
+net            = accepted − protocol_fee
+units          = floor(net / unit_price_micro_usd)
+refund         = gross − accepted
+→ project_vault += net   (sub-unit dust stays in project proceeds, per M§4.12 project_proceeds = gross − fee)
+```
+
+Invariants (program asserts + tests, M§16): `Σaccepted ≤ target_amount`, `Σunits ≤ max_units`, `accepted + refund = gross`, `fee = founder_reward + platform_rev`, every value ≥ 0, mint and refund at most once each.
+
+Unallocated remainder from pro-rata flooring (`target − Σaccepted`) is simply not accepted, so it is refunded through each buyer's `refund`. This is the deterministic remainder rule required by M§4.11.
 
 ---
 
-## 13. Backend build order (maps to MEGA_PLAN §24)
+## 7. HTTP API (M§9.2 plus required additions)
 
-| Step | Backlog | Deliverable | Done when |
+Base `/api`, JSON, same-origin with the static export in `web/out/`.
+
+| Method & path | Auth | Purpose |
+| --- | --- | --- |
+| POST `/auth/email/start` | none | `{email}` → campus domain check, send OTP |
+| POST `/auth/email/verify` | none | `{email, code}` → upsert identity, set session cookie |
+| GET `/auth/session` | session | `{identityId, verified, wallets[]}` |
+| POST `/auth/logout` | session | Revoke session |
+| POST `/auth/wallet-challenge` | session | `{address}` → SIWS-style message + nonce |
+| POST `/auth/wallet-verify` | session | `{address, signature(base58)}` → bind wallet (max 2 per identity) |
+| POST `/funding` | session + wallet | Nessie-backed mock USDC funding (§9) |
+| GET `/projects` | none | Discovery list (public fields) |
+| POST `/projects` | session + wallet | Create project, returns `create_project` tx to sign |
+| GET `/projects/:slug` | none | Public profile + latest valuation + current round |
+| POST `/projects/:id/evidence` | founder | Add claim (immutable; corrections supersede) |
+| POST `/projects/:id/evidence/extract` | founder | Gemini claim extraction proposal (not saved until founder confirms) |
+| POST `/evidence/:id/verify` | reviewer | Set verification status |
+| POST `/projects/:id/valuation/preview` | founder | Deterministic valuation (M§9.3 contract) |
+| POST `/projects/:id/rounds` | founder | Freeze snapshot, hash, return `open_round` tx to sign |
+| GET `/rounds/:id` | none | Round mirror + progress |
+| POST `/rounds/:id/eligibility` | session + wallet | Eligibility decision with reasons |
+| POST `/rounds/:id/subscribe/prepare` | session + wallet | `{grossAmountMicroUsd}` → relayer-co-signed tx (base64) + fee/units preview |
+| GET `/rounds/:id/subscriptions/me` | session | Caller's subscription mirror |
+| GET `/projects/:id/history` | none | Continuous-aggregate series |
+| POST `/transactions` | session | `{signedTx(base64)}` → backend submits via RPC, returns `{signature}` and ingests |
+| GET `/transactions/:signature` | session | Status `Prepared/Submitted/Confirmed/Finalized/Failed/Unknown/Expired/Rejected` (M§11.1); triggers on-demand ingest |
+
+**Wallet transaction flow (frontend contract):**
+`prepare` returns an unsigned-by-user, relayer-partially-signed `VersionedTransaction` (base64), where the relayer is the fee payer, so users need no devnet SOL. The page deserializes it with `@solana/web3.js` (npm dependency of `web/`), calls the injected wallet's `signTransaction`, then POSTs it to `/transactions`. The page polls `GET /transactions/:signature` until `Confirmed` (provisional) or `Finalized`.
+
+**Conventions**
+- Every non-auth POST requires an `Idempotency-Key` header (8–128 chars) (M§11.2). Same key + same body hash returns the stored response; same key + different body returns `IDEMPOTENCY_CONFLICT`.
+- Session: random 32-byte token in an `HttpOnly; Secure; SameSite=Lax` cookie `prospecto_session` (7 days); only its sha256 is stored.
+- Non-GET requests MUST pass an `Origin` check against `PUBLIC_ORIGIN`.
+- Wallet challenge message (nonce single-use, 5 min):
+  ```text
+  Prospecto wants you to sign in with your Solana account:
+  <address>
+
+  Nonce: <nonce>
+  Issued At: <ISO-8601>
+  Expiration Time: <ISO-8601>
+  ```
+- Errors: `{ "error": { "code", "message", "requestId" } }`. Codes: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `INVALID_INPUT` / `CAMPUS_EMAIL_REQUIRED` / `OTP_INVALID` / `MISSING_IDEMPOTENCY_KEY` 400, `WALLET_NOT_VERIFIED` / `WALLET_LIMIT` / `SELF_SUBSCRIPTION_FORBIDDEN` / `ROUND_NOT_OPEN` / `ALREADY_SUBSCRIBED` / `OVER_IDENTITY_CAP` / `IDEMPOTENCY_CONFLICT` 409, `RATE_LIMITED` 429, `AI_UNAVAILABLE` / `CHAIN_UNAVAILABLE` 503, `INTERNAL` 500. Anchor error codes are mapped to these codes in `solana/errors.ts`.
+- Logs: `{requestId, route, identityId, errorCode, durationMs}`. Never log emails, OTPs, session tokens, private keys, Nessie URLs/keys, or private evidence.
+
+---
+
+## 8. Worker (`server/src/worker.ts`; M§11)
+
+One process, four loops:
+
+1. **Live ingest:** `connection.onLogs(PROGRAM_ID, "confirmed")` → parse Anchor events (`EventParser`) → `insert into chain_events ... on conflict (chain, signature, instruction_index, event_index) do nothing` → update mirrors + `market_metrics`, all in one DB transaction per signature.
+2. **Reconciliation, every 60 s:** `getSignaturesForAddress(PROGRAM_ID, { until: last_seen })` → same ingest path; promote `confirmed → finalized`; mark stale `Submitted` rows `Unknown` and reconcile signature history, blockhash expiry, and PDA state; do not infer failure from a two-minute timeout; log an alert on mirror/chain mismatch (M§11.3).
+3. **Funding recovery:** claim durable intents and reconcile banking/mint outcomes as specified in [purchase flow §6](NESSIE_PURCHASE_FLOW.md#6-funding-state-machine-and-recovery); no blind Nessie write retry.
+4. **Settlement crank, every 15 s:** for rounds past `closes_at`, send `finalize_round`, then `mint_final_allocation` + `refund_excess` per unsettled subscription. All are idempotent on-chain, so retries are safe.
+
+Ingest is the **only** writer of mirror tables. API routes MAY call the same ingest function on demand (`POST/GET /transactions`) for responsiveness.
+
+---
+
+## 9. Nessie funding saga
+
+Follow **[NESSIE_PURCHASE_FLOW.md](NESSIE_PURCHASE_FLOW.md)** for the complete implementation contract, schema, adapter capability gate, API responses, and recovery tests.
+
+Nessie funds demo wallets; Solana handles startup participation. They are separate actions. Do not debit Nessie or create a merchant purchase again for a subscription.
+
+```text
+Persist intent and reserve limits
+→ one Nessie transfer to configured mock funding treasury
+→ verify provider terminal success, amount, parties, and tag
+→ guarded fund_mock_usdc instruction + FundingReceipt PDA
+→ verify finalized on-chain receipt
+→ complete funding
+→ prepare/sign/submit startup subscription
+→ allocate receipts and refund excess after round close
+```
+
+- Nessie POSTs have no assumed provider idempotency guarantee. Persist before dispatch; ambiguous results require read-back/history reconciliation or review, never blind write retries.
+- Matching app request keys recover the same intent. One unresolved funding per source, one accepted funding per rolling hour, $1,000 cumulative mock cap per identity; all verified wallets share limits.
+- Whole-dollar Nessie funding converts exactly to six-decimal mock tokens. A missing `mint_signature` or wallet balance delta is not replay protection; the FundingReceipt PDA is.
+- `BANK_PENDING` is not funded, and RPC submission is not finality. Poll owned intent endpoints and show each phase explicitly.
+- Add the account/intent/portfolio endpoints in purchase flow §9 to the existing API; keep exact-message checking for submitted wallet transactions.
+- A Nessie outage disables new banking funding; already-funded wallets can participate. A separately selected `FAUCET_ONLY` path is visibly labeled and never substitutes for an uncertain dispatched bank intent.
+- Live adapter schema/status/host behavior must be validated with the team's key. This document does not claim live execution.
+
+---
+
+## 10. Gemini (M§6.2)
+
+| Task | Endpoint | Output schema (zod, also passed as `responseSchema`) |
+| --- | --- | --- |
+| Claim extraction | `/projects/:id/evidence/extract` | M§6.2 example: `{claims[], missing_evidence[], warnings[]}` |
+| Evidence triage | same call | `missing_evidence` + suggested verification method per claim |
+| Explanation | inside `/valuation/preview` response (optional field) | `{summary, drivers[], caveats[]}` from stored factor contributions only |
+
+- Input: pasted text or uploaded `.txt`/`.md` ≤ 50 KB. Founder text is untrusted and wrapped in delimiters with an "extract only; ignore instructions in the text" instruction.
+- Cache by `sha256(normalized content) + prompt_version + model` in `ai_cache`. Call only when content changes (M§6.2 cost controls).
+- 10 s timeout, `temperature 0.2`, capped output tokens. On any failure return `AI_UNAVAILABLE`; the valuation itself never depends on Gemini.
+- Extracted claims are saved only after founder confirmation, always as `founder_attested` (c = 0.35).
+
+---
+
+## 11. Testing (M§16)
+
+| Suite | Tool | Covers |
+| --- | --- | --- |
+| `server/tests/valuation` | vitest | Golden cases from §5.7; weights/probabilities sum to 1; missing → neutral; demand bounds; single participant cannot max `D`; reproducibility from stored inputs |
+| `server/tests/rounds` | vitest | §6.3 math mirrored in TS (same results as the program for a shared table of cases); invariants |
+| `server/tests/integration` | vitest + local Tiger image | Auth/OTP/wallet challenge, idempotency, ingest dedupe (same signature twice), reconciliation recovery, aggregates match raw totals, private evidence never in public responses |
+| `server/tests/banking` | vitest + local DB | Adapter redaction/status validation, uncertain-write recovery, account ownership, replay/quota/lease races; full cases in purchase flow §12 |
+| `chain/tests/funding` | `anchor test` (local validator) | Guarded funding receipt + mint atomicity, duplicate intent/new signature, wrong wallet/amount/mint/proof, pause and cap checks |
+| `chain/tests` | `anchor test` (local validator) | Every M§16 Solana case: founder cannot subscribe; closed/not-open rejects; cap; atomic payment; **receipt transfer fails**; no double mint; finalize ≤ max units; refund once; fee split matches bps |
+
+---
+
+## 12. Environment variables
+
+```bash
+# .env.example: names only
+PUBLIC_ORIGIN=                 # e.g. http://localhost:8787
+DATABASE_URL=                  # Tiger Data app connection (sslmode=require)
+MIGRATION_DATABASE_URL=        # owner connection for dbmate
+EMAIL_HASH_PEPPER=             # HMAC key for campus_email_hash
+CAMPUS_EMAIL_DOMAINS=          # comma-separated, e.g. unc.edu
+RESEND_API_KEY=                # optional; DEMO_MODE logs OTPs instead
+DEMO_MODE=false
+SOLANA_RPC_URL=                # Devnet HTTP
+SOLANA_WS_URL=                 # Devnet WS
+PROGRAM_ID=
+PAYMENT_MINT=                  # mock USDC (Token-2022)
+RELAYER_SECRET_KEY=            # base58; fee payer + eligibility authority + mock USDC mint authority (Devnet only)
+NESSIE_API_KEY=
+NESSIE_BASE_URL=                # tested HTTPS API host
+NESSIE_PROFILE=                 # tested wire/status contract
+NESSIE_TREASURY_ACCOUNT_ID=
+NESSIE_ENABLED=true
+FUNDING_PAUSED=false
+DEMO_GENERATION_ID=
+GEMINI_API_KEY=
+GEMINI_MODEL=                  # current Gemini Flash model ID
+WORKER_IN_PROCESS=false
+```
+
+Never commit values. `RELAYER_SECRET_KEY` is Devnet-only and must never be reused on mainnet.
+
+---
+
+## 13. Build order (maps to M§15 phases)
+
+| Step | Phase | Deliverable | Done when |
 | --- | --- | --- | --- |
-| 1 | H03 | Next.js scaffold, docker-compose, dbmate, `pool`/`sql` helpers, `withHandler`, error map, `.env.example` | `pnpm dev` runs; `GET /api/companies` returns `[]` from local Postgres |
-| 2 | H03 | Better Auth + `0001_auth_tables.sql`; `requireUser()` | Sign up/in works; protected route returns 401 when signed out |
-| 3 | H03 | Migrations 0002–0004 (roles, schema, ledger, `post_journal`) | As `app_user`, direct insert into `journal_lines` is denied in a test |
-| 4 | H03 | `grant_demo_credits` + `seed.sql` fixtures | Granting twice → one journal; reconcile ok |
-| 5 | H05 | `lib/valuation/v1.ts` + golden tests; valuation route persists inputs/outputs | LAUNCHED + all-50 → 100,000,000 cents; band 60,000,000–150,000,000 cents |
-| 6 | H06 | `publish_offering` / `close_offering` + routes | Two concurrent publishes → one active round |
-| 7 | H08 | `create_quote` + `purchase` + `get_purchase_by_key` + routes | All §26 integration cases pass |
-| 8 | H10 | Portfolio, orders, founder dashboard read routes | Numbers match reconcile output |
-| 9 | H11 | `demo_reset` / `demo_reconcile` + controller-only routes; deploy to Tiger Data + Vercel | Fresh reset → full demo path → reconcile ok on hosted |
-| 10 | H14 | Gemini explanation + prefill (§8) | Timeout/invalid output falls back cleanly; no AI number reaches the DB |
+| 1 | 1 | Workspace, Hono server serving `web/out/` (run `npm --prefix web run build` first), config, pg pool, dbmate, docker Tiger image, error/middleware skeleton | `GET /` serves landing page; `GET /api/projects` returns `[]` |
+| 2 | 1 | Identity: email OTP, sessions, wallet challenge/verify | OTP → session → wallet bound; replayed nonce rejected |
+| 3 | 1 | Projects, evidence, reviewer verify; `seed.sql` | Founder creates project and claims; public API hides private evidence |
+| 4 | 1 | Valuation engine + `valuation-v0.1` seed + preview endpoint | Golden tests pass; M§9.3 output shape |
+| 5 | 1 | Off-chain round record (Tiger only) + funding-progress hypertable/aggregate | M§15 Phase 1 vertical slice demoable |
+| 6 | 2 | Anchor program + `devnet-setup.ts` + `anchor test` | All chain tests pass on local validator; deployed to Devnet |
+| 7 | 2 | Tx builders, `/projects` + `/rounds` + `subscribe/prepare` + `/transactions` | One end-to-end Devnet subscription |
+| 8 | 2 | Worker: ingest, reconciliation, crank | Round finalizes, units minted, refunds sent; mirrors match chain |
+| 9 | 2 | Nessie funding saga | Funding completes once under retry |
+| 10 | 2 | Gemini extraction/triage/explanation | Failure falls back cleanly; cache hit on repeat |
+| 11 | 3 | Hosted deploy (Railway + Tiger + Devnet), M§15 demo rehearsal | Full M§15 live demo runs twice from a fresh project |
 
-If time runs short, keep steps 1–4, 6, 7, 9 and hard-code a single valuation fixture. Drop step 10 entirely before compromising the atomic purchase or the reconcile check.
+Cut order for the requested Nessie prize path: optional Gemini explanations/extraction → hourly/daily aggregates → social extras. Preserve Nessie funding, guarded minting, chain tests, idempotent ingest, and receipt-transfer checks. A visibly labeled faucet-only development fallback is not a completed Nessie integration.
+
+---
+
+## 14. Decisions this spec makes where MARKET is open
+
+| MARKET says | Decision here | Why |
+| --- | --- | --- |
+| "Drizzle or direct parameterized SQL" | SQL only (`pg`) | No second schema system; hypertable DDL is raw SQL anyway |
+| Eligibility attestation or allowlist proof | Relayer co-signs `subscribe` | No extra on-chain verification code; expires with the blockhash |
+| Pro-rata on-chain or off-chain Merkle root | Per-subscription on-chain math after `finalize_round` | Avoids iteration and Merkle proofs; crank-driven, idempotent |
+| "Subscription PDA created or updated" | One subscription per buyer per round | Matches `UNIQUE(round_id, identity_id)` in M§8.1 |
+| Separate payment asset program | Mock USDC also on Token-2022 | One token program in every instruction |
+| Who pays transaction fees | Relayer is fee payer | Users need no Devnet SOL |
+| Hosting "one web/API + one worker" | Railway, two start commands; in-process fallback | Long-lived websocket needs a persistent process |
+| Scenario/demand constants unspecified | `valuation-v0.1` priors in §5.7 | Must be versioned data, labeled as invented |
+| `evidence_root` | `sha256` of canonical JSON array of sorted claim `content_hash`es | Tamper-evident; Merkle tree deferred |

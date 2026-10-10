@@ -5,6 +5,8 @@ Updated: October 10, 2026
 Status: proposed product/build specification; no application or runtime verification implemented yet.  
 Working name: **FirstStake**, subject to the team's choice.
 
+> **Current implementation source:** [MARKET ARCHITECTURE.md](MARKET%20ARCHITECTURE.md), [BACKEND_STACK.md](BACKEND_STACK.md), and the complete [Nessie purchase flow](NESSIE_PURCHASE_FLOW.md) define the active Solana Devnet/Tiger/Nessie design. The earlier database-credit purchase and option proposals below are historical; do not implement those backend sections. Nessie funds wallets, Solana settles primary participation receipts, and Tiger records recovery and dashboards.
+
 Business rationale: see [users](#28-first-users-and-potential-customers), [benefits](#29-why-the-product-is-useful), [competitors](#30-competitive-landscape), [differentiation](#31-where-we-could-be-better-and-how-to-demonstrate-it), [demand](#32-demand-evidence-and-its-limits), [VC-and-small-investment-questions](#33-why-complement-vcs-and-why-small-investments-matter), and [validation](#34-validation-positioning-and-execution).
 
 ## 1. Product direction

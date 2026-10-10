@@ -10,12 +10,12 @@ The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md
 
 ## Intended stack
 
-- Frontend: Next.js 15, React 19, TypeScript in `web/`, currently a static export (`output: "export"`); see README for the open integration question with the backend spec
+- Frontend: Next.js 15, React 19, TypeScript in `web/`, static export only (`output: "export"`), served by the Hono backend
 - Styling: hand-written CSS in `web/styles/` (no Tailwind)
 - Backend: Node.js and TypeScript in a modular monolith
 - Validation: shared Zod schemas
 - Database: Tiger Cloud PostgreSQL with TimescaleDB
-- Database access: Drizzle or parameterized SQL
+- Database access: parameterized SQL via `pg` (no ORM; see `docs/BACKEND_STACK.md`)
 - Chain: Solana Devnet
 - On-chain program: Rust and Anchor
 - Asset standard: Token-2022 non-transferable receipts
