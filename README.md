@@ -36,7 +36,7 @@ The frontend lives in [`web/`](web/) and is a Next.js static export (`output: "e
 | Motion | GSAP + ScrollTrigger on the front page, a WebGL halftone canvas, CSS page-turn transitions, an IntersectionObserver scroll reveal, and a per-character hero text reveal; all respect `prefers-reduced-motion` |
 | Data | Fictional fixtures in `web/lib/fixtures.ts`; no API calls yet |
 
-Routes: `/` (front page), `/launch/` (founder listing interview), `/rounds/` (open rounds), `/news/` (explainers and round reports).
+Routes: `/` (front page), `/how/` (how a round opens), `/desk/` (Estimate Desk), `/launch/` (founder listing interview), `/rounds/` ("Back a startup": every open round), `/round/?co=TICKER` (one company's round; `?co=draft` previews the founder's unpublished listing from this browser tab), `/news/` (explainers and round reports).
 
 ```bash
 cd web
