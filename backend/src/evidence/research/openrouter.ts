@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   CORROBORATION_SEARCH_TOPICS,
   ResearchModelError,
+  corroborationInput,
   corroborationPassJsonSchema,
   corroborationPassSchema,
   corroborationSystem,
@@ -93,6 +94,9 @@ export function createOpenRouterResearchModel(options: OpenRouterOptions): Resea
           // Only route to endpoints that honor structured output.
           provider: { require_parameters: true },
           max_tokens: 8_192,
+          // Extraction wants repeatable output. Google's "keep 1.0" guidance is for Gemini 3; on
+          // Gemini 2.5 the default 1.0 varied value formats between identical runs (2026-10-10).
+          temperature: 0,
           ...(plugins.length ? { plugins } : {}),
         }),
         signal: AbortSignal.timeout(90_000),
@@ -156,12 +160,8 @@ export function createOpenRouterResearchModel(options: OpenRouterOptions): Resea
         [],
       );
     },
-    corroborationPass({ project }) {
-      const input = [
-        `Startup: ${project.name}: ${project.oneLiner}`,
-        `Sector: ${project.sector ?? "unspecified"} · Stage: ${project.stage}`,
-        `Website: ${project.website ?? "none"}`,
-      ].join("\n");
+    corroborationPass(passInput) {
+      const input = corroborationInput(passInput);
       return complete(
         corroborationSystem(`Use only the attached web search results as sources, looking for: ${CORROBORATION_SEARCH_TOPICS}.`),
         input,

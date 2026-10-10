@@ -300,7 +300,14 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     const founderText = [input.founder_text, ...profileTexts].filter((text): text is string => Boolean(text)).join("\n\n") || null;
     const [founderPass, corroborationPass] = await Promise.allSettled([
       deps.model.founderPass({ project: projectContext, urls: geminiUrls, founderText }),
-      deps.model.corroborationPass({ project: { ...projectContext, website: input.website_url } }),
+      // Visit, then search: corroboration waits only for our own fetch of the founder's site, so it
+      // can search by domain and product (the site's title/description) instead of a bare name.
+      founderFetches.then((fetched) => {
+        const index = input.website_url ? fetchable.indexOf(input.website_url) : -1;
+        const summary = index >= 0 ? fetched[index]?.summary : undefined;
+        const siteSummary = [summary?.title, summary?.description].filter(Boolean).join(" — ") || null;
+        return deps.model.corroborationPass({ project: { ...projectContext, website: input.website_url }, siteSummary });
+      }),
     ]);
 
     (await founderFetches).forEach((fetched, index) => {

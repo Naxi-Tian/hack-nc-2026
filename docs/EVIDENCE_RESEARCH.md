@@ -38,6 +38,8 @@ Code: `backend/src/evidence/` (`metrics.ts`, `decimal.ts`, `research/*`), `backe
 
 **Transport (`RESEARCH_PROVIDER`).** `gemini` uses the direct Gemini API with URL context and Google Search grounding (`research/gemini.ts`). `openrouter` (`research/openrouter.ts`) runs the same prompts, schemas, and verifier through OpenRouter: the founder pass sends page text our server already fetched (no paid URL tool), and the corroboration pass makes one Exa web search (5 results, $0.007 per request at OpenRouter's listed price) whose `url_citation` annotations feed step 6. Exa search is a different index from Google Search, so corroboration may find different pages; every cited page is still re-fetched and quote-checked. Adopted 2026-10-10 because the direct Gemini project's prepaid balance blocked all calls.
 
+**Visit, then search (`research-corroboration-v2`).** The corroboration pass starts once our own fetch of the founder's website finishes, and receives that page's `<title>` and meta description as untrusted `<site_summary>` plus the bare domain, so it searches by domain and product, not by a name other companies may share. It never cites the summary. OpenRouter calls use temperature 0 (repeatable extraction on Gemini 2.5; the Gemini 3 "keep 1.0" guidance in §2 still applies to the direct adapter). The JSON schemas sent to the model carry only small array bounds (1–3 citations per assessment, at most 4 assessments): Gemini rejects schemas with large bounds, and zod still enforces every limit.
+
 ## 4. Evidence status rules (`verifier.ts`, version `verifier-v2`)
 
 | Origin | Condition | Status |

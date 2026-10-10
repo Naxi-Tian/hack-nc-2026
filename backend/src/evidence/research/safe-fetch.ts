@@ -36,6 +36,8 @@ export interface FetchResult {
   /** sha256 of the raw (decompressed) body bytes that were read. */
   contentSha256: string | null;
   truncated: boolean;
+  /** The page's own <title> and meta description (HTML only); tells corroboration what to search for. */
+  summary?: { title: string | null; description: string | null };
 }
 
 export type PageFetcher = (url: string) => Promise<FetchResult>;
@@ -192,6 +194,20 @@ function decodeEntities(text: string): string {
   });
 }
 
+const SUMMARY_MAX = 300;
+
+/** Title and the first non-empty description meta tag, entity-decoded and capped. */
+export function pageSummary(html: string): { title: string | null; description: string | null } {
+  const clean = (value: string | undefined) => {
+    const text = value ? decodeEntities(value).replace(/\s+/g, " ").trim().slice(0, SUMMARY_MAX) : "";
+    return text || null;
+  };
+  const description = [...html.matchAll(/<meta\s[^>]*(?:name|property)=["'](?:description|og:description|twitter:description)["'][^>]*>/gi)]
+    .map((tag) => /content=["']([^"']*)["']/i.exec(tag[0])?.[1])
+    .find((content) => content && content.trim());
+  return { title: clean(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]), description: clean(description) };
+}
+
 /** Visible text plus <title> and meta descriptions (JS-rendered landing pages often only have those). */
 export function htmlToText(html: string): string {
   const metas = [...html.matchAll(/<meta\s[^>]*(?:name|property)=["'](?:description|og:description|og:title|twitter:description)["'][^>]*>/gi)]
@@ -249,6 +265,7 @@ export const safeFetch: PageFetcher = async (requestedUrl) => {
         text: isHtml ? htmlToText(raw) : raw,
         contentSha256: createHash("sha256").update(response.body).digest("hex"),
         truncated: response.truncated,
+        ...(isHtml ? { summary: pageSummary(raw) } : {}),
       });
     }
     return result(requestedUrl, { status: "TOO_MANY_REDIRECTS", finalUrl: current });

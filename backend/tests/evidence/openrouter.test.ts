@@ -52,6 +52,7 @@ describe("OpenRouter research model", () => {
     expect(body.plugins).toBeUndefined();
     expect(body.response_format).toMatchObject({ type: "json_schema", json_schema: { name: "founder_pass", strict: true } });
     expect(body.provider).toEqual({ require_parameters: true });
+    expect(body.temperature).toBe(0);
     const user = (body.messages as { role: string; content: string }[]).find((m) => m.role === "user")!.content;
     expect(user).toContain("Six emails into Gmail Drafts");
     expect(user).toContain("could not be read: HTTP_ERROR");
@@ -64,8 +65,11 @@ describe("OpenRouter research model", () => {
     const { model, requests } = harness({
       body: completion(JSON.stringify(output), [{ type: "url_citation", url_citation: { url: "https://news.example/asterlo", title: "t" } }]),
     });
-    const result = await model.corroborationPass({ project: { ...project, website: SITE } });
+    const result = await model.corroborationPass({ project: { ...project, website: SITE }, siteSummary: "Asterlo — Research-backed outreach" });
     expect(requests[0].body.plugins).toEqual([{ id: "web", engine: "exa", max_results: 5 }]);
+    const user = (requests[0].body.messages as { role: string; content: string }[]).find((m) => m.role === "user")!.content;
+    expect(user).toContain("(domain: asterlo.io)");
+    expect(user).toContain("<site_summary>\nAsterlo — Research-backed outreach\n</site_summary>");
     expect(result.telemetry.citationUrls).toEqual(["https://news.example/asterlo"]);
     expect(result.telemetry.groundingCalls).toBe(1);
   });

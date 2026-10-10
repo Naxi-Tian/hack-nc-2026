@@ -244,6 +244,25 @@ describe("research runner + confirm (PostgreSQL)", () => {
     expect(stored.rows[0]).toEqual({ fetch_status: "FOUNDER_PROVIDED", text_excerpt: PROFILE_TEXT });
   });
 
+  it("searches after visiting: corroboration gets the founder site's own title/description", async () => {
+    let seen: Parameters<ResearchModel["corroborationPass"]>[0] | null = null;
+    const model: ResearchModel = {
+      ...workingModel,
+      corroborationPass: async (input) => {
+        seen = input;
+        return workingModel.corroborationPass(input);
+      },
+    };
+    const withSummary = async (url: string): Promise<FetchResult> => ({
+      ...(await fetchPage(url)),
+      ...(url === SITE ? { summary: { title: "Mothlight", description: "Quiet study rooms at 2 a.m." } } : {}),
+    });
+    const tasks: (() => Promise<void>)[] = [];
+    await startResearchRun({ ...deps(model, tasks), fetchPage: withSummary }, { projectId, identityId, request: { website_url: SITE, urls: [] } });
+    await Promise.all(tasks.map((task) => task()));
+    expect(seen).toMatchObject({ siteSummary: "Mothlight — Quiet study rooms at 2 a.m.", project: { website: SITE } });
+  });
+
   it("serves identical input from cache and enforces the hourly limit", async () => {
     const tasks: (() => Promise<void>)[] = [];
     const first = await startResearchRun(deps(workingModel, tasks), { projectId, identityId, request });
