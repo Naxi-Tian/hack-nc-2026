@@ -335,6 +335,7 @@ Each claim receives a verification multiplier `c`:
 | Reviewer-verified artifact | 0.85 |
 | Public but weakly attributable source | 0.65 |
 | Founder-attested only | 0.35 |
+| AI-assessed judgment factor with a verified citation ([EVIDENCE_RESEARCH §4](EVIDENCE_RESEARCH.md)) | 0.35 |
 | Missing or contradicted | 0.00 |
 
 For a metric with raw normalized score `s` and a neutral prior `μ = 0.50`:
@@ -471,10 +472,12 @@ The simulator uses a fixed reference unit count:
 ```text
 REFERENCE_UNITS = 1,000,000
 
-unit_price = round_implied_value / REFERENCE_UNITS
+unit_price_micro_usd = floor(round_implied_value × 1,000,000 / REFERENCE_UNITS)
 
-allocated_units = floor(net_subscription_amount / unit_price)
+allocated_units = floor(project_proceeds_micro_usd / unit_price_micro_usd)
 ```
+
+All settlement amounts are integers in micro-USD, the mock USDC base unit (6 decimals, matching real USDC). This is both the storage precision and the price tick: at the prices this model produces (for example $0.135824 per unit for a $135,824 valuation), a one-cent tick would misstate the valuation by several percent, which is why US equities quote sub-dollar stocks in $0.0001 increments. Rounding the unit price down changes each unit by less than $0.000001, so the whole valuation by less than $1. Sub-unit dust (`project_proceeds − allocated_units × unit_price`) stays in project proceeds (purchase flow §8). The UI may display rounded values, but displayed values never feed back into calculations.
 
 These are index or participation units, not a representation of legal capitalization. If a future regulated product issues real securities, actual fully diluted capitalization and security rights replace `REFERENCE_UNITS`.
 
@@ -499,13 +502,15 @@ Initial configurable example:
 
 ```text
 protocol_fee_bps = 100                 # 1.00%
-founder_share_of_protocol_fee = 40%   # 0.40% of gross
+founder_fee_share_bps = 4000           # 40% of the fee = 0.40% of accepted
 
-protocol_fee = gross × 0.0100
-founder_reward = protocol_fee × 0.40
+protocol_fee = floor(accepted × protocol_fee_bps / 10,000)
+founder_reward = floor(protocol_fee × founder_fee_share_bps / 10,000)
 platform_revenue = protocol_fee − founder_reward
-project_proceeds = gross − protocol_fee
+project_proceeds = accepted − protocol_fee
 ```
+
+The fee is charged on the **accepted** amount only, so refunded oversubscription is never charged. Each rounded value is floored (in the participant's favor), and the remaining values are derived by subtraction, so the parts always reconcile to the accepted amount exactly. Multiplications use 128-bit intermediates (`u128` in Rust, `BigInt` in TypeScript, `NUMERIC` in SQL).
 
 The UI displays all four values before confirmation. For an unincorporated hackathon profile, all amounts remain simulated.
 
@@ -587,11 +592,12 @@ Tiger provides financial aggregation helpers such as candlestick aggregates, but
 
 ### 6.2 Gemini
 
-Gemini performs three bounded tasks:
+Gemini performs four bounded tasks:
 
 1. **Claim extraction:** turn founder narrative and uploaded text into a proposed structured claim list.
 2. **Evidence triage:** describe what proof is missing and route evidence to a verification method.
 3. **Explanation:** translate deterministic factor contributions into plain language.
+4. **Evidence research:** read the founder's links (URL context) and search the web (Google Search grounding) for cited, verbatim-quoted claims and cited assessments of four judgment factors. Deterministic code re-fetches every source, checks each quote, and assigns the evidence status; see [EVIDENCE_RESEARCH.md](EVIDENCE_RESEARCH.md).
 
 Example structured output:
 
@@ -775,230 +781,60 @@ For a hackathon, pro-rata calculations may be computed off-chain and verified us
 
 ## 8. Data schema
 
-### 8.1 Core relational tables
+The canonical DDL is the single migration [`db/migrations/0001_market_schema.sql`](../db/migrations/0001_market_schema.sql). This section explains its design; when they differ, fix whichever is wrong rather than letting them drift.
 
-#### `identities`
+### 8.1 Core tables
 
-```text
-id UUID PK
-campus_email_hash TEXT UNIQUE
-verification_status ENUM
-verified_at TIMESTAMPTZ
-risk_flags JSONB
-created_at TIMESTAMPTZ
-```
-
-#### `wallets`
-
-```text
-address TEXT PK
-identity_id UUID FK
-chain TEXT
-verified_signature TEXT
-is_primary BOOLEAN
-created_at TIMESTAMPTZ
-revoked_at TIMESTAMPTZ NULL
-```
-
-#### `projects`
-
-```text
-id UUID PK
-slug TEXT UNIQUE
-name TEXT
-description TEXT
-sector_id UUID FK
-stage ENUM
-founder_identity_id UUID FK
-founder_wallet TEXT FK
-solana_project_pda TEXT UNIQUE
-receipt_mint TEXT UNIQUE
-status ENUM
-created_at TIMESTAMPTZ
-```
-
-#### `project_members`
-
-```text
-project_id UUID FK
-identity_id UUID FK
-role TEXT
-is_founder BOOLEAN
-joined_at TIMESTAMPTZ
-PRIMARY KEY (project_id, identity_id)
-```
-
-#### `evidence_claims`
-
-```text
-id UUID PK
-project_id UUID FK
-metric_code TEXT
-value_numeric NUMERIC NULL
-value_text TEXT NULL
-unit TEXT NULL
-period_start DATE NULL
-period_end DATE NULL
-source_type ENUM
-source_uri TEXT NULL
-content_hash TEXT
-verification_status ENUM
-confidence_multiplier NUMERIC
-verified_by UUID NULL
-created_at TIMESTAMPTZ
-supersedes_claim_id UUID NULL
-```
-
-Claims are immutable. Corrections create a new row referencing the superseded claim.
-
-#### `model_versions`
-
-```text
-id TEXT PK
-effective_at TIMESTAMPTZ
-stage_weights JSONB
-factor_weights JSONB
-normalization_rules JSONB
-scenario_parameters JSONB
-demand_parameters JSONB
-code_commit TEXT
-status ENUM
-```
-
-#### `rounds`
-
-```text
-id UUID PK
-project_id UUID FK
-round_number INTEGER
-solana_round_pda TEXT UNIQUE
-opens_at TIMESTAMPTZ
-closes_at TIMESTAMPTZ
-unit_price NUMERIC
-max_units NUMERIC
-target_amount NUMERIC
-model_version_id TEXT FK
-valuation_snapshot_id UUID FK
-model_hash TEXT
-evidence_root TEXT
-status ENUM
-created_at TIMESTAMPTZ
-UNIQUE (project_id, round_number)
-```
-
-#### `subscriptions`
-
-```text
-id UUID PK
-round_id UUID FK
-identity_id UUID FK
-wallet_address TEXT FK
-requested_amount NUMERIC
-accepted_amount NUMERIC
-fee_amount NUMERIC
-founder_reward_amount NUMERIC
-allocated_units NUMERIC
-status ENUM
-solana_signature TEXT
-created_at TIMESTAMPTZ
-UNIQUE (round_id, identity_id)
-```
-
-#### `chain_events`
-
-```text
-id UUID PK
-chain TEXT
-program_id TEXT
-signature TEXT
-instruction_index INTEGER
-event_index INTEGER
-slot BIGINT
-event_type TEXT
-project_id UUID NULL
-round_id UUID NULL
-payload JSONB
-confirmation_status ENUM
-block_time TIMESTAMPTZ
-indexed_at TIMESTAMPTZ
-UNIQUE (chain, signature, instruction_index, event_index)
-```
-
-`chain_events` remains a normal PostgreSQL table so its idempotency constraint is simple and authoritative.
+| Area | Table | Notes |
+|---|---|---|
+| Auth | `auth."user"`, `auth.session`, `auth.account`, `auth.verification` | Better Auth with the emailOTP plugin for campus-email codes and sessions. Reached only through Better Auth. |
+| Identity | `identities` | Linked 1:1 to `auth."user"`. Stores a keyed HMAC of the campus email, `platform_role` (user, reviewer, admin), and risk flags. |
+| Identity | `wallets`, `wallet_challenges` | Wallet binding by signed, single-use, expiring nonce (§12). At most 2 active wallets and one primary per identity, and a wallet never moves to another identity (§10.1), enforced in the database. |
+| Projects | `sectors`, `projects`, `project_members` | Founder and team membership drive the self-subscription rules (§10.1). |
+| Evidence | `ai_intake_proposals` | Cached Gemini proposals, keyed by content hash and prompt version. Advisory only. |
+| Evidence | `evidence_claims` | Immutable. A correction supersedes exactly one prior claim. |
+| Evidence | `evidence_verifications` | Append-only status history (§4.5 levels). The latest row is the current status (`evidence_claim_current_status` view). Confidence multipliers come from the model version, not this table. |
+| Model | `model_versions` | Parameters freeze once a version leaves `DRAFT`. At most one `ACTIVE`. |
+| Rounds | `rounds` | Terms (price, supply, timing, fees, model hash, evidence root) freeze once a round leaves `DRAFT` (§10.3), and must match the valuation snapshot they cite. `target ≤ max_units × unit_price` guarantees allocations cannot exceed supply. One active round per project. |
+| Settlement | `subscriptions`, `chain_events` | Mirrors of Solana state; the chain is authoritative. Chain events are deduplicated by `(chain, signature, instruction_index, event_index)`, and only their confirmation status may advance. |
+| Funding | `banking_accounts`, `funding_intents`, `banking_attempts`, `funding_chain_attempts`, `funding_transitions`, `subscription_intents` | The Nessie funding saga and identity-scoped subscription reservations; see the purchase flow §5–§7. |
+| Ops | `idempotency_keys`, `rate_limits`, `indexer_state`, `audit_log` | Same idempotency key and same request replay the stored response; a different request is a conflict (§11.2). Rate-limit counters (§10.2), the reconciliation cursor (§11.3), and the append-only admin audit trail. |
 
 ### 8.2 Time-series hypertables
 
-#### `traction_metrics`
+| Hypertable | Time column | Purpose |
+|---|---|---|
+| `traction_metrics` | `observed_at` | Traction points derived from evidence claims |
+| `score_snapshots` | `calculated_at` | Factor scores per valuation run |
+| `valuation_snapshots` | `calculated_at` | Values, unit price, and hashes per valuation run. Primary key `(id, calculated_at)`; rounds reference both columns. |
+| `market_metrics` | `observed_at` | Integer metrics derived from finalized chain events, written in the same transaction as the event |
 
-```text
-observed_at TIMESTAMPTZ
-project_id UUID
-metric_code TEXT
-value NUMERIC
-unit TEXT
-evidence_claim_id UUID
-```
-
-#### `score_snapshots`
-
-```text
-calculated_at TIMESTAMPTZ
-project_id UUID
-model_version_id TEXT
-execution_score NUMERIC
-market_score NUMERIC
-product_score NUMERIC
-traction_score NUMERIC
-economics_score NUMERIC
-composite_score NUMERIC
-input_hash TEXT
-factor_contributions JSONB
-```
-
-#### `valuation_snapshots`
-
-```text
-calculated_at TIMESTAMPTZ
-id UUID
-project_id UUID
-model_version_id TEXT
-current_operating_value NUMERIC
-scenario_value NUMERIC
-model_reference_value NUMERIC
-demand_score NUMERIC
-demand_multiplier NUMERIC
-round_implied_value NUMERIC
-unit_price NUMERIC
-scenario_details JSONB
-assumptions JSONB
-input_hash TEXT
-```
-
-#### `market_metrics`
-
-```text
-observed_at TIMESTAMPTZ
-project_id UUID
-round_id UUID
-metric_code TEXT
-value NUMERIC
-dimensions JSONB
-```
+Score and valuation snapshots from one run share a `valuation_run_id`. The `market_metrics` codes are gross, accepted, fee, founder reward, refund, receipt units minted, and `NEW_PARTICIPANT`. `NEW_PARTICIPANT` is `1` for an identity's first finalized subscription to a project, so summing it gives cumulative unique participants.
 
 ### 8.3 Continuous aggregates
 
-Create views for:
+All are real-time (`materialized_only = false`), so the live demo reflects new rows immediately, and each has a refresh policy.
 
-```text
-project_metrics_1m
-project_metrics_1h
-round_funding_progress
-project_valuation_daily
-project_participant_growth
-project_founder_rewards_daily
-```
+| View | Source | Shows |
+|---|---|---|
+| `project_metrics_1m` / `project_metrics_1h` | `market_metrics` (1h rolls up 1m) | Totals per project and metric |
+| `round_funding_progress` | `market_metrics` | Committed and accepted micro-USD and subscription count per round per minute; running totals are computed at query time |
+| `project_valuation_daily` | `valuation_snapshots` | First, high, low, and last implied value and unit price per day, labeled "implied valuation history" |
+| `project_participant_growth` | `market_metrics` | Daily new participants |
+| `project_founder_rewards_daily` | `market_metrics` | Daily founder rewards |
 
-The frontend queries these views instead of repeatedly scanning raw events.
+The frontend reads these views instead of scanning raw events. The demand score (§4.9) is not computed from them: it reads `subscriptions` directly, with founder, team, and flagged identities excluded.
+
+### 8.4 Conventions
+
+- **Money:** market amounts mirrored from Solana are `BIGINT` micro-USD (`*_micro_usd`), rounded as in §4.10–4.12. Model outputs (scores, valuations) are exact `NUMERIC`, never floating point. The Nessie funding tables use the same `BIGINT` micro-USD. The UI shows dollars (`$50.00`, with unit prices and sub-cent amounts up to six decimals), formatted from the integer without floating point; displayed values never feed back into calculations.
+- **IDs and time:** `uuid` keys and `timestamptz` throughout.
+- **Immutable history:** evidence claims, verifications, snapshots, traction, market metrics, funding transitions, and the audit log are append-only. The runtime role has no `UPDATE`/`DELETE` on them, and a trigger rejects those operations as a second guard. Corrections append new rows.
+- **Hypertable keys:** every unique key on a hypertable includes its time column (a TimescaleDB requirement). Foreign keys may point from a hypertable to a regular table or from a regular table to a hypertable, never between two hypertables.
+
+### 8.5 Roles
+
+Migrations run as the service owner (`tsdbadmin` on Tiger Cloud). The API and worker connect as `prospecto_app`, which has `SELECT` on everything, `INSERT` where rows are created, `UPDATE` only on mutable state, and no `DELETE`, `TRUNCATE`, or DDL outside Better Auth's own schema.
 
 ---
 
@@ -1023,8 +859,11 @@ These are code boundaries, not separate deployed services.
 ### 9.2 API surface
 
 ```text
-POST   /api/auth/wallet-challenge
-POST   /api/auth/wallet-verify
+POST   /api/auth/email-otp/send-verification-otp   (Better Auth: campus email code)
+POST   /api/auth/sign-in/email-otp                 (Better Auth: session cookie)
+GET    /api/me
+POST   /api/wallets/challenge
+POST   /api/wallets/verify
 POST   /api/projects
 GET    /api/projects/:slug
 POST   /api/projects/:id/evidence

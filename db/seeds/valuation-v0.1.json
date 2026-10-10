@@ -1,0 +1,80 @@
+{
+  "id": "valuation-v0.1",
+  "status": "DRAFT",
+  "notes": "stage_weights and factor_weights are MARKET ARCHITECTURE §4.3–4.4 verbatim. confidence_multipliers are §4.5 plus AI_ASSESSED (EVIDENCE_RESEARCH §4, approved 2026-10-10). rubrics are INVENTED demo calibration priors pending team sign-off (AGENTS.md: label assumptions). scenario_parameters and demand_parameters are BACKEND_STACK §5.7 verbatim.",
+  "stage_weights": {
+    "IDEA": { "execution": 0.40, "market": 0.30, "product": 0.20, "traction": 0.05, "economics": 0.05 },
+    "PROTOTYPE": { "execution": 0.30, "market": 0.25, "product": 0.25, "traction": 0.15, "economics": 0.05 },
+    "LAUNCHED": { "execution": 0.25, "market": 0.25, "product": 0.20, "traction": 0.25, "economics": 0.05 },
+    "EARLY_REVENUE": { "execution": 0.20, "market": 0.20, "product": 0.10, "traction": 0.35, "economics": 0.15 },
+    "REPEATABLE_REVENUE": { "execution": 0.15, "market": 0.15, "product": 0.10, "traction": 0.35, "economics": 0.25 }
+  },
+  "factor_weights": {
+    "execution": { "shipped_work": 0.35, "relevant_domain_ability": 0.25, "execution_velocity": 0.20, "team_coverage": 0.10, "commitment_evidence": 0.10 },
+    "market": { "plausible_market_size": 0.35, "growth_or_tailwind": 0.25, "pain_urgency": 0.20, "reachable_initial_segment": 0.20 },
+    "product": { "product_completeness": 0.30, "user_validation": 0.25, "differentiation": 0.20, "defensibility": 0.15, "evidence_quality": 0.10 },
+    "traction": { "growth": 0.30, "retention_or_repeat_use": 0.25, "revenue_or_commitments": 0.20, "engagement_or_usage_depth": 0.15, "acquisition_efficiency": 0.10 },
+    "economics": { "gross_margin_potential": 0.30, "capital_efficiency": 0.25, "payback_or_sales_efficiency": 0.20, "recurring_or_repeat_revenue_quality": 0.15, "runway": 0.10 }
+  },
+  "normalization_rules": {
+    "metric_catalog": "metrics-v1",
+    "neutral_prior": 0.5,
+    "confidence_multipliers": {
+      "INDEPENDENTLY_VERIFIED": 1.0,
+      "REVIEWER_VERIFIED": 0.85,
+      "PUBLIC_WEAK": 0.65,
+      "FOUNDER_ATTESTED": 0.35,
+      "AI_ASSESSED": 0.35,
+      "MISSING_OR_CONTRADICTED": 0.0
+    },
+    "assessable_subfactors": ["pain_urgency", "differentiation", "defensibility", "growth_or_tailwind"],
+    "rubrics": {
+      "product_status": { "map": { "idea": 0, "mockup": 0.25, "prototype": 0.5, "beta": 0.75, "launched": 1 } },
+      "relevant_experience_years": { "bands": [["0", 0], ["0.5", 0.25], ["1", 0.5], ["2", 0.75], ["4", 1]] },
+      "repo_commits_90d": { "bands": [["0", 0], ["5", 0.25], ["20", 0.5], ["60", 0.75], ["150", 1]] },
+      "repo_active_weeks_13w": { "bands": [["0", 0], ["2", 0.25], ["5", 0.5], ["8", 0.75], ["11", 1]] },
+      "team_functions_count": { "bands": [["0", 0], ["1", 0.25], ["2", 0.5], ["3", 0.75], ["4", 1]] },
+      "full_time_founders": { "bands": [["0", 0.25], ["1", 0.75], ["2", 1]] },
+      "tam_usd": { "bands": [["0", 0], ["10000000", 0.25], ["100000000", 0.5], ["1000000000", 0.75], ["10000000000", 1]] },
+      "market_growth_pct": { "bands": [["-100", 0], ["0", 0.25], ["5", 0.5], ["10", 0.75], ["20", 1]] },
+      "initial_segment_size": { "bands": [["0", 0], ["100", 0.25], ["1000", 0.5], ["10000", 0.75], ["100000", 1]] },
+      "customer_interviews_count": { "bands": [["0", 0], ["5", 0.25], ["15", 0.5], ["30", 0.75], ["60", 1]] },
+      "waitlist_signups": { "bands": [["0", 0], ["50", 0.25], ["200", 0.5], ["1000", 0.75], ["5000", 1]] },
+      "active_users": { "bands": [["0", 0], ["10", 0.25], ["100", 0.5], ["1000", 0.75], ["10000", 1]] },
+      "mom_growth_pct": { "bands": [["-100", 0], ["0", 0.25], ["5", 0.5], ["15", 0.75], ["30", 1]] },
+      "retention_m1_pct": { "bands": [["0", 0], ["10", 0.25], ["25", 0.5], ["40", 0.75], ["60", 1]] },
+      "mrr_usd": { "bands": [["0", 0], ["1", 0.25], ["500", 0.5], ["5000", 0.75], ["25000", 1]] },
+      "loi_count": { "bands": [["0", 0], ["1", 0.25], ["3", 0.5], ["10", 0.75]] },
+      "dau_mau_pct": { "bands": [["0", 0], ["5", 0.25], ["10", 0.5], ["20", 0.75], ["40", 1]] },
+      "cac_usd": { "bands": [["0", 1], ["10", 0.75], ["50", 0.5], ["200", 0.25], ["1000", 0]] },
+      "gross_margin_pct": { "bands": [["-1000", 0], ["0", 0.25], ["30", 0.5], ["60", 0.75], ["80", 1]] },
+      "cac_payback_months": { "bands": [["0", 1], ["3", 0.75], ["6", 0.5], ["12", 0.25], ["24", 0]] },
+      "recurring_revenue_share_pct": { "bands": [["0", 0], ["25", 0.25], ["50", 0.5], ["75", 0.75], ["90", 1]] },
+      "runway_months": { "bands": [["0", 0], ["3", 0.25], ["6", 0.5], ["12", 0.75], ["18", 1]] }
+    },
+    "evidence_quality": {
+      "description": "Derived, not claimed: percent of confirmed non-assessment claims whose multiplier is at least strong_min_multiplier. c = 1 because the platform computes it; no claims gives c = 0 (neutral).",
+      "strong_min_multiplier": 0.65,
+      "bands_pct": [[0, 0], [20, 0.25], [40, 0.5], [60, 0.75], [80, 1]]
+    }
+  },
+  "scenario_parameters": {
+    "horizon_years": 5,
+    "scenarios": ["failure", "small", "base", "breakout"],
+    "baseline_probabilities": {
+      "idea": [0.70, 0.20, 0.08, 0.02],
+      "prototype": [0.60, 0.25, 0.12, 0.03],
+      "launched": [0.50, 0.30, 0.16, 0.04],
+      "early_revenue": [0.40, 0.33, 0.21, 0.06],
+      "repeatable_revenue": [0.30, 0.35, 0.27, 0.08]
+    },
+    "beta": [-2.0, 0.0, 1.0, 1.5],
+    "default_sector": {
+      "terminal_revenue_usd": [0, 200000, 2000000, 20000000],
+      "multiple": [0, 1.0, 3.0, 6.0],
+      "discount_rate": [0, 0.30, 0.40, 0.50]
+    },
+    "stage_revenue_multiple": { "early_revenue": 2.0, "repeatable_revenue": 4.0 }
+  },
+  "demand_parameters": { "target_unique_buyers": 10, "k": 0.40, "clamp_low": 0.75, "clamp_high": 1.50 }
+}

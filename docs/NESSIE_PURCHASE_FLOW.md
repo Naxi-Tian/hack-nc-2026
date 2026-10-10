@@ -109,7 +109,8 @@ Never send `status` to force success. Success must be read back from Nessie. The
 ### Amount representation
 
 - Public API: micro-USD decimal strings, e.g. `"100000000"` for $100.
-- TypeScript: BigInt. PostgreSQL: `numeric(20,0)`. Solana: checked u64 amounts with u128 intermediates for multiplication.
+- TypeScript: BigInt. PostgreSQL: `bigint` (Postgres has no unsigned 64-bit type; app and program caps keep amounts far below 2^63). Solana: checked u64 amounts with u128 intermediates for multiplication.
+- UI: show dollars, not micro-USD (`$100.00`; unit prices and sub-cent dust up to six decimals), formatted from BigInt without floating point.
 - MVP bank funding accepts whole simulated dollars only: `amountMicroUsd % 1_000_000 = 0`. This fits the current integer-amount documentation without rounding losses.
 - The adapter converts to a bounded integer dollar `number` only at the Nessie wire boundary; never convert token allocation values through floating point.
 - Preserve six decimals for subscriptions/refunds. A $0.50 token refund remains $0.50 in the wallet even though whole-dollar bank funding is required.
