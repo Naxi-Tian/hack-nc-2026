@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Prospecto</title>
+<meta name="description" content="Prospecto — founders at any stage publish a transparent valuation, set a fixed price, and share one “Invest in us” link. Backers buy units directly from the startup.">
+<meta name="color-scheme" content="dark">
+<script>try{if(sessionStorage.getItem('pt')){document.documentElement.classList.add('pt-in');sessionStorage.removeItem('pt')}}catch(e){}</script>
+<script>if(!matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.classList.add("js-intro")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="motion.css">
+<style>
+:root{
+  --ground:#0A0A09;
+  --ground-2:#11110F;
+  --ink:#ECE5D3;
+  --carbon:#8A857A;
+  --rule:#2B2925;
+  --green:#5BD06A;
+  --red:#EF5A43;
+  --serif:"Newsreader", Georgia, serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --black:"UnifrakturMaguntia", "Newsreader", serif;
+  --gutter:32px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--ground);color:var(--ink);-webkit-text-size-adjust:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.55;font-optical-sizing:auto;overflow-x:hidden}
+a{color:inherit}
+::selection{background:var(--green);color:var(--ground)}
+.page{max-width:1360px;margin:0 auto;padding:0 var(--gutter)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.up{color:var(--green)}
+.dn{color:var(--red)}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--carbon)}
+.kicker b{color:var(--green);font-weight:500}
+
+/* ───── ticker tape ───── */
+.tape{border-bottom:1px solid var(--rule);overflow:hidden;white-space:nowrap;height:34px;display:flex;align-items:center;font-family:var(--mono);font-size:12px;color:var(--carbon)}
+.tape-track{display:inline-flex;animation:tape 60s linear infinite;will-change:transform}
+.tape-item{padding:0 22px;border-right:1px solid var(--rule)}
+.tape-item b{color:var(--ink);font-weight:500;margin-right:8px}
+@keyframes tape{to{transform:translateX(-50%)}}
+
+/* ───── dateline + masthead ───── */
+.dateline{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0 10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon)}
+.dateline .mid{flex:1;text-align:center}
+.masthead{text-align:center;padding:4px 0 6px;position:relative}
+.masthead h1{font-family:var(--black);font-weight:400;font-size:clamp(60px,10.2vw,150px);line-height:.86;letter-spacing:-.01em;color:var(--ink)}
+.masthead .ear{position:absolute;top:50%;transform:translateY(-50%);width:168px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--carbon);line-height:1.5;border:1px solid var(--rule);padding:10px 12px;text-align:left}
+.masthead .ear.l{left:0}.masthead .ear.r{right:0;text-align:right}
+.masthead .ear em{display:block;font-family:var(--serif);font-style:italic;text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink);margin-top:2px}
+.motto{display:flex;justify-content:center;align-items:center;gap:18px;padding:10px 0 12px;font-style:italic;font-size:15px;color:var(--carbon)}
+.motto:before,.motto:after{content:"";height:1px;width:56px;background:var(--rule)}
+nav.sections{display:flex;justify-content:center;gap:clamp(14px,3vw,42px);padding:11px 0;border-top:1px solid var(--ink);border-bottom:3px double var(--ink);font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+nav.sections a{text-decoration:none;color:var(--ink);opacity:.8}
+nav.sections a:hover{opacity:1;color:var(--green)}
+nav.sections a.open{color:var(--green);opacity:1}
+
+/* ───── front page ───── */
+.front{display:grid;grid-template-columns:repeat(12,1fr);column-gap:28px;padding:28px 0 0}
+.lead{grid-column:1 / span 8;padding-right:28px;border-right:1px solid var(--rule)}
+.side{grid-column:9 / span 4}
+.lead h2{font-family:var(--serif);font-weight:500;font-size:clamp(46px,6.1vw,96px);line-height:.93;letter-spacing:-.025em;margin:12px 0 0;font-variation-settings:"opsz" 72}
+.lead h2 i{font-weight:400;color:var(--green)}
+.js-intro .masthead h1{opacity:0;filter:blur(6px);letter-spacing:.04em}
+.intro-go .masthead h1{opacity:1;filter:none;letter-spacing:-.01em;transition:opacity 1.2s,filter 1.2s,letter-spacing 1.6s cubic-bezier(.16,1,.3,1)}
+.deck{font-size:19px;line-height:1.42;color:var(--ink);max-width:640px;font-weight:350}
+.deck:first-letter{font-family:var(--black);float:left;font-size:3.3em;line-height:.82;padding:5px 8px 0 0;color:var(--green)}
+.byline{margin:14px 0 18px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+.figure{margin-top:26px;position:relative}
+.figure .plate{position:relative;aspect-ratio:16/8.4;background:#060605;border:1px solid var(--rule);overflow:hidden}
+.figure canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.plate .tag{position:absolute;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--ground);padding:3px 7px;border:1px solid var(--rule)}
+.plate .tag.a{left:14px;top:14px}
+.plate .tag.b{right:14px;bottom:14px;color:var(--green);border-color:#2f5a35}
+figcaption{display:flex;justify-content:space-between;gap:20px;padding-top:9px;font-size:14px;font-style:italic;color:var(--carbon);line-height:1.4}
+figcaption .mono{font-style:normal;font-size:11px;letter-spacing:.06em;white-space:nowrap}
+
+.cta-box{padding:0 0 22px}
+.cta-box p{font-size:16px;color:var(--ink);margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;padding:13px 18px;border:1px solid var(--ink);color:var(--ink);background:transparent;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.btn:hover{background:var(--ink);color:var(--ground)}
+.btn.go{background:var(--green);border-color:var(--green);color:#071208;font-weight:700}
+.btn.go:hover{background:#7ae387;border-color:#7ae387}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.brief{border-top:1px solid var(--rule);padding:16px 0}
+.brief h3{font-family:var(--serif);font-size:22px;line-height:1.15;font-weight:600;margin:6px 0 8px;letter-spacing:-.01em}
+.brief p{font-size:15.5px;color:#cfc8b6;line-height:1.5}
+.bell{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)}
+.bell div{padding:14px 0}
+.bell div+div{border-left:1px solid var(--rule);padding-left:16px}
+.bell strong{display:block;font-family:var(--serif);font-weight:500;font-size:38px;line-height:1;letter-spacing:-.02em}
+.bell span{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+
+/* ───── split-flap ───── */
+.board-wrap{margin-top:46px;border-top:3px double var(--ink);padding-top:18px}
+.sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;margin-bottom:18px;flex-wrap:wrap}
+.sec-head h2{font-family:var(--serif);font-weight:500;font-size:clamp(30px,3.4vw,46px);letter-spacing:-.02em;line-height:1}
+.sec-head h2 i{font-weight:400}
+.board{background:#070706;border:1px solid var(--rule);padding:18px clamp(10px,2vw,26px) 14px;overflow:hidden}
+.board{--fw:calc(1.18 * var(--fs) + 2px);--fs:clamp(12px,1.25vw,17px)}
+.brow{display:grid;grid-template-columns:calc(4*var(--fw)) calc(17*var(--fw)) calc(9*var(--fw)) calc(5*var(--fw)) 1fr;gap:clamp(10px,1.6vw,26px);align-items:center;padding:6px 0;border-bottom:1px solid #191816}
+.brow:last-child{border-bottom:0}
+.brow.head{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--carbon);padding-bottom:10px}
+.flaps{display:flex;gap:2px}
+.flap{position:relative;display:inline-block;width:1.18em;height:1.6em;line-height:1.6em;text-align:center;font-family:var(--mono);font-weight:500;font-size:var(--fs);background:linear-gradient(#1c1b18 0 50%,#161513 50% 100%);color:var(--ink);border-radius:2px;overflow:hidden}
+.flap:after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#050504}
+.flap span{display:block}
+.flap.go span{animation:flip .07s linear}
+@keyframes flip{0%{transform:scaleY(1)}50%{transform:scaleY(.15);filter:brightness(.5)}100%{transform:scaleY(1)}}
+.flaps.g .flap{color:var(--green)}
+.subbar{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:12px;color:var(--carbon)}
+.subbar .bar{flex:1;height:6px;background:#1a1916;position:relative;min-width:40px}
+.subbar .bar i{position:absolute;inset:0 auto 0 0;background:var(--green);transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.subbar .bar.full i{background:var(--red)}
+.subbar .pct{min-width:4ch;text-align:right}
+.board-foot{display:flex;justify-content:space-between;gap:16px;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--carbon);flex-wrap:wrap}
+
+/* ───── how a share is born ───── */
+.story{margin-top:70px;border-top:3px double var(--ink);padding-top:18px}
+.cols5{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--rule);margin-top:6px}
+.step{padding:20px 20px 26px;border-left:1px solid var(--rule)}
+.step:first-child{border-left:0;padding-left:0}
+.step .no{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--carbon)}
+.step h3{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.015em;line-height:1.05;margin:4px 0 10px}
+.step p{font-size:15.5px;line-height:1.5;color:#cfc8b6}
+.step .stamp{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--green)}
+.dropcap:first-letter{font-family:var(--serif);font-weight:500;float:left;font-size:4.1em;line-height:.8;padding:6px 8px 0 0;color:var(--green)}
+
+/* ───── estimate desk ───── */
+.desk{margin-top:70px;display:grid;grid-template-columns:7fr 5fr;border-top:3px double var(--ink)}
+.desk-l{padding:18px 32px 30px 0;border-right:1px solid var(--rule);min-width:0}
+.desk > *,.front > *,.lower > *{min-width:0}
+.desk-r{padding:18px 0 30px 32px}
+.stages{display:flex;flex-wrap:wrap;border:1px solid var(--rule);margin:18px 0 22px}
+.stages button{flex:1;min-width:90px;font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;padding:11px 6px;background:transparent;color:var(--carbon);border:0;border-left:1px solid var(--rule);cursor:pointer}
+.stages button:first-child{border-left:0}
+.stages button[aria-pressed=true]{background:var(--ink);color:var(--ground)}
+.sliders{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
+.sl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon);margin-bottom:6px}
+.sl label b{color:var(--ink);font-weight:500}
+.sl .hint{font-size:13.5px;font-style:italic;color:var(--carbon);margin-top:5px;min-height:2.6em;line-height:1.35}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
+input[type=range]::-moz-range-track{height:1px;background:var(--ink)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-7px;background:var(--ground);border:1px solid var(--ink);transform:rotate(45deg)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:0;background:var(--ground);border:1px solid var(--ink);transform:rotate(45deg)}
+input[type=range]:focus-visible::-webkit-slider-thumb{background:var(--green);border-color:var(--green)}
+.result{margin-top:28px;border-top:1px solid var(--ink);padding-top:14px}
+.result .big{font-family:var(--serif);font-weight:500;font-size:clamp(48px,6vw,88px);letter-spacing:-.03em;line-height:1.05;margin-top:10px;font-variant-numeric:tabular-nums lining-nums}
+.band{position:relative;height:30px;margin:18px 0 6px}
+.band .axis{position:absolute;left:0;right:0;top:14px;height:1px;background:var(--rule)}
+.band .rng{position:absolute;top:8px;height:13px;background:repeating-linear-gradient(90deg,var(--green) 0 2px,transparent 2px 5px);transition:left .5s,width .5s}
+.band .est-pin{position:absolute;top:2px;width:1px;height:26px;background:var(--ink);transition:left .5s}
+.band-l{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--carbon)}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;border-top:1px solid var(--rule)}
+.facts div{padding:12px 0 0}
+.facts div+div{padding-left:14px;border-left:1px solid var(--rule)}
+.facts span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+.facts b{font-family:var(--mono);font-weight:500;font-size:17px}
+.clip{border:1px dashed #4a463e;padding:18px 18px 16px;margin-top:16px;position:relative;background:#0d0d0b}
+.clip pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink);white-space:pre-wrap}
+.clip pre .c{color:var(--carbon)}
+.clip pre .k{color:var(--green)}
+.note{font-size:14px;font-style:italic;color:var(--carbon);margin-top:12px;line-height:1.45}
+.advert{margin-top:30px;border:3px double var(--ink);padding:20px;text-align:center}
+.advert .kicker{display:block;margin-bottom:6px}
+.advert h3{font-family:var(--serif);font-weight:500;font-size:34px;letter-spacing:-.02em;line-height:1.02;margin-bottom:14px}
+.advert code{display:block;font-family:var(--mono);font-size:12px;color:#cfc8b6;background:#070706;border:1px solid var(--rule);padding:12px;text-align:left;overflow-x:auto;white-space:nowrap}
+.advert code .t{color:var(--green)}
+.invest-link{display:inline-flex;align-items:center;gap:10px;margin-top:16px;font-family:var(--serif);font-size:19px;font-style:italic;text-decoration:none;border-bottom:1px solid var(--green);color:var(--ink);padding-bottom:2px}
+.invest-link b{font-style:normal;color:var(--green)}
+
+/* ───── classifieds + corrections ───── */
+.lower{margin-top:70px;display:grid;grid-template-columns:repeat(12,1fr);column-gap:28px;border-top:3px double var(--ink);padding-top:18px}
+.classifieds{grid-column:1 / span 8}
+.ads{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);margin-top:6px}
+.ad{padding:18px 18px 22px;border-left:1px solid var(--rule)}
+.ad:first-child{border-left:0;padding-left:0}
+.ad .what{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.ad p{font-size:15.5px;line-height:1.5;color:#cfc8b6;margin-top:8px}
+.ad .meta{display:block;margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--carbon)}
+.corrections{grid-column:9 / span 4;border:1px solid var(--ink);padding:18px 20px 20px;align-self:start}
+.corrections h3{font-family:var(--serif);font-weight:600;font-size:24px;letter-spacing:-.01em;border-bottom:1px solid var(--rule);padding-bottom:8px;margin-bottom:10px}
+.corrections p{font-size:14.5px;line-height:1.5;color:#cfc8b6;margin-top:10px}
+.corrections p:first-of-type{font-style:italic;color:var(--ink);margin-top:0}
+
+/* ───── B1 · open rounds ───── */
+.b1{margin-top:90px}
+.b1-head{border-top:3px double var(--ink);padding-top:18px}
+.stage{position:relative;padding:26px 0 80px}
+.term{position:relative;border:1px solid var(--rule);background:var(--ground);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tnav{display:flex;align-items:center;gap:26px;padding:0 18px;height:56px;border-bottom:1px solid var(--rule)}
+.tnav .logo{font-family:var(--black);font-size:26px;line-height:1;color:var(--ink)}
+.tnav a{font-size:12.5px;color:var(--carbon);text-decoration:none;letter-spacing:.04em}
+.tnav a.on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--green);padding:19px 0}
+.tnav .search{flex:1;max-width:360px;margin-left:auto;border:1px solid var(--rule);height:34px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--carbon);justify-content:space-between}
+.tnav .search kbd{font-family:var(--mono);border:1px solid var(--rule);padding:1px 6px;font-size:11px}
+.tnav .bal{font-size:12px;color:var(--carbon);border:1px solid var(--rule);height:34px;display:flex;align-items:center;padding:0 12px;gap:8px}
+.tnav .bal b{color:var(--ink);font-weight:500}
+.tgrid{display:grid;grid-template-columns:300px 1fr 330px;min-height:640px}
+.panel{position:relative;min-width:0}
+.panel+.panel{border-left:1px solid var(--rule)}
+.ptabs{display:flex;border-bottom:1px solid var(--rule);height:44px}
+.ptabs span{flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--carbon)}
+.ptabs span.on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+.cap{padding:14px 16px;border-bottom:1px solid var(--rule)}
+.cap .lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--carbon);letter-spacing:.06em;text-transform:uppercase}
+.cap .meter{height:8px;background:#1a1916;margin:10px 0 8px;position:relative;overflow:hidden}
+.cap .meter i{position:absolute;inset:0 auto 0 0;width:61.4%;background:repeating-linear-gradient(90deg,var(--green) 0 3px,#3f8f49 3px 4px)}
+.cap .nums{display:flex;justify-content:space-between;font-size:12px}
+.fills{font-size:12px}
+.fills .fh,.fills .fr{display:grid;grid-template-columns:64px 1fr 1fr;padding:0 16px;height:30px;align-items:center;position:relative}
+.fills .fh{color:var(--carbon);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;height:34px}
+.fills .fr span:nth-child(n+3),.fills .fh span:nth-child(n+2){text-align:right}
+.fills .fr span{position:relative;z-index:1}
+.fills .fr .t{color:var(--carbon)}
+.fills .fr .u{color:var(--green);text-align:right}
+.fills .fr i{position:absolute;right:0;top:3px;bottom:3px;background:rgba(91,208,106,.09)}
+.fills .fr.new{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:rgba(91,208,106,.22)}to{background:transparent}}
+.chead{display:flex;gap:28px;align-items:flex-start;padding:18px 22px 16px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.cname .k{font-size:11px;color:var(--carbon);letter-spacing:.1em;text-transform:uppercase;display:flex;gap:8px;align-items:center}
+.cname .k em{font-style:normal;border:1px solid var(--rule);padding:1px 6px;color:var(--ink)}
+.cname h3{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1.1;margin-top:4px}
+.cprice{font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.cprice small{display:block;font-size:11px;color:var(--carbon);letter-spacing:.06em;margin-top:6px;font-weight:400}
+.cstats{display:grid;grid-template-columns:repeat(2,auto);gap:10px 28px;margin-left:auto}
+.cstats span{display:block;font-size:10.5px;color:var(--carbon);letter-spacing:.08em;text-transform:uppercase;text-decoration:underline dotted #4a463e;text-underline-offset:3px}
+.cstats b{font-size:14px;font-weight:500}
+.ctools{display:flex;gap:4px;padding:10px 22px;border-bottom:1px solid var(--rule);font-size:12px;color:var(--carbon)}
+.ctools span{padding:5px 10px}
+.ctools span.on{color:var(--ink);background:#1a1916}
+.ctools .r{margin-left:auto}
+.chart{position:relative;padding:8px 0 0}
+.chart svg{display:block;width:100%;height:330px}
+@media (max-width:620px){.chart svg{height:240px}.ctools .r{display:none}.ctabs{gap:18px;overflow-x:auto;white-space:nowrap}}
+.ctabs{display:flex;gap:26px;padding:0 22px;border-top:1px solid var(--rule);height:46px;align-items:center;font-size:12.5px;color:var(--carbon)}
+.ctabs .on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink);padding:14px 0}
+.about{padding:16px 22px 22px;font-family:var(--serif);font-size:16px;line-height:1.5;color:#cfc8b6;max-width:640px}
+.about b{color:var(--ink);font-weight:600}
+.bpanel{padding:0 18px 20px}
+.bpanel .ptabs{margin:0 -18px}
+.qty{margin-top:22px;display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--rule);padding-bottom:12px}
+.qty .n{font-size:52px;font-weight:500;letter-spacing:-.03em;line-height:1}
+.qty .u{font-size:12px;color:var(--carbon);letter-spacing:.08em}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px}
+.chips button{font-family:var(--mono);font-size:12px;background:transparent;color:var(--carbon);border:1px solid var(--rule);height:34px;cursor:pointer}
+.chips button.on,.chips button:hover{color:var(--ink);border-color:var(--ink)}
+.quote{margin-top:18px;font-size:12.5px}
+.quote div{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted #2f2d28}
+.quote div span{color:var(--carbon)}
+.quote div.tot{border-bottom:0;font-size:15px;padding-top:12px}
+.quote div.tot span{color:var(--ink)}
+.buy{display:block;width:100%;margin-top:16px;height:54px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:var(--green);color:#071208;border:0;cursor:pointer;transition:filter .2s}
+.buy:hover{filter:brightness(1.12)}
+.fine{margin-top:12px;font-family:var(--serif);font-style:italic;font-size:13.5px;color:var(--carbon);line-height:1.4}
+.closes{margin-top:18px;border-top:1px solid var(--rule);padding-top:14px;font-size:12px;display:flex;justify-content:space-between;color:var(--carbon)}
+.closes b{color:var(--red);font-weight:500}
+/* newspaper overlay that "becomes" the round page */
+.paper{position:absolute;inset:26px 0 80px 0;display:grid;grid-template-columns:300px 1fr 330px;pointer-events:none}
+.paper > div{padding:150px 22px 0}
+.paper .paper-head{position:absolute;left:-1px;right:-1px;top:-1px;background:var(--ground);z-index:2;padding:0 22px;height:132px;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:20px;border-bottom:3px double var(--ink)}
+.paper-head h3{font-family:var(--serif);font-weight:500;font-size:clamp(34px,4.2vw,64px);letter-spacing:-.025em;line-height:1}
+.paper-head h3 i{font-weight:400;color:var(--green)}
+.paper blockquote{margin-top:34px;padding-top:18px;border-top:1px solid var(--rule);font-family:var(--serif);font-style:italic;font-size:clamp(24px,2.3vw,34px);line-height:1.15;letter-spacing:-.01em;color:var(--ink);max-width:520px}
+.paper h4{font-family:var(--serif);font-weight:500;font-size:clamp(26px,2.6vw,40px);letter-spacing:-.02em;line-height:1.02;margin-bottom:14px}
+.paper p{font-family:var(--serif);font-size:16.5px;line-height:1.55;color:#cfc8b6;margin-bottom:12px}
+.paper .kicker{display:block;margin-bottom:12px}
+
+footer.page{margin-top:10px;padding-bottom:46px}
+.colophon{border-top:3px double var(--ink);padding-top:34px}
+.colophon{display:grid;grid-template-columns:auto 1fr auto;gap:28px;align-items:end}
+.colophon .mark{font-family:var(--black);font-size:54px;line-height:.9}
+.colophon p{font-size:14px;color:var(--carbon);font-style:italic;max-width:640px}
+.colophon nav{display:flex;gap:18px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.colophon nav a{text-decoration:none;color:var(--carbon)}
+.colophon nav a:hover{color:var(--ink)}
+
+/* ───── responsive ───── */
+@media (max-width:1360px){.masthead .ear{width:150px}}
+@media (max-width:1240px){
+  .tgrid,.paper{grid-template-columns:250px 1fr 290px}
+  .masthead .ear{display:none}
+}
+@media (max-width:960px){
+  :root{--gutter:16px}
+  .front{grid-template-columns:1fr}
+  .lead{grid-column:auto;padding-right:0;border-right:0}
+  .side{grid-column:auto;margin-top:26px}
+  .cols5{grid-template-columns:1fr 1fr}
+  .step{border-left:0;padding:18px 0;border-top:1px solid var(--rule)}
+  .step:nth-child(even){padding-left:16px;border-left:1px solid var(--rule)}
+  .desk{grid-template-columns:1fr}
+  .desk-l{padding-right:0;border-right:0}
+  .desk-r{padding-left:0;border-top:1px solid var(--rule)}
+  .lower{grid-template-columns:1fr}
+  .classifieds,.corrections{grid-column:auto}
+  .corrections{margin-top:24px}
+  .tgrid{grid-template-columns:1fr}
+  .panel+.panel{border-left:0;border-top:1px solid var(--rule)}
+  .panel.book{order:2}.panel.center{order:1}.panel.bp{order:3}
+  .paper{display:none}
+  .tnav a:not(.on),.tnav .search{display:none}
+  .tnav .bal{margin-left:auto}
+  .colophon{grid-template-columns:1fr}
+}
+@media (max-width:620px){
+  body{font-size:16px}
+  .dateline .l,.dateline .r{display:none}
+  .deck{font-size:18.5px}
+  .board{--fs:12px}
+  .brow{grid-template-columns:calc(4*var(--fw)) calc(9*var(--fw)) calc(5*var(--fw)) 1fr}
+  .brow .name{display:none}
+  .cols5,.ads,.sliders{grid-template-columns:1fr}
+  .step:nth-child(even){padding-left:0;border-left:0}
+  .ad{border-left:0;padding:16px 0;border-top:1px solid var(--rule)}
+  .stages button{min-width:0;flex:1 0 30%;border-bottom:1px solid var(--rule)}
+  .facts{grid-template-columns:1fr 1fr}
+  .facts div:nth-child(3){grid-column:1/-1;border-left:0;padding-left:0}
+  figcaption{flex-direction:column;gap:4px}
+  nav.sections{justify-content:flex-start;overflow-x:auto;white-space:nowrap}
+  .cstats{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .tape-track{animation:none}
+  .flap.go span,.fills .fr.new{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="pt" aria-hidden="true"><b>P</b><i></i></div>
+
+<div class="tape" aria-label="Open rounds ticker"><div class="tape-track" id="tape"></div></div>
+
+<header class="page">
+  <div class="dateline">
+    <span class="mid">Saturday, October 10, 2026</span>
+  </div>
+  <div class="masthead">
+    <div class="ear l">Today’s issue<em>8 rounds open, 3 from dorm rooms</em></div>
+    <h1>The Prospecto</h1>
+    <div class="ear r">Price of this paper<em>Free. Backers get demo credits.</em></div>
+  </div>
+  <div class="motto">All the companies too early to list.</div>
+  <nav class="sections" aria-label="Sections">
+    <a href="#how">How It Works</a>
+    <a href="#desk">Estimate Desk</a>
+    <a href="news.html">News</a>
+    <a href="launch.html">List Your Company</a>
+    <a href="rounds.html" class="open">Open Rounds &rarr;</a>
+  </nav>
+</header>
+
+<main class="page" id="front">
+  <section class="front">
+    <article class="lead">
+      <div class="kicker"><b>Extra</b> &nbsp;·&nbsp; Primary issuance &nbsp;·&nbsp; Any stage</div>
+      <h2 id="headline" data-hero-reveal>Your half&#8209;built idea now has a <i>share price.</i></h2>
+
+      <figure class="figure">
+        <div class="plate">
+          <canvas id="halftone" aria-hidden="true"></canvas>
+          <span class="tag a">Fig. 1 &mdash; The prospect</span>
+          <span class="tag b">Stage: Idea &rarr; Growth</span>
+        </div>
+        <figcaption>
+          <span>The view from the idea stage. Every ridge here started as a flat line. <em>Move your cursor to change the light.</em></span>
+          <span class="mono">Halftone · 15° screen · live</span>
+        </figcaption>
+      </figure>
+    </article>
+
+    <aside class="side">
+      <div class="cta-box">
+        <p class="deck">Prospecto lets founders at any stage &mdash; a dorm-room idea, a scrappy prototype, the first paying customers &mdash; publish a transparent valuation, set a fixed price, and put one <em>“Invest in us”</em> link on their website. Backers buy units directly from the startup.</p>
+        <div class="byline">By the Prospecto desk &nbsp;·&nbsp; Filed 9:41 a.m.</div>
+        <div class="btns">
+          <a class="btn go" href="launch.html">List your company &rarr;</a>
+          <a class="btn" href="rounds.html">Browse rounds</a>
+        </div>
+      </div>
+      <div class="bell">
+        <div><strong>8</strong><span>Rounds open</span></div>
+        <div><strong>$412,880</strong><span>Demo credits raised</span></div>
+      </div>
+      <div class="brief">
+        <div class="kicker">In brief</div>
+        <h3>Idea-stage teams are welcome.</h3>
+        <p>Five stages, from <span class="mono" style="font-size:13px">IDEA</span> to <span class="mono" style="font-size:13px">GROWTH</span>, are recorded separately from incorporation. An unincorporated project is labeled exactly that.</p>
+      </div>
+      <div class="brief">
+        <h3>Every unit comes from the startup.</h3>
+        <p>No order book, no resale, no leverage. Each purchase is new issuance at the founder’s fixed price, and the proceeds land in the round account.</p>
+      </div>
+      <div class="brief">
+        <h3>The estimate shows its work.</h3>
+        <p>Inputs, weights, model version and a sensitivity band are printed next to every suggested price. The founder can override it, with a reason on the record.</p>
+      </div>
+    </aside>
+  </section>
+
+  <!-- split-flap -->
+  <section class="board-wrap" id="prices">
+    <div class="sec-head">
+      <h2>Opening Prices <i>&mdash; today’s issuances</i></h2>
+      <span class="kicker">Fixed per round · 1,000,000 founder units · updated live</span>
+    </div>
+    <div class="board" id="board" data-scroll-reveal="single" role="table" aria-label="Open rounds">
+      <div class="brow head" role="row"><span>TICKER</span><span class="name">COMPANY</span><span>STAGE</span><span>PRICE</span><span>SUBSCRIBED</span></div>
+    </div>
+    <div class="board-foot"><span>Prices are founder-approved and do not move during a round.</span><span>All companies shown are fictional demo fixtures.</span></div>
+  </section>
+
+  <!-- how it works -->
+  <section class="story" id="how">
+    <div class="sec-head">
+      <h2>How a share is born <i>in five dispatches</i></h2>
+      <span class="kicker">Founder journey · about 15 minutes</span>
+    </div>
+    <div class="cols5" data-scroll-reveal="stagger">
+      <div class="step"><span class="no">No. 1</span><h3>Profile</h3><p class="dropcap">Write the story, not a deck. Stage, sector, founders, website and LinkedIn links. You choose which numbers are public and which stay private.</p><span class="stamp">&rarr; Public with consent</span></div>
+      <div class="step"><span class="no">No. 2</span><h3>Estimate</h3><p>An open, versioned formula scores product, traction, team and financial readiness against your stage, then shows every assumption and a sensitivity band.</p><span class="stamp">&rarr; valuation-model-v1</span></div>
+      <div class="step"><span class="no">No. 3</span><h3>Price</h3><p>Accept the anchor or override it with a reason. Set a fixed unit price and a finite cap on new units. Published terms never quietly change.</p><span class="stamp">&rarr; Immutable terms</span></div>
+      <div class="step"><span class="no">No. 4</span><h3>Link</h3><p>Paste one “Invest in us” link on your site, your bio, your demo-day slide. Anyone who believes early follows it straight to your round.</p><span class="stamp">&rarr; One URL</span></div>
+      <div class="step"><span class="no">No. 5</span><h3>Settle</h3><p>Each purchase debits the backer, credits your round and issues units in one atomic transaction. No double charges. No oversold rounds.</p><span class="stamp">&rarr; Atomic ledger</span></div>
+    </div>
+  </section>
+
+  <!-- estimate desk -->
+  <section class="desk" id="desk" data-scroll-reveal="stagger">
+    <div class="desk-l">
+      <div class="sec-head" style="margin-bottom:0">
+        <h2>The Estimate Desk</h2>
+        <span class="kicker">Try it with your own idea</span>
+      </div>
+      <div class="stages" role="group" aria-label="Stage" id="stages"></div>
+      <div class="sliders" id="sliders"></div>
+      <div class="result" aria-live="polite">
+        <div class="kicker">Suggested pre-money anchor</div>
+        <div class="big" id="est">$1,000,000</div>
+        <div class="band" aria-hidden="true"><div class="axis"></div><div class="rng" id="rng"></div><div class="est-pin" id="est-pin"></div></div>
+        <div class="band-l"><span id="lo">Low $600,000</span><span id="hi">High $1,500,000</span></div>
+        <div class="facts">
+          <div><span>Score</span><b id="score">50.0</b></div>
+          <div><span>Unit price</span><b id="unit">$1.00</b></div>
+          <div><span>Raise at 10% cap</span><b id="raise">$100,000</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="desk-r">
+      <div class="kicker">Clipping · The formula, in full</div>
+      <div class="clip"><pre><span class="c"># valuation-model-v1 · demo anchors, not market data</span>
+score      = <span class="k">0.30</span>·product + <span class="k">0.30</span>·traction
+           + <span class="k">0.25</span>·team    + <span class="k">0.15</span>·financial
+multiplier = 0.50 + score / 100
+anchor     = stage_anchor × multiplier
+band       = [anchor × 0.60, anchor × 1.50]
+unit_price = anchor / founder_units</pre></div>
+      <p class="note">Unknown answers score zero and lower evidence quality. That isn’t a verdict on your company; it just means we haven’t seen the evidence yet. A higher claim never creates credits or verification.</p>
+
+      <div class="advert">
+        <span class="kicker">Advertisement · for your website</span>
+        <h3>Paste one line.<br>Meet your first backers.</h3>
+        <code>&lt;a href=<span class="t">"https://prospecto.finance/i/mothlight"</span>&gt;Invest in us &rarr;&lt;/a&gt;</code>
+        <a class="invest-link" href="rounds.html">Invest in Mothlight <b>&rarr;</b></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- classifieds + corrections -->
+  <section class="lower" id="corrections">
+    <div class="classifieds">
+      <div class="sec-head"><h2>Classifieds <i>&mdash; who it’s for</i></h2><span class="kicker">Fictional listings</span></div>
+      <div class="ads" data-scroll-reveal="stagger">
+        <div class="ad"><span class="what">Wanted: first believers</span><p>Two sophomores, one napkin sketch, a waitlist of 40. No code yet. We want the people who’ll say they were here first.</p><span class="meta">MOTH · IDEA · $0.10 / unit</span></div>
+        <div class="ad"><span class="what">For issue: 100,000 units</span><p>Soil sensor prototype, tested on three farms near Pittsboro. Unincorporated, and our profile says so up front.</p><span class="meta">TIDE · PROTOTYPE · $0.56 / unit</span></div>
+        <div class="ad"><span class="what">Seeking: pre-revenue fans</span><p>Note-taking app with 1,200 weekly users across four campuses. Launched, honest about our burn, and closing Friday.</p><span class="meta">QUIL · LAUNCHED · $1.13 / unit</span></div>
+      </div>
+    </div>
+    <aside class="corrections" data-scroll-reveal="single" style="--reveal-delay:160ms">
+      <h3>Corrections &amp; Clarifications</h3>
+      <p>Most pitches overstate something on page one. Here’s what this one doesn’t claim.</p>
+      <p>Units issued on Prospecto today are <b>simulated</b>. They’re bought with free demo credits and carry no legal ownership, cash value, redemption or dividends.</p>
+      <p>The estimate is a transparent heuristic with invented stage anchors, not an appraisal or investment advice.</p>
+      <p>Followers aren’t investors, and popularity isn’t value. Real equity is a future integration, and virtual units never convert automatically.</p>
+    </aside>
+  </section>
+</main>
+
+<!-- B1 · open rounds -->
+<section class="b1" id="rounds">
+  <div class="page b1-head">
+    <div class="sec-head" style="margin-bottom:0">
+      <h2>Section B1 &mdash; <i>Open Rounds</i></h2>
+      <span class="kicker">Keep scrolling. The paper turns into the product.</span>
+    </div>
+  </div>
+  <div class="page">
+    <div class="stage" id="stage">
+      <div class="term" id="term">
+        <div class="tnav t-chrome">
+          <span class="logo">P</span>
+          <a class="on" href="#rounds">Round</a><a href="rounds.html">Explore</a><a href="launch.html">Founders</a><a href="news.html">News</a>
+          <div class="search"><span>Search companies, founders, campuses</span><kbd>/</kbd></div>
+          <div class="bal">Demo credits <b>10,000.00</b></div>
+        </div>
+        <div class="tgrid">
+          <aside class="panel book">
+            <div class="ptabs t-chrome"><span class="on">Fills</span><span>Backers</span></div>
+            <div class="cap t-in">
+              <div class="lbl"><span>Round capacity</span><span>100,000 units</span></div>
+              <div class="meter"><i></i></div>
+              <div class="nums"><span class="up">61,400 issued</span><span>38,600 left</span></div>
+            </div>
+            <div class="fills" id="fills">
+              <div class="fh"><span>Time</span><span>Units</span><span>Total</span></div>
+            </div>
+          </aside>
+          <div class="panel center">
+            <div class="chead t-in">
+              <div class="cname">
+                <div class="k">FERN <em>Revenue</em> <em>Simulated units</em></div>
+                <h3>Fernhill Robotics</h3>
+              </div>
+              <div class="cprice">$2.36<small>FIXED · FOUNDER-APPROVED</small></div>
+              <div class="cstats">
+                <div><span>Pre-money</span><b>$2.36M</b></div>
+                <div><span>Raised</span><b class="up">$144,904</b></div>
+                <div><span>Backers</span><b>214</b></div>
+                <div><span>Evidence</span><b>Medium</b></div>
+              </div>
+            </div>
+            <div class="ctools t-in"><span>1D</span><span>1W</span><span class="on">Round</span><span class="r">Units issued · cumulative</span></div>
+            <div class="chart t-in"><svg id="chart" aria-label="Units issued over the round"></svg></div>
+            <div class="ctabs t-chrome"><span class="on">Story</span><span>Founders (3)</span><span>Terms</span><span>Updates (6)</span></div>
+            <div class="about t-in"><b>Fernhill Robotics</b> builds a $900 weeding robot for small vegetable farms. It started as an NC State senior design project and now has 31 paying farms. Revenue figures are self-reported, dated August 2026.</div>
+          </div>
+          <aside class="panel bp">
+            <div class="bpanel">
+              <div class="ptabs t-chrome"><span class="on">Buy units</span><span>Watch</span></div>
+              <div class="qty t-in"><span class="n" id="qn">1,000</span><span class="u">UNITS</span></div>
+              <div class="chips t-in" id="chips"><button data-q="100">100</button><button data-q="500">500</button><button data-q="1000" class="on">1K</button><button data-q="4237">Max</button></div>
+              <div class="quote t-in">
+                <div><span>Unit price</span><b>$2.36</b></div>
+                <div><span>Fee</span><b>$0.00</b></div>
+                <div><span>Allocation at full round</span><b id="qa">0.0909%</b></div>
+                <div class="tot"><span>Total</span><b id="qt">$2,360.00</b></div>
+              </div>
+              <button class="buy t-in" id="buy">Buy 1,000 units</button>
+              <p class="fine t-in">Demo credits only. Units are virtual, bought directly from Fernhill, and can’t be resold.</p>
+              <div class="closes t-in"><span>Round closes</span><b id="cd">12d 04:11:09</b></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+      <div class="paper" id="paper" aria-hidden="true">
+        <div class="paper-head"><span class="kicker">Late edition · how to read a round</span><h3>One company. One fixed price. <i>Three columns.</i></h3></div>
+        <div><span class="kicker">Column one</span><h4>Who already backed it.</h4><p>Every purchase is printed the moment it settles: time, units, total. No bids, no asks, just people who believed early.</p></div>
+        <div><span class="kicker">Column two</span><h4>One company, one fixed price, one honest chart.</h4><p>The price doesn’t move. The line that rises is how much of the round has been issued.</p><p>The founders’ story, team and dated evidence sit right underneath.</p><blockquote>“Nobody bids. Nobody asks. You either believe early, or you watch.”</blockquote></div>
+        <div><span class="kicker">Column three</span><h4>Pick a quantity. Get an exact quote.</h4><p>The quote shows unit price, fee and your allocation at full subscription. Then you confirm once.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="page">
+  <div class="colophon" data-scroll-reveal="single">
+    <span class="mark">The Prospecto</span>
+    <p>Printed on black at prospecto.finance. Built at HackNC 2026. Every company on this page is a fictional fixture, every unit is simulated, and the estimate is a demo heuristic.</p>
+    <nav><a href="rounds.html">Rounds</a><a href="launch.html">List</a><a href="news.html">News</a><a href="https://github.com/avidnerd/hack-nc-2026">GitHub</a></nav>
+  </div>
+</footer>
+
+<script src="motion.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+(() => {
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!reduce) { const go = () => requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.add('intro-go'))); document.fonts ? document.fonts.ready.then(go) : go(); setTimeout(go, 1200); }
+const fmt$ = (n, d = 0) => '$' + n.toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
+
+/* ───────── data: fictional fixtures priced with valuation-model-v1 ───────── */
+const ANCHOR = {IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, REVENUE: 2000000, GROWTH: 5000000};
+const CO = [
+  {t: 'MOTH', n: 'MOTHLIGHT', s: 'IDEA', score: 52, sub: 38},
+  {t: 'DORM', n: 'DORMFOLD', s: 'IDEA', score: 38, sub: 12},
+  {t: 'TIDE', n: 'TIDEWATER SENSORS', s: 'PROTOTYPE', score: 61, sub: 54},
+  {t: 'BRKT', n: 'BRACKET BIO', s: 'PROTOTYPE', score: 44, sub: 27},
+  {t: 'QUIL', n: 'QUILLNOTE', s: 'LAUNCHED', score: 63, sub: 91},
+  {t: 'ORCH', n: 'ORCHARD OS', s: 'LAUNCHED', score: 47, sub: 66},
+  {t: 'FERN', n: 'FERNHILL ROBOTICS', s: 'REVENUE', score: 68, sub: 61},
+  {t: 'KILN', n: 'KILN LABS', s: 'GROWTH', score: 55, sub: 100},
+].map(c => ({...c, p: Math.round(ANCHOR[c.s] * (0.5 + c.score / 100) / 1e6 * 100) / 100}));
+
+/* ───────── ticker tape ───────── */
+const tape = document.getElementById('tape');
+const tapeHTML = CO.map(c => {
+  const full = c.sub >= 100;
+  return `<span class="tape-item"><b>${c.t}</b>${fmt$(c.p, 2)} fixed &nbsp;<span class="${full ? 'dn' : 'up'}">${full ? '■ round full' : '▲ ' + c.sub + '% subscribed'}</span></span>`;
+}).join('');
+tape.innerHTML = tapeHTML + tapeHTML;
+
+/* ───────── split-flap board ───────── */
+const CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$.%';
+const board = document.getElementById('board');
+function flapGroup(len, cls = '') {
+  const g = document.createElement('span');
+  g.className = 'flaps ' + cls;
+  for (let i = 0; i < len; i++) { const f = document.createElement('span'); f.className = 'flap'; f.innerHTML = '<span>&nbsp;</span>'; g.appendChild(f); }
+  return g;
+}
+function setFlaps(g, text, delay = 0) {
+  const cells = g.children;
+  text = text.padEnd(cells.length).slice(0, cells.length);
+  [...cells].forEach((cell, i) => {
+    const span = cell.firstChild, target = text[i] === ' ' ? ' ' : text[i];
+    if (reduce) { span.textContent = target; return; }
+    let steps = 4 + ((i * 7) % 9), k = 0;
+    setTimeout(function tick() {
+      cell.classList.remove('go'); void cell.offsetWidth; cell.classList.add('go');
+      span.textContent = k >= steps ? target : CHARS[1 + ((Math.random() * (CHARS.length - 1)) | 0)];
+      if (k++ < steps) setTimeout(tick, 55);
+    }, delay + i * 28);
+  });
+}
+const rows = CO.map(c => {
+  const row = document.createElement('div');
+  row.className = 'brow'; row.setAttribute('role', 'row');
+  const tk = flapGroup(4), nm = flapGroup(17), st = flapGroup(9), pr = flapGroup(5, 'g');
+  nm.classList.add('name');
+  const sub = document.createElement('div'); sub.className = 'subbar';
+  sub.innerHTML = `<div class="bar${c.sub >= 100 ? ' full' : ''}"><i style="width:0"></i></div><span class="pct">0%</span>`;
+  row.append(tk, nm, st, pr, sub);
+  board.appendChild(row);
+  return {c, tk, nm, st, pr, sub};
+});
+function paintSub(r) {
+  const pct = r.sub.querySelector('.pct');
+  r.sub.querySelector('i').style.width = Math.min(100, r.c.sub) + '%';
+  pct.textContent = r.c.sub >= 100 ? 'FULL' : r.c.sub + '%';
+  if (r.c.sub >= 100) { r.sub.querySelector('.bar').classList.add('full'); pct.classList.add('dn'); }
+}
+function runBoard() {
+  rows.forEach((r, i) => {
+    const d = i * 140;
+    setFlaps(r.tk, r.c.t, d); setFlaps(r.nm, r.c.n, d + 60); setFlaps(r.st, r.c.s, d + 120); setFlaps(r.pr, fmt$(r.c.p, 2), d + 180);
+    setTimeout(() => paintSub(r), d + 400);
+  });
+}
+new IntersectionObserver((es, o) => { if (es[0].isIntersecting) { runBoard(); o.disconnect(); } }, {threshold: .25}).observe(board);
+if (!reduce) setInterval(() => {
+  const open = rows.filter(r => r.c.sub < 100);
+  if (!open.length) return;
+  const r = open[(Math.random() * open.length) | 0];
+  r.c.sub = Math.min(100, r.c.sub + 1);
+  paintSub(r);
+}, 2600);
+
+/* ───────── estimate desk ───────── */
+const STAGES = ['IDEA', 'PROTOTYPE', 'LAUNCHED', 'REVENUE', 'GROWTH'];
+const CATS = [
+  {k: 'product', l: 'Product', w: .30, h: ['No milestone evidence', 'Milestone described', 'Working demo for your stage', 'Demo tested with intended users', 'Repeated milestones, with evidence']},
+  {k: 'traction', l: 'Traction', w: .30, h: ['No validation yet', 'Informal conversations', 'Documented interviews or pilot', 'Repeat use or committed pilots', 'Multiple corroborated sources']},
+  {k: 'team', l: 'Team', w: .25, h: ['No information', 'Roles and availability described', 'Relevant experience, named owners', 'Prior relevant delivery', 'Complementary and fully committed']},
+  {k: 'financial', l: 'Financial readiness', w: .15, h: ['No usable inputs', 'Business model described', 'Consistent assumptions supplied', 'Dated budget and runway', 'Documented, with scenarios']},
+];
+const state = {stage: 'IDEA', product: 2, traction: 1, team: 2, financial: 1};
+const stagesEl = document.getElementById('stages'), slidersEl = document.getElementById('sliders');
+STAGES.forEach(s => {
+  const b = document.createElement('button'); b.textContent = s; b.setAttribute('aria-pressed', s === state.stage);
+  b.onclick = () => { state.stage = s; [...stagesEl.children].forEach(x => x.setAttribute('aria-pressed', x === b)); calc(); };
+  stagesEl.appendChild(b);
+});
+CATS.forEach(c => {
+  const d = document.createElement('div'); d.className = 'sl';
+  d.innerHTML = `<label for="r-${c.k}">${c.l} · ${Math.round(c.w * 100)}% <b id="v-${c.k}"></b></label><input type="range" id="r-${c.k}" min="0" max="4" step="1" value="${state[c.k]}"><div class="hint" id="h-${c.k}"></div>`;
+  slidersEl.appendChild(d);
+  d.querySelector('input').addEventListener('input', e => { state[c.k] = +e.target.value; calc(); });
+});
+let shown = 0, raf;
+function tweenTo(el, to) {
+  cancelAnimationFrame(raf);
+  const from = shown, t0 = performance.now(), dur = reduce ? 1 : 520;
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    shown = from + (to - from) * e; el.textContent = fmt$(Math.round(shown / 1000) * 1000);
+    if (k < 1) raf = requestAnimationFrame(step); else { shown = to; el.textContent = fmt$(to); }
+  })(performance.now());
+}
+function calc() {
+  let score = 0;
+  CATS.forEach(c => { const v = state[c.k] * 25; score += c.w * v; document.getElementById('v-' + c.k).textContent = v; document.getElementById('h-' + c.k).textContent = c.h[state[c.k]]; });
+  const anchor = ANCHOR[state.stage] * (0.5 + score / 100);
+  const lo = anchor * .6, hi = anchor * 1.5;
+  tweenTo(document.getElementById('est'), Math.round(anchor));
+  document.getElementById('score').textContent = score.toFixed(1);
+  const unit = Math.round(anchor / 1e6 * 100) / 100;
+  document.getElementById('unit').textContent = fmt$(unit, 2);
+  document.getElementById('raise').textContent = fmt$(Math.round(unit * 100000));
+  document.getElementById('lo').textContent = 'Low ' + fmt$(Math.round(lo));
+  document.getElementById('hi').textContent = 'High ' + fmt$(Math.round(hi));
+  const max = ANCHOR[state.stage] * 1.5 * 1.5, pc = v => (v / max * 100) + '%';
+  const rng = document.getElementById('rng'); rng.style.left = pc(lo); rng.style.width = `calc(${pc(hi)} - ${pc(lo)})`;
+  document.getElementById('est-pin').style.left = pc(anchor);
+}
+calc();
+
+/* ───────── round page: fills, chart, quote ───────── */
+const fills = document.getElementById('fills');
+const seedFills = [['14:22:07', 1000], ['14:21:40', 250], ['14:19:12', 4000], ['14:18:55', 100], ['14:16:03', 1500], ['14:12:47', 500], ['14:11:30', 2000], ['14:09:02', 300], ['14:06:18', 750], ['14:02:44', 1000], ['13:58:09', 120], ['13:55:31', 2500], ['13:51:20', 600], ['13:47:58', 1000], ['13:44:13', 200]];
+const maxU = 4000;
+function fillRow(t, u, isNew) {
+  const r = document.createElement('div'); r.className = 'fr' + (isNew ? ' new' : '');
+  r.innerHTML = `<i style="width:${Math.max(4, u / maxU * 100)}%"></i><span class="t">${t}</span><span class="u">${u.toLocaleString()}</span><span>${fmt$(u * 2.36, 2)}</span>`;
+  return r;
+}
+seedFills.forEach(([t, u]) => fills.appendChild(fillRow(t, u)));
+if (!reduce) setInterval(() => {
+  const t = new Date().toTimeString().slice(0, 8), u = [100, 250, 500, 1000, 1200, 2000][(Math.random() * 6) | 0];
+  fills.insertBefore(fillRow(t, u, true), fills.children[1]);
+  if (fills.children.length > 16) fills.lastChild.remove();
+}, 3400);
+
+// cumulative issued units over the round + per-period volume bars — drawn at real pixel width
+const svg = document.getElementById('chart');
+let cum = 0, seed = 7; const pts = [], vols = [];
+const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i <= 72; i++) {
+  const v = (i < 6 ? 2600 : 380 + rand() * 1100 * (i % 4 === 2 ? 2.4 : 1)) * (i > 60 ? 1.5 : 1);
+  cum += v; pts.push(cum); vols.push(v);
+}
+const kk = 61400 / cum; pts.forEach((p, i) => pts[i] = p * kk); vols.forEach((v, i) => vols[i] = v * kk);
+function drawChart() {
+  const W = Math.max(280, svg.clientWidth), Hh = svg.clientHeight || 330, padR = 64, padB = 26;
+  svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  const yMax = 100000, cx = i => i / (pts.length - 1) * (W - padR), cy = v => (Hh - padB) - v / yMax * (Hh - padB - 16);
+  let line = `M0 ${cy(0)}`; pts.forEach((p, i) => { line += ` H${cx(i).toFixed(1)} V${cy(p).toFixed(1)}`; });
+  const vmax = Math.max(...vols), bw = Math.max(2, (W - padR) / pts.length * .55);
+  let g = '';
+  [0, 25000, 50000, 75000, 100000].forEach(v => {
+    g += `<line x1="0" x2="${W - padR}" y1="${cy(v)}" y2="${cy(v)}" stroke="${v === 100000 ? '#5a2a22' : '#1d1c19'}" stroke-dasharray="${v === 100000 ? '0' : '2 4'}"/>`;
+    g += `<text x="${W - padR + 10}" y="${cy(v) + 4}" fill="#8A857A" font-size="11" font-family="JetBrains Mono">${v ? (v / 1000) + 'K' : '0'}</text>`;
+  });
+  g += `<text x="6" y="${cy(100000) - 6}" fill="#EF5A43" font-size="10.5" font-family="JetBrains Mono" letter-spacing="1">CAP · 100,000 UNITS</text>`;
+  vols.forEach((v, i) => { const h = v / vmax * Hh * .18; g += `<rect class="vb" x="${(cx(i) - bw / 2).toFixed(1)}" y="${(Hh - padB - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="#5BD06A" opacity=".28"/>`; });
+  g += `<path d="${line} V${cy(0)} Z" fill="url(#gfill)" class="area"/>`;
+  g += `<path d="${line}" fill="none" stroke="#5BD06A" stroke-width="1.6" class="ln"/>`;
+  const ly = cy(pts[pts.length - 1]);
+  g += `<line x1="0" x2="${W - padR}" y1="${ly}" y2="${ly}" stroke="#5BD06A" stroke-dasharray="2 3" opacity=".6"/>`;
+  g += `<rect x="${W - padR + 2}" y="${ly - 10}" width="${padR - 4}" height="20" fill="#5BD06A"/><text x="${W - padR + 8}" y="${ly + 4}" fill="#071208" font-size="11" font-weight="700" font-family="JetBrains Mono">61.4K</text>`;
+  const labels = W < 500 ? ['Sep 22', 'Sep 30', 'Oct 8'] : ['Sep 22', 'Sep 26', 'Sep 30', 'Oct 4', 'Oct 8'];
+  labels.forEach((l, i) => { g += `<text x="${i / (labels.length - 1) * (W - padR - 44) + 4}" y="${Hh - 6}" fill="#8A857A" font-size="11" font-family="JetBrains Mono">${l}</text>`; });
+  svg.innerHTML = `<defs><linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5BD06A" stop-opacity=".22"/><stop offset="1" stop-color="#5BD06A" stop-opacity="0"/></linearGradient></defs>${g}`;
+}
+drawChart();
+let cw = svg.clientWidth;
+addEventListener('resize', () => { if (Math.abs(svg.clientWidth - cw) > 2) { cw = svg.clientWidth; drawChart(); if (window.ScrollTrigger) ScrollTrigger.refresh(); } });
+
+// quote
+const qn = document.getElementById('qn'), qt = document.getElementById('qt'), qa = document.getElementById('qa'), buy = document.getElementById('buy');
+document.getElementById('chips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  [...b.parentNode.children].forEach(x => x.classList.toggle('on', x === b));
+  const q = +b.dataset.q;
+  qn.textContent = q.toLocaleString(); qt.textContent = fmt$(q * 2.36, 2);
+  qa.textContent = (q / 1100000 * 100).toFixed(4) + '%'; buy.textContent = `Buy ${q.toLocaleString()} units`;
+});
+buy.addEventListener('click', () => { buy.textContent = 'Quote locked · demo'; setTimeout(() => buy.textContent = `Buy ${qn.textContent} units`, 1600); });
+let left = 12 * 86400 + 4 * 3600 + 11 * 60 + 9;
+const cd = document.getElementById('cd');
+setInterval(() => { left--; const d = Math.floor(left / 86400), h = Math.floor(left % 86400 / 3600), m = Math.floor(left % 3600 / 60), s = left % 60; cd.textContent = `${d}d ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }, 1000);
+
+/* ───────── halftone WebGL plate ───────── */
+const cv = document.getElementById('halftone');
+const gl = cv.getContext('webgl', {antialias: false});
+if (gl) {
+  const VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+  const FS1 = `precision highp float;
+  uniform vec2 r;uniform float t;uniform vec2 m;
+  float hh(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+  float n(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
+    return mix(mix(hh(i),hh(i+vec2(1,0)),u.x),mix(hh(i+vec2(0,1)),hh(i+vec2(1,1)),u.x),u.y);}
+  float H(vec2 p){float a=0.,w=.55;mat2 R=mat2(.8,-.6,.6,.8);
+    for(int i=0;i<6;i++){float v=1.-abs(n(p)*2.-1.);a+=w*v*v;p=R*p*2.02;w*=.48;}
+    return a*a*2.3;}
+  void main(){
+    vec2 uv=(gl_FragCoord.xy-.5*r)/r.y;
+    vec3 ro=vec3(.0,2.05,t*.32);
+    vec3 rd=normalize(vec3(uv.x,uv.y-.13,1.2));
+    vec3 sd=normalize(vec3(m.x*1.4-.55,.07+m.y*.10,1.));
+    float sun=max(dot(rd,sd),0.);
+    float haze=exp(-max(rd.y,0.)*26.);
+    float sky=.012+.22*haze+pow(sun,1400.)*2.+pow(sun,60.)*.28;
+    float d=.2,hit=-1.;
+    for(int i=0;i<150;i++){vec3 p=ro+rd*d;float h=H(p.xz*.30)*.95;float dy=p.y-h;
+      if(dy<.0025*d){hit=d;break;} d+=max(.02,dy*.5); if(d>48.)break;}
+    float L=sky;
+    if(hit>0.){vec3 p=ro+rd*hit;vec2 e=vec2(.03,0.);
+      float h0=H(p.xz*.30)*.95;
+      vec3 nn=normalize(vec3((H((p.xz+e.xy)*.30)*.95-h0),e.x,(H((p.xz+e.yx)*.30)*.95-h0)));
+      float dif=max(dot(nn,normalize(vec3(sd.x,.42,sd.z))),0.);
+      L=.01+pow(dif,1.4)*.92;
+      L*=.3+.7*smoothstep(-.2,1.8,p.y);
+      float fog=1.-exp(-hit*.06);
+      L=mix(L,.03+.20*haze,fog);
+    }
+    gl_FragColor=vec4(clamp(L,0.,1.),0.,0.,1.);
+  }`;
+  const FS2 = `precision highp float;
+  uniform sampler2D tx;uniform vec2 r;uniform float cell;uniform float amt;
+  void main(){
+    float a=.2618;float c=cos(a),s=sin(a);
+    vec2 fc=gl_FragCoord.xy;
+    vec2 q=vec2(c*fc.x-s*fc.y,s*fc.x+c*fc.y);
+    vec2 ce=(floor(q/cell)+.5)*cell;
+    vec2 sc=vec2(c*ce.x+s*ce.y,-s*ce.x+c*ce.y);
+    float L=texture2D(tx,clamp(sc/r,0.,1.)).r;
+    float wave=clamp(amt*1.6-(1.-sc.y/r.y)*.6,0.,1.);
+    float rad=cell*.56*sqrt(L)*wave;
+    float ink=1.-smoothstep(rad-.9,rad+.9,length(q-ce));
+    vec3 bg=vec3(.024,.024,.02);
+    vec3 paper=vec3(.925,.898,.827);
+    vec3 green=vec3(.357,.816,.416);
+    vec3 col=mix(paper,green,smoothstep(.78,.98,L));
+    gl_FragColor=vec4(mix(bg,col,ink),1.);
+  }`;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s)); return s; };
+  const prog = fs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); return p; };
+  const P1 = prog(FS1), P2 = prog(FS2);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const tex = gl.createTexture(), fb = gl.createFramebuffer();
+  let W2, H2, tw, th, cell;
+  const mouse = {x: .62, y: .5, tx: .62, ty: .5};
+  function resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    W2 = Math.round(cv.clientWidth * dpr); H2 = Math.round(cv.clientHeight * dpr);
+    cv.width = W2; cv.height = H2;
+    cell = (innerWidth < 700 ? 5 : 6.5) * dpr;
+    tw = Math.ceil(W2 / cell * 2); th = Math.ceil(H2 / cell * 2);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tw, th, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  }
+  function draw(time) {
+    mouse.x += (mouse.tx - mouse.x) * .05; mouse.y += (mouse.ty - mouse.y) * .05;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, tw, th); gl.useProgram(P1);
+    let loc = gl.getAttribLocation(P1, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(gl.getUniformLocation(P1, 'r'), tw, th);
+    gl.uniform1f(gl.getUniformLocation(P1, 't'), 40 + time * .001);
+    gl.uniform2f(gl.getUniformLocation(P1, 'm'), mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W2, H2); gl.useProgram(P2);
+    loc = gl.getAttribLocation(P2, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(gl.getUniformLocation(P2, 'r'), W2, H2);
+    gl.uniform1f(gl.getUniformLocation(P2, 'cell'), cell);
+    gl.uniform1f(gl.getUniformLocation(P2, 'amt'), reduce ? 1 : Math.min(1, Math.max(0, (time - 350) / 1900)));
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  resize(); addEventListener('resize', resize);
+  cv.parentNode.addEventListener('pointermove', e => { const b = cv.getBoundingClientRect(); mouse.tx = (e.clientX - b.left) / b.width; mouse.ty = 1 - (e.clientY - b.top) / b.height; });
+  let visible = true;
+  new IntersectionObserver(es => visible = es[0].isIntersecting).observe(cv);
+  if (reduce) draw(0);
+  else (function loop(t) { if (visible) draw(t); requestAnimationFrame(loop); })(0);
+}
+
+/* ───────── B1 scroll choreography: paper → product ───────── */
+if (window.gsap && window.ScrollTrigger && !reduce) {
+  gsap.registerPlugin(ScrollTrigger);
+  gsap.matchMedia().add('(min-width: 961px)', () => {
+    const term = document.getElementById('term');
+    gsap.set(term, {borderColor: 'rgba(43,41,37,0)'});
+    gsap.set('.t-chrome', {opacity: 0});
+    gsap.set('.t-in', {opacity: 0, y: 14});
+    gsap.set('#fills', {clipPath: 'inset(0 0 100% 0)'});
+    gsap.set('#chart .ln', {strokeDasharray: 3000, strokeDashoffset: 3000});
+    gsap.set('#chart .area, #chart .vb', {opacity: 0});
+    const tl = gsap.timeline({scrollTrigger: {trigger: '#stage', start: 'top 8%', end: '+=1300', scrub: .6, pin: true}});
+    tl.to('#paper .paper-head', {opacity: 0, y: -24, duration: .4})
+      .to('#paper > div:not(.paper-head) > *', {opacity: 0, y: -18, stagger: .04, duration: .5}, '<.05')
+      .to(term, {borderColor: 'rgba(43,41,37,1)', duration: .4}, '<.2')
+      .to('.t-chrome', {opacity: 1, duration: .4, stagger: .05}, '<')
+      .to('.t-in', {opacity: 1, y: 0, stagger: .05, duration: .5}, '<.1')
+      .to('#fills', {clipPath: 'inset(0 0 0% 0)', duration: .8, ease: 'none'}, '<')
+      .to('#chart .ln', {strokeDashoffset: 0, duration: 1.2, ease: 'none'}, '<.1')
+      .to('#chart .area', {opacity: 1, duration: .6}, '<.4')
+      .to('#chart .vb', {opacity: .28, stagger: .006, duration: .2}, '<');
+  });
+}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+"use client";
+
+import Link from "next/link";
+import { useState, type CSSProperties } from "react";
+import { POSTS, type Post } from "@/lib/fixtures";
+
+const SECS: { key: "All" | Post["sec"]; label: string }[] = [
+  { key: "All", label: "All" },
+  { key: "Explainer", label: "Explainers" },
+  { key: "Round report", label: "Round reports" },
+  { key: "Guide", label: "Guides" },
+  { key: "Dispatch", label: "Dispatches" },
+];
+
+export default function NewsIndex() {
+  const [active, setActive] = useState<(typeof SECS)[number]["key"]>("All");
+  const [open, setOpen] = useState<number | null>(null);
+  const list = POSTS.filter((p) => active === "All" || p.sec === active);
+  return (
+    <>
+      <div className="tabs2" role="group" aria-label="Sections">
+        {SECS.map((s) => (
+          <button key={s.key} aria-pressed={s.key === active} onClick={() => { setActive(s.key); setOpen(null); }}>{s.label}</button>
+        ))}
+      </div>
+      <section aria-live="polite" key={active}>
+        {list.map((p, i) => (
+          <article key={p.h} className={`row enter${open === i ? " open" : ""}`} style={{ "--n": i } as CSSProperties}>
+            <button type="button" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>
+              <span className="sec">{p.sec}</span>
+              <span><span className="h2">{p.h}</span><span className="dek">{p.dek}</span></span>
+              <span className="meta"><span>{p.date} · {p.min} min</span><span className="read">Read <span>→</span></span></span>
+            </button>
+            <div className="body"><div><div className="in">
+              <p>{p.body}</p>
+              <Link className="cta" href={p.co[1]}>See {p.co[0]} →</Link>
+            </div></div></div>
+          </article>
+        ))}
+      </section>
+    </>
+  );
+}

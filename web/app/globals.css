@@ -1,0 +1,53 @@
+/* Global reset, base type and shared motion (page turn, hero reveal, scroll reveal). */
+:root{
+  --ground:#0A0A09;--ink:#ECE5D3;--green:#5BD06A;
+  --serif:var(--font-newsreader),Georgia,serif;
+  --mono:var(--font-jetbrains),ui-monospace,Menlo,monospace;
+  --black:var(--font-unifraktur),var(--font-newsreader),serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--ground);color:var(--ink);-webkit-text-size-adjust:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.55;font-optical-sizing:auto;overflow-x:hidden}
+a{color:inherit}
+::selection{background:var(--green);color:var(--ground)}
+
+/* Shared motion: page-turn transition, hero text reveal, scroll reveal. */
+
+/* ── page turn ── */
+.pt{position:fixed;inset:0;z-index:100;background:#0A0A09;pointer-events:none;display:grid;place-items:center;transform:translateY(100%)}
+.pt b{font-family:var(--font-unifraktur),serif;font-weight:400;font-size:clamp(90px,14vw,180px);color:#ECE5D3;line-height:1}
+.pt i{position:absolute;left:0;right:0;bottom:0;height:2px;background:#5BD06A;transform-origin:left;transform:scaleX(0)}
+html.pt-out .pt{animation:pt-cover .42s cubic-bezier(.7,0,.3,1) forwards}
+html.pt-out .pt i{animation:pt-line .42s cubic-bezier(.7,0,.3,1) forwards}
+html.pt-wait .pt{transform:none}
+html.pt-wait .pt i{transform:scaleX(1)}
+html.pt-in .pt{animation:pt-reveal .62s cubic-bezier(.7,0,.3,1) .08s both}
+html.pt-in .pt i{transform:scaleX(1)}
+html.pt-in main{animation:pt-rise .8s cubic-bezier(.22,1,.36,1) .3s both}
+@keyframes pt-cover{from{transform:translateY(100%)}to{transform:none}}
+@keyframes pt-line{to{transform:scaleX(1)}}
+@keyframes pt-reveal{from{transform:none}to{transform:translateY(-100%)}}
+@keyframes pt-rise{from{opacity:0;transform:translateY(18px)}}
+
+/* ── hero text reveal (opacity per grapheme) ── */
+.hero-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.hero-word{white-space:nowrap}
+[data-hero-unit]{animation:hero-in var(--hero-duration,760ms) ease both;animation-delay:calc(var(--hero-delay,120ms) + var(--hero-index,0) * var(--hero-stagger,30ms))}
+html.pt-wait [data-hero-unit],html.pt-in [data-hero-unit]{--hero-delay:520ms}
+@keyframes hero-in{from{opacity:0}}
+
+/* ── scroll reveal (data-scroll-reveal contract) ── */
+:root{--reveal-distance:22px;--reveal-duration:540ms;--reveal-fade-duration:460ms;--reveal-stagger:80ms;--reveal-ease:cubic-bezier(.22,1,.36,1)}
+[data-scroll-reveal="single"][data-reveal-ready="true"],
+[data-scroll-reveal="stagger"][data-reveal-ready="true"] > *{
+  opacity:0;transform:translateY(var(--reveal-distance));
+  transition:opacity var(--reveal-fade-duration) var(--reveal-ease) calc(var(--reveal-delay,0ms) + var(--reveal-i,0) * var(--reveal-stagger)),
+             transform var(--reveal-duration) var(--reveal-ease) calc(var(--reveal-delay,0ms) + var(--reveal-i,0) * var(--reveal-stagger))}
+[data-scroll-reveal="single"][data-reveal-visible="true"],
+[data-scroll-reveal="stagger"][data-reveal-visible="true"] > *{opacity:1;transform:none}
+
+@media (prefers-reduced-motion:reduce){
+  .pt{display:none}
+  html.pt-in main,[data-hero-unit]{animation:none}
+  [data-scroll-reveal][data-reveal-ready="true"],[data-scroll-reveal][data-reveal-ready="true"] > *{opacity:1!important;transform:none!important;transition:none!important}
+}

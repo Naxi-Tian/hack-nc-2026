@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Rounds · Prospecto</title>
+<meta name="color-scheme" content="dark">
+<script>try{if(sessionStorage.getItem('pt')){document.documentElement.classList.add('pt-in');sessionStorage.removeItem('pt')}}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sub.css">
+<link rel="stylesheet" href="motion.css">
+<style>
+.bal{font-family:var(--mono);font-size:12px;color:var(--carbon);border:1px solid var(--rule);padding:10px 14px}
+.bal b{color:var(--ink);font-weight:500}
+.filters{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);border-left:1px solid var(--rule)}
+.card{display:flex;flex-direction:column;padding:22px 22px 20px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);transition:background .25s;position:relative}
+.card:hover{background:#0f0f0d}
+.card.lead{grid-column:span 2;grid-row:span 2}
+.card .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon)}
+.card .k b{color:var(--green);font-weight:500}
+.card h2{font-weight:500;font-size:24px;line-height:1.1;letter-spacing:-.015em;margin:10px 0 8px}
+.card.lead h2{font-size:clamp(30px,3.4vw,46px);line-height:1.02}
+.card p{color:var(--ink-2);font-size:15.5px;line-height:1.45}
+.card .sp{flex:1;min-height:18px}
+.card .ft{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--carbon)}
+.card .ft b{color:var(--ink);font-weight:500}
+.card .go{color:var(--green);font-family:var(--mono);font-size:12px;letter-spacing:.06em;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.card .go span{transition:transform .25s cubic-bezier(.22,1,.36,1)}
+.card:hover .go span{transform:translateX(4px)}
+.card a.cover{position:absolute;inset:0;z-index:1}
+.plate{position:relative;height:clamp(160px,22vw,280px);margin:14px 0 6px;background:#060605;border:1px solid var(--rule);overflow:hidden}
+.plate .ridge{position:absolute;inset:auto 0 0;height:70%;background-image:radial-gradient(circle,var(--ink) 34%,transparent 38%);background-size:7px 7px;-webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.25),#000 75%);mask-image:linear-gradient(180deg,rgba(0,0,0,.25),#000 75%);clip-path:polygon(0 62%,9% 38%,17% 52%,29% 14%,41% 46%,54% 26%,66% 56%,78% 18%,90% 44%,100% 30%,100% 100%,0 100%);animation:drift 18s ease-in-out infinite alternate}
+.plate .sun{position:absolute;width:44px;height:44px;border-radius:50%;background-image:radial-gradient(circle,var(--green) 38%,transparent 42%);background-size:6px 6px;top:16%;left:60%}
+@keyframes drift{to{background-position:42px 0}}
+.card.enter{animation:card-in .55s cubic-bezier(.22,1,.36,1) both;animation-delay:calc(min(var(--n),5) * 60ms)}
+@keyframes card-in{from{opacity:0;transform:translateY(16px)}}
+.empty{padding:40px 0;color:var(--carbon);font-style:italic}
+.note{margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--carbon)}
+@media (max-width:900px){.grid{grid-template-columns:1fr 1fr}.card.lead{grid-column:span 2;grid-row:auto}}
+@media (max-width:600px){.grid{grid-template-columns:1fr;border-left:0}.card,.card.lead{grid-column:auto;border-right:0;padding:20px 0}}
+@media (prefers-reduced-motion:reduce){.card.enter,.plate .ridge{animation:none}}
+</style>
+</head>
+<body>
+<div class="pt" aria-hidden="true"><b>P</b><i></i></div>
+
+<header class="page top">
+  <a class="back" href="index.html"><span>←</span> Front page</a>
+  <a class="mark" href="index.html">The Prospecto</a>
+  <nav class="tabs"><a href="rounds.html" aria-current="page">Rounds</a><a href="launch.html">List</a><a href="news.html">News</a></nav>
+</header>
+
+<main class="page">
+  <div class="head">
+    <h1 data-hero-reveal>Back them <i>early.</i></h1>
+    <span class="bal">Demo credits <b>10,000.00</b></span>
+  </div>
+
+  <div class="filters">
+    <div class="chips" id="chips" role="group" aria-label="Filter rounds"></div>
+    <span class="kicker">Fixed prices · bought from the startup</span>
+  </div>
+
+  <section class="grid" id="grid" aria-live="polite"></section>
+  <p class="note">All companies are fictional demo fixtures. Units are simulated.</p>
+
+  <div class="foot"><a href="index.html">← Front page</a><a href="news.html">Read the news →</a></div>
+</main>
+
+<script src="motion.js"></script>
+<script>
+(() => {
+  const CO = [
+    {t: 'MOTH', n: 'Mothlight', s: 'IDEA', e: 'Unincorporated', city: 'Chapel Hill', p: 0.10, sub: 38, d: 9, h: 'Mothlight wants to find you a quiet room at 2 a.m.', dek: 'Two sophomores, a napkin sketch and a waitlist of 40. No code yet.'},
+    {t: 'FERN', n: 'Fernhill Robotics', s: 'REVENUE', e: 'Incorporated', city: 'Raleigh', p: 2.36, sub: 61, d: 12, h: 'The $900 robot weeding 31 small farms', dek: 'Started as an NC State senior design project.'},
+    {t: 'QUIL', n: 'Quillnote', s: 'LAUNCHED', e: 'Incorporated', city: 'Durham', p: 1.13, sub: 91, d: 2, h: 'Quillnote’s notes app reaches four campuses', dek: '1,200 weekly users. Closing Friday.'},
+    {t: 'TIDE', n: 'Tidewater Sensors', s: 'PROTOTYPE', e: 'Unincorporated', city: 'Pittsboro', p: 0.56, sub: 54, d: 15, h: 'Soil sensors, tested on three farms', dek: 'A working prototype and an honest label.'},
+    {t: 'DORM', n: 'Dormfold', s: 'IDEA', e: 'Unincorporated', city: 'Chapel Hill', p: 0.09, sub: 12, d: 20, h: 'Your laundry, folded by Tuesday', dek: 'Just opened. Looking for its first 50 backers.'},
+    {t: 'BRKT', n: 'Bracket Bio', s: 'PROTOTYPE', e: 'Incorporated', city: 'Durham', p: 0.47, sub: 27, d: 18, h: 'A $40 test strip for lab benches', dek: 'Two grad students, one bench prototype.'},
+    {t: 'ORCH', n: 'Orchard OS', s: 'LAUNCHED', e: 'Incorporated', city: 'Greensboro', p: 0.97, sub: 66, d: 7, h: 'Scheduling software for small orchards', dek: 'Live with nine growers this season.'},
+    {t: 'KILN', n: 'Kiln Labs', s: 'GROWTH', e: 'Incorporated', city: 'Charlotte', p: 5.25, sub: 100, d: 0, h: 'Kiln Labs’ round is full', dek: 'Follow for the next one.'},
+  ];
+  const FILTERS = ['All', 'Idea', 'Prototype', 'Launched', 'Revenue', 'Growth', 'Closing soon'];
+  const chips = document.getElementById('chips'), grid = document.getElementById('grid');
+  let active = 'All';
+  FILTERS.forEach(f => {
+    const b = document.createElement('button'); b.className = 'chip'; b.textContent = f; b.setAttribute('aria-pressed', f === active);
+    b.onclick = () => { active = f; [...chips.children].forEach(c => c.setAttribute('aria-pressed', c === b)); render(); };
+    chips.appendChild(b);
+  });
+  const card = (c, i, lead) => {
+    const full = c.sub >= 100;
+    return `<article class="card enter${lead ? ' lead' : ''}" style="--n:${i}">
+      <a class="cover" href="index.html#rounds" aria-label="Back ${c.n}"></a>
+      <span class="k"><b>${c.s}</b> · ${c.city} · ${c.e}</span>
+      ${lead ? '<div class="plate"><div class="ridge"></div><div class="sun"></div></div>' : ''}
+      <h2>${c.h}</h2><p>${c.dek}</p><span class="sp"></span>
+      <div class="bar${full ? ' full' : ''}"><i style="width:${Math.min(c.sub, 100)}%"></i></div>
+      <div class="ft"><span><b>$${c.p.toFixed(2)}</b> · ${full ? '<span class="dn">Full</span>' : c.sub + '%'}${c.d ? ` · <span class="${c.d <= 3 ? 'dn' : ''}">${c.d}d left</span>` : ''}</span>
+      <span class="go">${full ? 'Watch' : 'Back them'} <span>→</span></span></div>
+    </article>`;
+  };
+  function render() {
+    const list = CO.filter(c => active === 'All' ? true : active === 'Closing soon' ? c.d > 0 && c.d <= 9 : c.s === active.toUpperCase());
+    grid.innerHTML = list.length ? list.map((c, i) => card(c, i, i === 0 && list.length > 2)).join('') : '<p class="empty">No open rounds here yet.</p>';
+  }
+  render();
+})();
+</script>
+</body>
+</html>
