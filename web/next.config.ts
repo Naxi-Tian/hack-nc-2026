@@ -1,11 +1,26 @@
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
-// Static export: `next build` writes web/out/, which the Hono server serves
-// same-origin with the API (see docs/BACKEND_STACK.md).
-const nextConfig: NextConfig = {
-  output: "export",
-  trailingSlash: true,
-  images: { unoptimized: true },
-};
+// Production: `next build` writes the static export to web/out/, which Vercel serves;
+// web/vercel.json forwards /api/* to the Railway backend (see docs/BACKEND_STACK.md).
+// Development: `next dev` on :3000 proxies /api/* to the local backend so the browser
+// sees one origin, matching production. Rewrites are unsupported with output: "export",
+// so the two settings are applied in mutually exclusive phases.
+export default function nextConfig(phase: string): NextConfig {
+  const shared: NextConfig = {
+    trailingSlash: true,
+    images: { unoptimized: true },
+  };
 
-export default nextConfig;
+  if (phase === PHASE_DEVELOPMENT_SERVER) {
+    const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8787";
+    return {
+      ...shared,
+      async rewrites() {
+        return [{ source: "/api/:path*", destination: `${apiTarget}/api/:path*` }];
+      },
+    };
+  }
+
+  return { ...shared, output: "export" };
+}
