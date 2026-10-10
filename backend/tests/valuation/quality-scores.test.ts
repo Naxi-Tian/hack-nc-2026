@@ -54,6 +54,22 @@ describe("computeQualityScores", () => {
     expect(scores.composite).toBeCloseTo(0.3 * 0.580625 + 0.25 * 0.5 + 0.25 * 0.55125 + 0.15 * 0.5 + 0.05 * 0.5, 12);
   });
 
+  it("lets prior shipped products add to shipped_work but never erase a launched product (metrics-v2)", () => {
+    const shipped = (claims: ScoringClaim[]) =>
+      computeQualityScores(params, "PROTOTYPE", claims).subfactors.find((entry) => entry.subfactor === "shipped_work")!;
+    // Equal confidence: the higher rubric level wins even though the prior-project claim is newer.
+    const both = shipped([
+      claim("product_status", "launched", "FOUNDER_ATTESTED"),
+      claim("prior_shipped_products", "1", "FOUNDER_ATTESTED", "2026-10-05T00:00:00Z"),
+    ]);
+    expect(both.metric_code).toBe("product_status");
+    expect(both.adjusted).toBeCloseTo(0.35 * 1 + 0.65 * 0.5, 12);
+    // A deployed side project alone lifts an idea-stage founder above neutral...
+    expect(shipped([claim("prior_shipped_products", "1", "FOUNDER_ATTESTED")]).adjusted).toBeCloseTo(0.35 * 0.75 + 0.65 * 0.5, 12);
+    // ...and having none is neutral, never negative (M§2.3).
+    expect(shipped([claim("prior_shipped_products", "0", "FOUNDER_ATTESTED")]).adjusted).toBeCloseTo(0.5, 12);
+  });
+
   it("bounds an AI assessment's influence to [0.325, 0.675]", () => {
     const low = computeQualityScores(params, "IDEA", [claim("assessment.pain_urgency", "0", "AI_ASSESSED")]);
     const high = computeQualityScores(params, "IDEA", [claim("assessment.pain_urgency", "1", "AI_ASSESSED")]);

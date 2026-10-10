@@ -5,7 +5,8 @@ import { GoogleGenAI } from "@google/genai";
 
 import type { ProspectoAuth } from "./auth/better-auth.js";
 import { requireProjectEditor } from "./auth/identity.js";
-import { createGeminiResearchModel } from "./evidence/research/gemini.js";
+import { createGeminiResearchModel, type ResearchModel } from "./evidence/research/gemini.js";
+import type { ProfileSnapshotLookup } from "./evidence/research/profile-snapshots.js";
 import { collectGithub } from "./evidence/research/github.js";
 import { safeFetch } from "./evidence/research/safe-fetch.js";
 import { createAuthRouter } from "./routes/auth.js";
@@ -22,6 +23,10 @@ export interface ApiDependencies {
   /** EMAIL_HASH_PEPPER: HMAC key for identities.campus_email_hash. */
   emailHashPepper: string;
   campusDomains: readonly string[];
+  /** Evidence-research model; defaults to direct Gemini (ai + model). */
+  researchModel?: ResearchModel;
+  /** Founder-provided LinkedIn snapshots (M§6.5); optional. */
+  lookupProfileSnapshot?: ProfileSnapshotLookup;
   /** Keeps background research alive after the response (Vercel's waitUntil); defaults to next tick. */
   runInBackground?: (task: () => Promise<void>) => void;
   /** DEMO_MODE only: POST /api/demo/sign-in signs in any campus email without a code. */
@@ -51,10 +56,11 @@ export function createApi(dependencies: ApiDependencies): Hono {
     "/api",
     createResearchRouter({
       pool: dependencies.pool,
-      model: createGeminiResearchModel(dependencies.ai, dependencies.model),
+      model: dependencies.researchModel ?? createGeminiResearchModel(dependencies.ai, dependencies.model),
       fetchPage: safeFetch,
       collectGithub: (target, projectSiteKey) => collectGithub(target, projectSiteKey, { token: dependencies.githubToken }),
       requireProjectEditor: requireEditor,
+      lookupProfileSnapshot: dependencies.lookupProfileSnapshot,
       runInBackground: dependencies.runInBackground,
     }),
   );

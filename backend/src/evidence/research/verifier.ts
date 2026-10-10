@@ -10,7 +10,7 @@ import type { CollectedClaim } from "./github.js";
 import type { FetchStatus } from "./safe-fetch.js";
 import { normalizeUrl } from "./urls.js";
 
-export const VERIFIER_VERSION = "verifier-v1";
+export const VERIFIER_VERSION = "verifier-v2";
 
 export type EvidenceStatus =
   | "INDEPENDENTLY_VERIFIED"
@@ -31,6 +31,8 @@ export interface SourceRecord {
   text: string | null;
   /** True when Gemini's grounding metadata (url_citation / url_context_result) named this URL. */
   groundingSeen: boolean;
+  /** Text is the whole source (a founder-provided snapshot), so a missing quote is absent, never unverifiable. */
+  complete?: boolean;
 }
 
 export interface VerifyInput {
@@ -109,7 +111,7 @@ function quoteState(quote: string, source: SourceRecord): QuoteState {
   if (source.fetchStatus !== "OK" || !source.text) return "unverifiable";
   const haystack = normalizeForMatch(source.text);
   if (haystack.includes(normalizeForMatch(quote))) return "verified";
-  return haystack.length < MIN_VERIFIABLE_TEXT ? "unverifiable" : "absent";
+  return haystack.length < MIN_VERIFIABLE_TEXT && !source.complete ? "unverifiable" : "absent";
 }
 
 function mentions(text: string, needle: string): boolean {
@@ -120,6 +122,11 @@ function mentions(text: string, needle: string): boolean {
 function proposalId(parts: (string | null)[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 32);
 }
+
+// verifier-v2: founders describe a shipped product ("built and shipped X", "live at x.com"), not a
+// count, so prior_shipped_products = 1 may rest on a shipping verb in the verbatim quote. Larger
+// counts still need the number written out. The quote itself is still checked against its source.
+const SHIPPED_ONE = /\b(shipped|deployed|launched|released|published|live at)\b/i;
 
 /** Validates the value against the metric's kind and range; returns [value_numeric, value_text] or a reason. */
 function validateValue(code: MetricCode, value: string, quote: string): [string | null, string | null] | string {
@@ -134,7 +141,8 @@ function validateValue(code: MetricCode, value: string, quote: string): [string 
   if ("min" in definition && compareDecimal(trimmed, definition.min) < 0) return "OUT_OF_RANGE";
   if ("max" in definition && compareDecimal(trimmed, definition.max) > 0) return "OUT_OF_RANGE";
   // Anti-hallucination: the number must literally appear in the cited excerpt.
-  if (!valueAppearsInText(trimmed, quote)) return "VALUE_NOT_IN_QUOTE";
+  const shippedOne = code === "prior_shipped_products" && compareDecimal(trimmed, "1") === 0 && SHIPPED_ONE.test(quote);
+  if (!shippedOne && !valueAppearsInText(trimmed, quote)) return "VALUE_NOT_IN_QUOTE";
   return [normalizeDecimal(trimmed), null];
 }
 

@@ -18,6 +18,7 @@ import {
   type ResearchModel,
 } from "./gemini.js";
 import type { GithubCollection } from "./github.js";
+import type { ProfileSnapshotLookup } from "./profile-snapshots.js";
 import type { FetchResult, PageFetcher } from "./safe-fetch.js";
 import { classifyUrl, hostOf, isFounderControlled, normalizeUrl, siteKey } from "./urls.js";
 import { VERIFIER_VERSION, verifyResearch, type EvidenceProposal, type RejectedProposal, type SourceRecord } from "./verifier.js";
@@ -57,6 +58,8 @@ export interface ResearchDependencies {
   collectGithub: (target: { owner: string; repo: string | null }, projectSiteKey: string | null) => Promise<GithubCollection>;
   /** Defaults to running on the next tick; tests inject a collector to await the work. */
   runInBackground?: (task: () => Promise<void>) => void;
+  /** Founder-provided LinkedIn snapshots (M§6.5); without it, LinkedIn links stay unreadable. */
+  lookupProfileSnapshot?: ProfileSnapshotLookup;
 }
 
 interface RunInput {
@@ -82,7 +85,7 @@ export interface ResearchResult {
     final_url: string | null;
     origin: SourceRecord["origin"];
     founder_controlled: boolean;
-    fetch_status: SourceRecord["fetchStatus"];
+    fetch_status: SourceRecord["fetchStatus"] | "FOUNDER_PROVIDED";
     gemini_status: string | null;
     grounding_seen: boolean;
   }[];
@@ -198,6 +201,8 @@ interface SourceRow extends SourceRecord {
   contentType: string | null;
   contentSha256: string | null;
   geminiStatus: string | null;
+  /** Founder-supplied profile text (M§6.5); stored and shown as fetch status FOUNDER_PROVIDED. */
+  founderProvided?: boolean;
 }
 
 function sourceFromFetch(fetched: FetchResult, url: string, origin: SourceRecord["origin"], projectSiteKey: string | null): SourceRow {
@@ -237,6 +242,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     const sources = new Map<string, SourceRow>();
     const geminiUrls: string[] = [];
     const githubTargets: { owner: string; repo: string | null }[] = [];
+    const profileTexts: string[] = [];
 
     // 1. Classify and fetch founder links (deterministic, no AI).
     const founderUrls = [...(input.website_url ? [input.website_url] : []), ...input.urls];
@@ -244,6 +250,29 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     for (const url of founderUrls) {
       const kind = classifyUrl(url);
       if (kind.kind === "unsupported") {
+        const snapshot = kind.reason === "LOGIN_REQUIRED" ? ((await deps.lookupProfileSnapshot?.(url)) ?? null) : null;
+        if (snapshot) {
+          // Never fetched: the founder supplied this text. It is quote-checked like a page, and
+          // founderControlled keeps every claim from it FOUNDER_ATTESTED (EVIDENCE_RESEARCH §4).
+          warnings.push(`${hostOf(url)}: used profile details provided by the founder (captured ${snapshot.capturedAt}); they count as founder-attested.`);
+          profileTexts.push(`Profile details provided by the founder for ${url}:\n${snapshot.text}`);
+          sources.set(url, {
+            url,
+            finalUrl: null,
+            origin: "FOUNDER_SUBMITTED",
+            founderControlled: true,
+            fetchStatus: "OK",
+            text: snapshot.text,
+            groundingSeen: false,
+            httpStatus: null,
+            contentType: "text/plain",
+            contentSha256: sha256(snapshot.text),
+            geminiStatus: null,
+            founderProvided: true,
+            complete: true,
+          });
+          continue;
+        }
         warnings.push(`${hostOf(url)} ${UNSUPPORTED_HINTS[kind.reason]}`);
         sources.set(url, {
           url,
@@ -268,8 +297,9 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     const founderFetches = mapLimit(fetchable, FETCH_CONCURRENCY, deps.fetchPage);
     const github = Promise.all(githubTargets.map((target) => deps.collectGithub(target, projectSiteKey)));
     const projectContext = { name: project.name, oneLiner: project.description, sector: project.sector_code, stage: project.stage };
+    const founderText = [input.founder_text, ...profileTexts].filter((text): text is string => Boolean(text)).join("\n\n") || null;
     const [founderPass, corroborationPass] = await Promise.allSettled([
-      deps.model.founderPass({ project: projectContext, urls: geminiUrls, founderText: input.founder_text }),
+      deps.model.founderPass({ project: projectContext, urls: geminiUrls, founderText }),
       deps.model.corroborationPass({ project: { ...projectContext, website: input.website_url } }),
     ]);
 
@@ -328,7 +358,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
     // 3. Deterministic verification.
     const verified = verifyResearch({
       project: { name: project.name, siteKey: projectSiteKey },
-      founderText: input.founder_text,
+      founderText,
       sources: [...sources.values()],
       founderClaims: founder?.output.claims ?? [],
       corroborationClaims: corroboration?.output.claims ?? [],
@@ -354,7 +384,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
         final_url: source.finalUrl,
         origin: source.origin,
         founder_controlled: source.founderControlled,
-        fetch_status: source.fetchStatus,
+        fetch_status: source.founderProvided ? "FOUNDER_PROVIDED" : source.fetchStatus,
         gemini_status: source.geminiStatus,
         grounding_seen: source.groundingSeen,
       })),
@@ -375,7 +405,7 @@ export async function executeResearchRun(deps: ResearchDependencies, runId: stri
             source.finalUrl,
             source.origin,
             source.founderControlled,
-            source.fetchStatus,
+            source.founderProvided ? "FOUNDER_PROVIDED" : source.fetchStatus,
             source.httpStatus,
             source.contentType,
             source.contentSha256,

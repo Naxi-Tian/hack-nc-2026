@@ -133,8 +133,10 @@ function evidenceQuality(params: QualityParams, claims: ScoringClaim[]): { s: nu
 }
 
 /**
- * Picks one claim per sub-factor: highest confidence multiplier, then most recent, then
- * metric code and claim id (deterministic tie-break added here; BACKEND_STACK §5.1 stops at recency).
+ * Picks one claim per sub-factor: highest confidence multiplier, then highest rubric level, then
+ * most recent, then metric code and claim id (BACKEND_STACK §5.1). Preferring the higher level among
+ * equally confident claims means a founder's prior projects (prior_shipped_products) can add credit
+ * to shipped_work but never erase credit for this startup's own launched product.
  */
 export function computeQualityScores(params: QualityParams, stage: Stage, claims: ScoringClaim[]): QualityScores {
   const rules = params.normalization_rules;
@@ -152,9 +154,11 @@ export function computeQualityScores(params: QualityParams, stage: Stage, claims
         !current ||
         c > current.c ||
         (c === current.c &&
-          (claim.created_at.getTime() > current.claim.created_at.getTime() ||
-            (claim.created_at.getTime() === current.claim.created_at.getTime() &&
-              `${claim.metric_code}|${claim.id}` < `${current.claim.metric_code}|${current.claim.id}`)));
+          (s > current.s ||
+            (s === current.s &&
+              (claim.created_at.getTime() > current.claim.created_at.getTime() ||
+                (claim.created_at.getTime() === current.claim.created_at.getTime() &&
+                  `${claim.metric_code}|${claim.id}` < `${current.claim.metric_code}|${current.claim.id}`)))));
       if (wins) best.set(subfactor, { claim, s, c });
     }
   }

@@ -1,7 +1,7 @@
 {
   "id": "valuation-v0.1",
   "status": "DRAFT",
-  "notes": "stage_weights and factor_weights are MARKET ARCHITECTURE §4.3–4.4 verbatim. confidence_multipliers are §4.5 plus AI_ASSESSED (EVIDENCE_RESEARCH §4, approved 2026-10-10). rubrics are INVENTED demo calibration priors pending team sign-off (AGENTS.md: label assumptions). scenario_parameters and demand_parameters are BACKEND_STACK §5.7 verbatim.",
+  "notes": "stage_weights and factor_weights are MARKET ARCHITECTURE §4.3–4.4 verbatim. confidence_multipliers are §4.5 plus AI_ASSESSED (EVIDENCE_RESEARCH §4, approved 2026-10-10). rubrics are INVENTED demo calibration priors pending team sign-off (AGENTS.md: label assumptions); prior_shipped_products (metrics-v2) maps zero prior products to the neutral 0.5 so no founder is penalized for having no record (M§2.3). scenario_parameters and demand_parameters are BACKEND_STACK §5.7 verbatim.",
   "stage_weights": {
     "IDEA": { "execution": 0.40, "market": 0.30, "product": 0.20, "traction": 0.05, "economics": 0.05 },
     "PROTOTYPE": { "execution": 0.30, "market": 0.25, "product": 0.25, "traction": 0.15, "economics": 0.05 },
@@ -17,7 +17,7 @@
     "economics": { "gross_margin_potential": 0.30, "capital_efficiency": 0.25, "payback_or_sales_efficiency": 0.20, "recurring_or_repeat_revenue_quality": 0.15, "runway": 0.10 }
   },
   "normalization_rules": {
-    "metric_catalog": "metrics-v1",
+    "metric_catalog": "metrics-v2",
     "neutral_prior": 0.5,
     "confidence_multipliers": {
       "INDEPENDENTLY_VERIFIED": 1.0,
@@ -30,6 +30,7 @@
     "assessable_subfactors": ["pain_urgency", "differentiation", "defensibility", "growth_or_tailwind"],
     "rubrics": {
       "product_status": { "map": { "idea": 0, "mockup": 0.25, "prototype": 0.5, "beta": 0.75, "launched": 1 } },
+      "prior_shipped_products": { "bands": [["0", 0.5], ["1", 0.75], ["3", 1]] },
       "relevant_experience_years": { "bands": [["0", 0], ["0.5", 0.25], ["1", 0.5], ["2", 0.75], ["4", 1]] },
       "repo_commits_90d": { "bands": [["0", 0], ["5", 0.25], ["20", 0.5], ["60", 0.75], ["150", 1]] },
       "repo_active_weeks_13w": { "bands": [["0", 0], ["2", 0.25], ["5", 0.5], ["8", 0.75], ["11", 1]] },

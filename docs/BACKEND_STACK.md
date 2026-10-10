@@ -410,7 +410,11 @@ FUNDING_PAUSED=false
 DEMO_GENERATION_ID=
 GEMINI_API_KEY=
 GEMINI_MODEL=                  # current Gemini 3 Flash model ID (research needs Gemini 3: tools + structured output)
+RESEARCH_PROVIDER=gemini       # gemini (direct) or openrouter (Gemini via OpenRouter; EVIDENCE_RESEARCH §3)
+OPENROUTER_API_KEY=            # required when RESEARCH_PROVIDER=openrouter
+OPENROUTER_MODEL=google/gemini-2.5-flash
 GITHUB_TOKEN=                  # optional; read-only public scope, lifts GitHub's 60 req/h unauthenticated limit
+PROFILE_SNAPSHOT_FILES=        # optional, comma-separated founder-provided LinkedIn snapshots (M§6.5), e.g. ../db/fixtures/demo-linkedin-snapshot.json
 WORKER_IN_PROCESS=false
 ```
 

@@ -22,7 +22,7 @@ POST /api/projects/:id/research-runs {website_url, urls[≤10], founder_text?, r
   → validate + canonicalize URLs → cache (24 h, same input+pipeline+model) → rate limit (3/h/project)
   → research_runs row (QUEUED; one in-flight run per project) → 202 {runId}
   background:
-  1. Classify links: LinkedIn / Google Docs / YouTube → not readable, remediation warning
+  1. Classify links: LinkedIn / Google Docs / YouTube → not readable, remediation warning; a LinkedIn profile with a founder-provided snapshot (M§6.5, `PROFILE_SNAPSHOT_FILES`) uses that text instead
   2. Server fetch of founder links (SSRF-guarded)          ┐
   3. GitHub REST collector (no AI)                         ├ in parallel
   4. Gemini founder pass: url_context + structured output  │
@@ -36,7 +36,9 @@ POST /api/projects/:id/research-runs/:runId/confirm {accept[], dispute[]}
 
 Code: `backend/src/evidence/` (`metrics.ts`, `decimal.ts`, `research/*`), `backend/src/routes/research.ts`, `backend/src/valuation/quality-scores.ts`. Migration: `db/migrations/0002_evidence_research.sql`. Model parameters: `db/seeds/valuation-v0.1.json`.
 
-## 4. Evidence status rules (`verifier.ts`, version `verifier-v1`)
+**Transport (`RESEARCH_PROVIDER`).** `gemini` uses the direct Gemini API with URL context and Google Search grounding (`research/gemini.ts`). `openrouter` (`research/openrouter.ts`) runs the same prompts, schemas, and verifier through OpenRouter: the founder pass sends page text our server already fetched (no paid URL tool), and the corroboration pass makes one Exa web search (5 results, $0.007 per request at OpenRouter's listed price) whose `url_citation` annotations feed step 6. Exa search is a different index from Google Search, so corroboration may find different pages; every cited page is still re-fetched and quote-checked. Adopted 2026-10-10 because the direct Gemini project's prepaid balance blocked all calls.
+
+## 4. Evidence status rules (`verifier.ts`, version `verifier-v2`)
 
 | Origin | Condition | Status |
 |---|---|---|
@@ -47,7 +49,9 @@ Code: `backend/src/evidence/` (`metrics.ts`, `decimal.ts`, `research/*`), `backe
 | Founder link, third-party | Quote found and page names the company | `PUBLIC_WEAK`; otherwise `FOUNDER_ATTESTED` |
 | Search-found page | Not founder-controlled, quote found in **our own fetch**, page names the company **and** its domain (market metrics `tam_usd`/`market_growth_pct` exempt) | `PUBLIC_WEAK`; otherwise dropped |
 | AI assessment | ≥1 citation whose quote is found in a fetched page; no pedigree reasoning | `AI_ASSESSED` |
+| Founder-provided LinkedIn snapshot (M§6.5) | Never fetched. Treated as founder-controlled and complete: the quote must be found in the snapshot text (no "unverifiable" allowance); stored with fetch status `FOUNDER_PROVIDED` | `FOUNDER_ATTESTED` |
 | Any | Value not literally in its quote, quote not in source, unknown metric, out of range | Dropped (listed in `rejected`) |
+| `prior_shipped_products` = 1 (verifier-v2) | The quote contains a shipping verb (shipped, deployed, launched, released, published, "live at") instead of the numeral; larger counts still need the number | Same status rules as above |
 | Contradiction | Same metric/period differs by >25%: weaker claims that disagree with the strongest tier, or the whole group if the strongest tier disagrees internally | `MISSING_OR_CONTRADICTED` |
 
 Gemini's grounding metadata (`url_context_result`, `url_citation`) is recorded (`grounding_seen`) but is not sufficient on its own; the server-side quote check is the gate. A page on the founder's own domain is never more than founder-attested, however official it looks.
@@ -56,7 +60,7 @@ Pedigree (M§2.3): the metric vocabulary in `metrics.ts` is closed and is passed
 
 ## 5. Scoring (`quality-scores.ts`)
 
-Implements M§4.3–4.5 and BACKEND_STACK §5.1: rubric → `s ∈ {0, .25, .5, .75, 1}`; `adjusted = c·s + (1−c)·0.5`; per sub-factor the highest-`c` claim wins, then most recent, then metric code and claim id. `evidence_quality` is derived (share of claims with `c ≥ 0.65`, `c = 1`). Missing evidence is neutral, never negative.
+Implements M§4.3–4.5 and BACKEND_STACK §5.1: rubric → `s ∈ {0, .25, .5, .75, 1}`; `adjusted = c·s + (1−c)·0.5`; per sub-factor the highest-`c` claim wins, then the higher rubric level `s`, then most recent, then metric code and claim id. `evidence_quality` is derived (share of claims with `c ≥ 0.65`, `c = 1`). Missing evidence is neutral, never negative.
 
 **Rubric thresholds in `valuation-v0.1.json` are invented demo priors** and need team sign-off before the model version leaves `DRAFT`. Stage and factor weights are M§4.3–4.4 verbatim.
 

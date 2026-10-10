@@ -3,7 +3,7 @@
 // so prestige or demographic attributes (M§2.3) have no field to land in.
 // Rubric thresholds live in model_versions.normalization_rules, never here.
 
-export const METRIC_CATALOG_VERSION = "metrics-v1";
+export const METRIC_CATALOG_VERSION = "metrics-v2";
 
 export const SUBFACTORS = {
   execution: ["shipped_work", "relevant_domain_ability", "execution_velocity", "team_coverage", "commitment_evidence"],
@@ -47,6 +47,16 @@ export const METRICS = {
     kind: "product_status",
     unit: null,
     description: "Furthest observable product state: idea, mockup, prototype, beta, or launched (publicly usable).",
+  },
+  // metrics-v2 (approved 2026-10-10): prior founder success informs shipped_work (M§4.3, §2.3, §6.5).
+  prior_shipped_products: {
+    subfactors: ["shipped_work"],
+    kind: "integer",
+    unit: "products",
+    min: "0",
+    max: "50",
+    description:
+      "Products, apps, or projects the founders previously shipped to real users (publicly usable, e.g. a deployed hackathon project), not counting this startup. Never schools or employer prestige.",
   },
   relevant_experience_years: {
     subfactors: ["relevant_domain_ability"],

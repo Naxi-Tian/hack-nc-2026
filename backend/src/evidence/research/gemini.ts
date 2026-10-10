@@ -58,7 +58,7 @@ const claimJsonSchema = {
   required: ["metric_code", "value", "period_end", "source_url", "quote"],
 } as const;
 
-const founderPassJsonSchema = {
+export const founderPassJsonSchema = {
   type: "object",
   properties: {
     claims: { type: "array", items: claimJsonSchema },
@@ -67,7 +67,7 @@ const founderPassJsonSchema = {
   required: ["claims", "warnings"],
 } as const;
 
-const corroborationPassJsonSchema = {
+export const corroborationPassJsonSchema = {
   type: "object",
   properties: {
     claims: { type: "array", items: claimJsonSchema },
@@ -111,13 +111,22 @@ const SHARED_RULES = `Rules:
 Metrics (use these codes only):
 ${METRIC_GUIDE}`;
 
-const FOUNDER_SYSTEM = `You extract startup evidence for a transparent valuation model.
-Read every URL in <sources> with the URL context tool, plus <founder_text> if present (cite it as source_url "founder_text").
+/** Shared by every ResearchModel adapter; only the "how to read sources" line differs per provider. */
+export function founderSystem(readInstruction: string): string {
+  return `You extract startup evidence for a transparent valuation model.
+${readInstruction}
 Add one warning per source you could not read.
 ${SHARED_RULES}`;
+}
 
-const CORROBORATION_SYSTEM = `You look for independent, third-party evidence about one early-stage startup and assess four judgment factors.
-Use Google Search (at most 6 searches) for: press coverage, competition or accelerator results, app-store or marketplace listings, launch platforms, and reputable market research for its sector.
+const FOUNDER_SYSTEM = founderSystem(
+  `Read every URL in <sources> with the URL context tool, plus <founder_text> if present (cite it as source_url "founder_text").`,
+);
+
+/** searchInstruction says how this provider searches; the evidence and assessment rules are shared. */
+export function corroborationSystem(searchInstruction: string): string {
+  return `You look for independent, third-party evidence about one early-stage startup and assess four judgment factors.
+${searchInstruction}
 Only report pages that clearly refer to THIS startup (same name and same product or domain). Market metrics (tam_usd, market_growth_pct) may cite sector research instead.
 Do not cite the startup's own website or social accounts here.
 
@@ -128,6 +137,12 @@ Assessments: for each factor below, give a level only if you can cite at least o
 - growth_or_tailwind: 0 shrinking market · 2 stable or modest growth · 4 strong documented growth or tailwind.
 The rationale must rest on the cited quotes alone, never on who the founders are.
 ${SHARED_RULES}`;
+}
+
+export const CORROBORATION_SEARCH_TOPICS =
+  "press coverage, competition or accelerator results, app-store or marketplace listings, launch platforms, and reputable market research for its sector";
+
+const CORROBORATION_SYSTEM = corroborationSystem(`Use Google Search (at most 6 searches) for: ${CORROBORATION_SEARCH_TOPICS}.`);
 
 export interface PassTelemetry {
   urlContext: { url: string; status: string }[];

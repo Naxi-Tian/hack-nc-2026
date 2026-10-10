@@ -194,6 +194,56 @@ describe("research runner + confirm (PostgreSQL)", () => {
     await expect(db.query(`update research_sources set url = 'x' where run_id = $1`, [started.runId])).rejects.toThrow(/append-only/);
   });
 
+  it("uses a founder-provided LinkedIn snapshot instead of fetching LinkedIn (M§6.5)", async () => {
+    const PROFILE = "https://www.linkedin.com/in/ana";
+    const PROFILE_TEXT = "Ana Lee. Built and shipped Quietly, a study timer used by 300 students, at HackNC 2026.";
+    let founderTextSeen: string | null = null;
+    const model: ResearchModel = {
+      ...workingModel,
+      founderPass: async (input) => {
+        founderTextSeen = input.founderText;
+        return {
+          output: {
+            claims: [
+              { metric_code: "prior_shipped_products", value: "1", period_end: null, source_url: PROFILE, quote: "Built and shipped Quietly, a study timer used by 300 students" },
+              // Not in the snapshot: the quote check must still drop it.
+              { metric_code: "relevant_experience_years", value: "5", period_end: null, source_url: PROFILE, quote: "5 years at a growth agency" },
+            ],
+            warnings: [],
+          },
+          telemetry,
+        };
+      },
+    };
+    const tasks: (() => Promise<void>)[] = [];
+    const started = await startResearchRun(
+      {
+        ...deps(model, tasks),
+        lookupProfileSnapshot: async (url) => (url === PROFILE ? { profileUrl: PROFILE, capturedAt: "2026-10-10", text: PROFILE_TEXT } : null),
+      },
+      { projectId, identityId, request: { website_url: SITE, urls: [PROFILE] } },
+    );
+    await Promise.all(tasks.map((task) => task()));
+
+    expect(founderTextSeen).toContain(PROFILE_TEXT);
+    const run = await getResearchRun(pool, projectId, started.runId);
+    // Every founder link was usable, so the run is not PARTIAL because of LinkedIn.
+    expect(run.status).toBe("SUCCEEDED");
+    expect(run.result!.warnings.join(" ")).toMatch(/provided by the founder/);
+    expect(run.result!.warnings.join(" ")).not.toMatch(/needs a login/);
+    const shipped = run.result!.proposals.find((p) => p.metric_code === "prior_shipped_products");
+    expect(shipped).toMatchObject({ status: "FOUNDER_ATTESTED", source_url: PROFILE, value_numeric: "1" });
+    expect(run.result!.proposals.some((p) => p.metric_code === "relevant_experience_years")).toBe(false);
+    expect(run.result!.rejected.some((r) => r.metric_code === "relevant_experience_years")).toBe(true);
+    expect(run.result!.sources.find((s) => s.url === PROFILE)).toMatchObject({ fetch_status: "FOUNDER_PROVIDED", founder_controlled: true });
+
+    const stored = await db.query<{ fetch_status: string; text_excerpt: string }>(
+      `select fetch_status, text_excerpt from research_sources where run_id = $1 and url = $2`,
+      [started.runId, PROFILE],
+    );
+    expect(stored.rows[0]).toEqual({ fetch_status: "FOUNDER_PROVIDED", text_excerpt: PROFILE_TEXT });
+  });
+
   it("serves identical input from cache and enforces the hourly limit", async () => {
     const tasks: (() => Promise<void>)[] = [];
     const first = await startResearchRun(deps(workingModel, tasks), { projectId, identityId, request });

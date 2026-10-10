@@ -6,6 +6,9 @@ import { createApi } from "./app.js";
 import { createAuth, createAuthPool } from "./auth/better-auth.js";
 import { createOtpSender } from "./auth/otp-delivery.js";
 import { loadConfig, type Config } from "./config.js";
+import { createOpenRouterResearchModel } from "./evidence/research/openrouter.js";
+import { loadProfileSnapshots } from "./evidence/research/profile-snapshots.js";
+import { safeFetch } from "./evidence/research/safe-fetch.js";
 import type { ResearchDependencies } from "./evidence/research/runner.js";
 
 export interface BootstrapOptions {
@@ -33,6 +36,21 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     p.on("error", (error) => console.error("postgres pool error:", error.message));
   }
 
+  // Invalid snapshot files fail startup rather than silently dropping founder-provided data.
+  const lookupProfileSnapshot = config.PROFILE_SNAPSHOT_FILES?.length
+    ? await loadProfileSnapshots(config.PROFILE_SNAPSHOT_FILES)
+    : undefined;
+
+  const researchModel =
+    config.RESEARCH_PROVIDER === "openrouter" && config.OPENROUTER_API_KEY
+      ? createOpenRouterResearchModel({
+          apiKey: config.OPENROUTER_API_KEY,
+          model: config.OPENROUTER_MODEL,
+          fetchPage: safeFetch,
+          appUrl: config.PUBLIC_ORIGIN,
+        })
+      : undefined;
+
   const app = createApi({
     pool,
     ai: new GoogleGenAI({ apiKey: config.GEMINI_API_KEY }),
@@ -47,6 +65,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     }),
     emailHashPepper: config.EMAIL_HASH_PEPPER,
     campusDomains: config.CAMPUS_EMAIL_DOMAINS,
+    lookupProfileSnapshot,
+    researchModel,
     runInBackground: options.runInBackground,
     demoSignIn: config.DEMO_MODE,
   });

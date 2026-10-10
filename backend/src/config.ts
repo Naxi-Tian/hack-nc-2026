@@ -25,7 +25,17 @@ const envSchema = z.object({
   OTP_EMAIL_FROM: z.string().min(1).optional(),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_MODEL: z.string().min(1),
+  // Evidence research transport (EVIDENCE_RESEARCH §3): direct Gemini, or Gemini via OpenRouter.
+  RESEARCH_PROVIDER: z.enum(["gemini", "openrouter"]).default("gemini"),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_MODEL: z.string().min(1).default("google/gemini-2.5-flash"),
   GITHUB_TOKEN: z.string().min(1).optional(),
+  // Comma-separated founder-provided LinkedIn snapshot files (MARKET ARCHITECTURE §6.5),
+  // e.g. ../db/fixtures/demo-linkedin-snapshot.json. Unset: LinkedIn links stay unreadable.
+  PROFILE_SNAPSHOT_FILES: z
+    .string()
+    .transform((value) => value.split(",").map((path) => path.trim()).filter((path) => path.length > 0))
+    .optional(),
 });
 
 export type Config = z.infer<typeof envSchema> & { otpDelivery: OtpDeliveryConfig };
@@ -41,6 +51,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
 
   const config = parsed.data;
+  if (config.RESEARCH_PROVIDER === "openrouter" && !config.OPENROUTER_API_KEY) {
+    throw new Error("Invalid environment: RESEARCH_PROVIDER=openrouter needs OPENROUTER_API_KEY (openrouter.ai → Keys).");
+  }
   let otpDelivery: OtpDeliveryConfig;
   if (config.DEMO_MODE) {
     otpDelivery = { mode: "demo" };

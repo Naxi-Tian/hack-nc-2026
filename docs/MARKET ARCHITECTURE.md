@@ -631,6 +631,8 @@ Cost controls:
 - never call Gemini during subscription settlement;
 - never regenerate identical explanations on page load.
 
+Tier requirement: on Gemini 3.x models, Google Search grounding is **not available on the free tier**; the paid tier includes 5,000 search requests per month (shared across Gemini 3 models), then $14 per 1,000.[^gemini-pricing] A free-tier key fails the corroboration pass with HTTP 429 ("exceeded your current quota") before any usage is recorded. URL context is free on both tiers, so the founder pass still runs and the research run ends `PARTIAL`. Enable billing on the key's project before demoing corroboration. Use a fast Flash model (in testing on 2026-10-10, `gemini-3.8-flash` took about 40 s to answer a trivial prompt and exceeded the 90 s pass timeout; `gemini-3.5-flash` answered in about 1 s). If the direct Gemini API is unavailable, `RESEARCH_PROVIDER=openrouter` runs the same research through Gemini on OpenRouter (EVIDENCE_RESEARCH §3).
+
 ### 6.3 Solana
 
 Solana owns the money-like state transition. The Devnet subscription instruction atomically validates the round, accepts mock currency into its vault, and records the commitment. After scheduled close, guarded settlement instructions split fees, mint final receipts, and refund excess. Do not issue final receipts at commitment time for pro-rata rounds.
@@ -699,6 +701,45 @@ withdraw_founder_rewards
 Use the complete [Nessie purchase-flow design](NESSIE_PURCHASE_FLOW.md). A server-side adapter reads fictional account balances and transfers mock dollars to a configured funding treasury; a durable saga then mints wallet tokens through a replay-protected FundingReceipt PDA. Solana stays authoritative for participation, and Tiger records recovery evidence.
 
 Nessie funding and startup subscription are separate. No second bank debit, merchant purchase, or automatic bank payout is created when users subscribe or receive token refunds. Ambiguous provider writes are reconciled without blind retries. Validate the actual API contract with the team's sandbox key before implementation.
+
+---
+
+### 6.5 Founder profiles (LinkedIn)
+
+The founder flow is **paste two links (startup website and LinkedIn), and the system does the rest**. The website goes through evidence research (§6.2). LinkedIn needs a different path, because LinkedIn pages require sign-in and LinkedIn's terms prohibit scraping.
+
+**Never scrape LinkedIn.** That includes third-party scraper APIs: Proxycurl shut down in July 2025 after LinkedIn sued it, and the case ended in a permanent injunction requiring it to delete the data.[^proxycurl] The research pipeline already classifies LinkedIn URLs as `LOGIN_REQUIRED` and never fetches them.
+
+**Demo path: a stored profile snapshot.** The founder still pastes the LinkedIn URL. If a snapshot of the profile, provided by the founder with consent, is stored for that canonical URL, the pipeline uses its text as founder-provided text, in place of fetching the page.
+
+- The snapshot holds only evidence-bearing facts. Location, connection and follower counts, interests, and other people's names are not stored.
+- Every claim from it is `FOUNDER_ATTESTED` (the founder-attested multiplier, §4.5), exactly like pasted founder text.
+- The UI labels it "LinkedIn details provided by the founder", never "scraped" or "verified".
+- The demo snapshot is `db/fixtures/demo-linkedin-snapshot.json`, loaded through `PROFILE_SNAPSHOT_FILES` and matched on the `/in/<handle>` path, so URL variants match. Delete it when the founder asks.
+- The snapshot is quote-checked as a complete source: a quote missing from it is dropped, and it is stored with fetch status `FOUNDER_PROVIDED`.
+
+**What a profile can contribute.** Under the closed metric vocabulary (`metrics-v2`) and §2.3, profile fields are treated as follows:
+
+| Profile field | Treatment |
+|---|---|
+| School, degree, employer names, titles, follower counts | Zero weight (§2.3). No metric exists for them. |
+| Years of work directly relevant to this startup's domain | `relevant_experience_years` → `relevant_domain_ability` |
+| Functions the team covers (engineering, design, sales, ...) | `team_functions_count` → `team_coverage` |
+| Full-time commitment, if stated | `full_time_founders` → `commitment_evidence`. Never inferred from "student". |
+| Prior shipped projects | `prior_shipped_products` → `shipped_work` (see below) |
+| Competition results | No metric yet |
+| Self-listed skills | Not evidence on their own |
+
+**Prior shipped work (`metrics-v2`, approved 2026-10-10).** §2.3 lists "a shipped project" and "a documented competition result" as evidence, and §4.3 says prior founder success may inform `shipped_work`. `prior_shipped_products` counts products the founders previously shipped to real users, excluding this startup, and feeds `shipped_work`. Its demo rubric maps 0 to the neutral 0.5 (no penalty for having no record), 1 to 0.75, and 3 or more to 1; these thresholds are invented priors pending sign-off. When several claims feed one sub-factor with equal confidence, the higher rubric level wins, so a past project can add credit but never erase credit for this startup's own launched product. Founders usually describe a product ("built and shipped X") without stating a count, so the verifier accepts a value of 1 when the verbatim quote contains a shipping verb; larger counts must be stated. A competition result alone is not yet scored.
+
+**Long-term options**
+
+| Option | What it provides | Limits |
+|---|---|---|
+| **Verified on LinkedIn API** (preferred) | With the member's OAuth consent: identity plus LinkedIn-verified workplace and profile details. The Lite tier is free for all members, up to 5,000 requests per day.[^li-verified] | App approval and LinkedIn's branding rules; not a substitute for regulated ID checks. Employer names still carry zero weight; it proves the founder is real and confirms relevant experience. |
+| **Member data export upload** | The founder's own "Get a copy of your data" archive (positions, education, skills). Works everywhere with no API approval. | Extra step for the founder; still founder-attested. Confirm the archive's file layout before parsing it. |
+| **Sign In with LinkedIn (OpenID Connect)** | Name, email, picture only[^li-oidc] | Proves account ownership only; LinkedIn states it is not identity verification. |
+| **Member Data Portability API** | Full structured profile with consent[^li-dma] | EU/EEA/Switzerland members only, so not usable for a US campus. |
 
 ---
 
@@ -1218,6 +1259,11 @@ The essential rule is simple:
 [^mlh-solana]: Major League Hacking, [Build with Solana](https://www.mlh.com/partners/solana).
 [^tiger-candlestick]: Tiger Data, [Financial analysis with `candlestick_agg`](https://docs.tigerdata.com/api/latest/hyperfunctions/financial-analysis/candlestick_agg/).
 [^gemini-structured]: Google AI for Developers, [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output).
+[^gemini-pricing]: Google AI for Developers, [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) (Grounding with Google Search and URL context rows, checked 2026-10-10).
+[^proxycurl]: Social Media Today, [LinkedIn wins legal case against data scrapers Proxycurl](https://www.socialmediatoday.com/news/linkedin-wins-legal-case-data-scrapers-proxycurl/756101/); Nubela, [Goodbye, Proxycurl](https://nubela.co/blog/goodbye-proxycurl/).
+[^li-verified]: Microsoft Learn, [Verified on LinkedIn FAQ](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/verified-on-linkedin/faq).
+[^li-oidc]: Microsoft Learn, [Sign In with LinkedIn using OpenID Connect](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2).
+[^li-dma]: LinkedIn Help, [Member portability APIs](https://www.linkedin.com/help/linkedin/answer/a6214075).
 [^solana-nontransferable]: Solana, [Token-2022 non-transferable tokens](https://solana.com/docs/tokens/extensions/non-transferrable-tokens).
 [^sec-regcf]: U.S. Securities and Exchange Commission, [Regulation Crowdfunding Compliance and Disclosure Interpretations](https://www.sec.gov/files/divisions/corpfin/guidance/reg-crowdfunding-interps.htm).
 [^sec-intermediary]: U.S. Securities and Exchange Commission, [JOBS Act FAQs About Crowdfunding Intermediaries](https://www.sec.gov/rules-regulations/staff-guidance/trading-markets-frequently-asked-questions/jumpstart-our-business).
