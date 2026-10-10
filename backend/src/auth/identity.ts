@@ -53,3 +53,27 @@ export async function requireIdentity(
   }
   return ensureIdentity(pool, session.user, emailHashPepper);
 }
+
+/**
+ * Resolves the caller's identity and requires founder or team membership on the project.
+ * Unknown projects and non-members both get 404 so project ids cannot be probed.
+ */
+export async function requireProjectEditor(
+  context: Context,
+  projectId: string,
+  dependencies: IdentityDependencies,
+): Promise<SessionIdentity> {
+  const identity = await requireIdentity(context, dependencies);
+  const result = await dependencies.pool.query(
+    `select 1
+       from projects p
+      where p.id = $1
+        and (p.founder_identity_id = $2
+             or exists (select 1 from project_members m where m.project_id = p.id and m.identity_id = $2))`,
+    [projectId, identity.identityId],
+  );
+  if (result.rowCount === 0) {
+    throw new HTTPException(404, { res: Response.json({ error: { code: "PROJECT_NOT_FOUND" } }, { status: 404 }) });
+  }
+  return identity;
+}

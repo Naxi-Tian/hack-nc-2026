@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { GoogleGenAI } from "@google/genai";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Pool } from "pg";
 import { z } from "zod";
 
@@ -68,7 +68,7 @@ export interface EvidenceIntakeDependencies {
   pool: Pool;
   ai: GoogleGenAI;
   model: string;
-  requireProjectEditor: (projectId: string) => Promise<{ identityId: string }>;
+  requireProjectEditor: (context: Context, projectId: string) => Promise<{ identityId: string }>;
 }
 
 export function createEvidenceIntakeRouter({
@@ -85,7 +85,7 @@ export function createEvidenceIntakeRouter({
       return context.json({ error: { code: "INVALID_PROJECT_ID" } }, 400);
     }
 
-    const editor = await requireProjectEditor(projectId.data);
+    const editor = await requireProjectEditor(context, projectId.data);
     const body = requestSchema.safeParse(await context.req.json().catch(() => null));
     if (!body.success) {
       return context.json({ error: { code: "INVALID_INPUT" } }, 400);
