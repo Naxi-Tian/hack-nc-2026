@@ -36,3 +36,4 @@ target/
 .anchor/
 test-ledger/
 .surfpool/
+.vercel

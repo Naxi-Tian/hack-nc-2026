@@ -1,11 +1,27 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "web": { "root": "web/" },
-    "api": { "root": "backend/", "entrypoint": "server.ts" }
+    "web": {
+      "root": "web/"
+    },
+    "api": {
+      "root": "backend/",
+      "entrypoint": "server.ts",
+      "installCommand": "npm ci --omit=dev"
+    }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": { "service": "api" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
   ]
 }
