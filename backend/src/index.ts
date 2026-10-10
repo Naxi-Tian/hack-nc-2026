@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { serve } from "@hono/node-server";
 import { Pool } from "pg";
 
-import { createApi } from "./app.js";
+import { createApi, stripApiTrailingSlash } from "./app.js";
 import { createAuth, createAuthPool } from "./auth/better-auth.js";
 import { createOtpSender } from "./auth/otp-delivery.js";
 import { loadConfig } from "./config.js";
@@ -44,7 +44,7 @@ const app = createApi({
   campusDomains: config.CAMPUS_EMAIL_DOMAINS,
 });
 
-const server = serve({ fetch: app.fetch, port: config.PORT }, (info) => {
+const server = serve({ fetch: stripApiTrailingSlash(app.fetch), port: config.PORT }, (info) => {
   console.info(`Prospecto API listening on http://localhost:${info.port}${config.DEMO_MODE ? " (DEMO_MODE)" : ""}`);
 });
 

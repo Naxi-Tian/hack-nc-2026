@@ -26,6 +26,11 @@ export interface ApiDependencies {
 
 export function createApi(dependencies: ApiDependencies): Hono {
   const app = new Hono();
+  // Responses carry per-user data; Vercel's CDN honors upstream cache headers on rewrites.
+  app.use("/api/*", async (context, next) => {
+    await next();
+    context.header("Cache-Control", "no-store");
+  });
   const identityDependencies = {
     pool: dependencies.pool,
     auth: dependencies.auth,
@@ -55,4 +60,19 @@ export function createApi(dependencies: ApiDependencies): Hono {
   });
 
   return app;
+}
+
+type FetchHandler = (request: Request, ...rest: never[]) => Response | Promise<Response>;
+
+/**
+ * Next.js (trailingSlash: true) can redirect /api/x to /api/x/ before a proxy forwards it.
+ * Hono and Better Auth both match paths strictly, so strip the slash before routing.
+ */
+export function stripApiTrailingSlash<F extends FetchHandler>(fetch: F): F {
+  return ((request: Request, ...rest: never[]) => {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/api/") || !url.pathname.endsWith("/")) return fetch(request, ...rest);
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return fetch(new Request(url, request), ...rest);
+  }) as F;
 }
