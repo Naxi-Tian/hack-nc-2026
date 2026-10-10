@@ -22,6 +22,8 @@ export interface ApiDependencies {
   /** EMAIL_HASH_PEPPER: HMAC key for identities.campus_email_hash. */
   emailHashPepper: string;
   campusDomains: readonly string[];
+  /** DEMO_MODE only: POST /api/demo/sign-in signs in any campus email without a code. */
+  demoSignIn?: boolean;
 }
 
 export function createApi(dependencies: ApiDependencies): Hono {
@@ -41,7 +43,7 @@ export function createApi(dependencies: ApiDependencies): Hono {
     requireProjectEditor(context, projectId, identityDependencies);
 
   app.get("/api/health", (context) => context.json({ status: "ok" }));
-  app.route("/api", createAuthRouter(identityDependencies));
+  app.route("/api", createAuthRouter({ ...identityDependencies, demoSignIn: dependencies.demoSignIn }));
   app.route("/api", createEvidenceIntakeRouter({ ...dependencies, requireProjectEditor: requireEditor }));
   app.route(
     "/api",
