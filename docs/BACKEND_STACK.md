@@ -1,7 +1,7 @@
 # Backend Tech Stack & Implementation Spec
 
 Audience: AI coding agents and backend teammates.  
-Scope: **backend + on-chain implementation only.** The frontend is the static site in `landing/` and is owned by the frontend developer.
+Scope: **backend + on-chain implementation only.** The frontend is the Next.js static export in `web/` (built to `web/out/`) and is owned by the frontend developer.
 
 ## 0. Precedence
 
@@ -20,7 +20,7 @@ Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour 
 | --- | --- | --- |
 | Language | TypeScript `strict: true` (server); Rust (program) | No `any` in server domain code |
 | Runtime | Node.js 22 LTS or newer | Long-lived process (websocket subscription + worker), so no serverless |
-| HTTP server | **Hono** on `@hono/node-server` | One modular monolith (M§9.1). Also serves `landing/` statically, so frontend and API are same-origin |
+| HTTP server | **Hono** on `@hono/node-server` | One modular monolith (M§9.1). Also serves the frontend's static export `web/out/`, so frontend and API are same-origin |
 | Validation | `zod` + `@hono/zod-validator` | Same schemas validate Gemini output (M§12) |
 | Database | **Tiger Data** (Tiger Cloud PostgreSQL + TimescaleDB) | Relational tables + hypertables + continuous aggregates (M§6.1) |
 | DB access | `pg` (node-postgres) with parameterized SQL | MARKET allows Drizzle or SQL; this spec picks **SQL only** |
@@ -39,18 +39,19 @@ Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour 
 
 ### Banned for the MVP
 
-Next.js/React on the backend; Supabase; Better Auth; Prisma/Drizzle/any ORM; Kafka, Redis, Kubernetes, queues; multiple deployed backend services; a bespoke indexer cluster; custom oracles; an order book or AMM; mainnet funds; storing user private keys; any Gemini call in a settlement path; letting Gemini set scores, prices, allocations, fees or verification status.
+Next.js API routes, server actions or any Next.js server runtime (the frontend is `output: "export"` only); Supabase; Better Auth; Prisma/Drizzle/any ORM; Kafka, Redis, Kubernetes, queues; multiple deployed backend services; a bespoke indexer cluster; custom oracles; an order book or AMM; mainnet funds; storing user private keys; any Gemini call in a settlement path; letting Gemini set scores, prices, allocations, fees or verification status.
 
 ---
 
 ## 2. Repository layout and ownership
 
 ```text
-landing/                      FRONTEND (static HTML/CSS/JS): frontend owner only
+web/                          FRONTEND (Next.js 15 + React 19 + TS, output: "export" to web/out/): frontend owner only
+landing/                      legacy static prototype that web/ replaced; frontend owner only, not served
 server/                       BACKEND
   package.json
   src/
-    index.ts                  Hono app: /api/* routes + serveStatic(landing/)
+    index.ts                  Hono app: /api/* routes + serveStatic(web/out/)
     worker.ts                 indexer + reconciliation + settlement crank (§8)
     config.ts                 zod-parsed env (§12); fail fast on missing vars
     db/
@@ -84,7 +85,9 @@ pnpm-workspace.yaml
 .env.example
 ```
 
-Backend and chain contributors MUST NOT edit `landing/`. The frontend calls the API in §7 and never imports server code.
+Backend and chain contributors MUST NOT edit `web/` or `landing/`. The frontend calls the API in §7 over `fetch` and never imports server code; shared types, if wanted, are copied or generated, not imported across packages.
+
+Static-export constraints the API must respect: `trailingSlash: true` means pages live at `/rounds/`, `/launch/`, `/news/`; there is no Next.js server, so dynamic pages such as a single project read their id from the query string or hash and fetch `/api/...` client-side. The Hono static handler serves `web/out/<path>/index.html` for directory paths and `404.html` otherwise, and never shadows `/api/*`.
 
 ---
 
@@ -254,7 +257,7 @@ Unallocated remainder from pro-rata flooring (`target − Σaccepted`) is simply
 
 ## 7. HTTP API (M§9.2 plus required additions)
 
-Base `/api`, JSON, same-origin with `landing/`.
+Base `/api`, JSON, same-origin with the static export in `web/out/`.
 
 | Method & path | Auth | Purpose |
 | --- | --- | --- |
@@ -282,7 +285,7 @@ Base `/api`, JSON, same-origin with `landing/`.
 | GET `/transactions/:signature` | session | Status `Prepared/Submitted/Confirmed/Finalized/Failed` (M§11.1); triggers on-demand ingest |
 
 **Wallet transaction flow (frontend contract):**
-`prepare` returns an unsigned-by-user, relayer-partially-signed `VersionedTransaction` (base64), where the relayer is the fee payer, so users need no devnet SOL. The page deserializes it with `@solana/web3.js` (CDN), calls the injected wallet's `signTransaction`, then POSTs it to `/transactions`. The page polls `GET /transactions/:signature` until `Confirmed` (provisional) or `Finalized`.
+`prepare` returns an unsigned-by-user, relayer-partially-signed `VersionedTransaction` (base64), where the relayer is the fee payer, so users need no devnet SOL. The page deserializes it with `@solana/web3.js` (npm dependency of `web/`), calls the injected wallet's `signTransaction`, then POSTs it to `/transactions`. The page polls `GET /transactions/:signature` until `Confirmed` (provisional) or `Finalized`.
 
 **Conventions**
 - Every non-auth POST requires an `Idempotency-Key` header (8–128 chars) (M§11.2). Same key + same body hash returns the stored response; same key + different body returns `IDEMPOTENCY_CONFLICT`.
@@ -390,7 +393,7 @@ Never commit values. `RELAYER_SECRET_KEY` is Devnet-only and must never be reuse
 
 | Step | Phase | Deliverable | Done when |
 | --- | --- | --- | --- |
-| 1 | 1 | Workspace, Hono server serving `landing/`, config, pg pool, dbmate, docker Tiger image, error/middleware skeleton | `GET /` serves landing page; `GET /api/projects` returns `[]` |
+| 1 | 1 | Workspace, Hono server serving `web/out/` (run `npm --prefix web run build` first), config, pg pool, dbmate, docker Tiger image, error/middleware skeleton | `GET /` serves landing page; `GET /api/projects` returns `[]` |
 | 2 | 1 | Identity: email OTP, sessions, wallet challenge/verify | OTP → session → wallet bound; replayed nonce rejected |
 | 3 | 1 | Projects, evidence, reviewer verify; `seed.sql` | Founder creates project and claims; public API hides private evidence |
 | 4 | 1 | Valuation engine + `valuation-v0.1` seed + preview endpoint | Golden tests pass; M§9.3 output shape |

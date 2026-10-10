@@ -6,16 +6,16 @@ Prospecto is **“the only platform where you can invest in your friend's startu
 
 The demo is not a stock exchange or a real securities offering. It uses simulated funds and non-transferable participation receipts on Solana Devnet. Never describe demo assets as equity, shares, guaranteed returns, or legally enforceable investments.
 
-The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md`](./MARKET_ARCHITECTURE.md). Treat files under `sources/` as read-only reference material; never edit, rename, move, or delete them.
+The canonical product and architecture specification is [`docs/MARKET ARCHITECTURE.md`](<docs/MARKET ARCHITECTURE.md>); backend implementation choices are in [`docs/BACKEND_STACK.md`](docs/BACKEND_STACK.md). Treat files under `sources/` as read-only reference material; never edit, rename, move, or delete them.
 
 ## Intended stack
 
-- Frontend: Next.js, React, TypeScript
-- Styling: Tailwind CSS or the component library already in the repository
+- Frontend: Next.js, React, TypeScript in `web/`, static export only (`output: "export"`), served by the backend
+- Styling: hand-written CSS in `web/styles/` (no Tailwind)
 - Backend: Node.js and TypeScript in a modular monolith
 - Validation: shared Zod schemas
 - Database: Tiger Cloud PostgreSQL with TimescaleDB
-- Database access: Drizzle or parameterized SQL
+- Database access: parameterized SQL via `pg` (no ORM; see `docs/BACKEND_STACK.md`)
 - Chain: Solana Devnet
 - On-chain program: Rust and Anchor
 - Asset standard: Token-2022 non-transferable receipts

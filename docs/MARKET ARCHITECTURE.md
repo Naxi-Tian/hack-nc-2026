@@ -511,12 +511,13 @@ The UI displays all four values before confirmation. For an unincorporated hacka
 ### 5.1 Application stack
 
 ```text
-Frontend:       Static multi-page HTML + vanilla JavaScript in landing/ (no framework, no build step)
-Styling:        Hand-written CSS with design tokens (sub.css, motion.css, per-page <style>);
-                GSAP 3.12.5 + ScrollTrigger and Google Fonts via CDN
-Wallet:         Injected Solana wallet provider (e.g. Phantom) + @solana/web3.js browser build via CDN;
-                no React wallet adapter
-Backend:        Node.js + TypeScript, implemented as one modular monolith that also serves landing/
+Frontend:       Next.js 15 + React 19 + TypeScript in web/, static export (output: "export") to web/out/;
+                no Next.js server, API routes or server actions
+Styling:        Hand-written CSS with design tokens (web/styles/*.css, route-scoped classes);
+                GSAP 3.12.5 + ScrollTrigger (npm) and fonts via next/font/google
+Wallet:         Injected Solana wallet provider (e.g. Phantom) + @solana/web3.js as npm dependencies
+                of web/, called from client components
+Backend:        Node.js + TypeScript, implemented as one modular monolith that also serves web/out/
 Validation:     Zod schemas shared between API and Gemini structured output
 Database:       Tiger Cloud PostgreSQL + TimescaleDB
 ORM/querying:   Drizzle or direct parameterized SQL
@@ -525,11 +526,11 @@ Chain:          Solana Devnet
 Asset program:  Token-2022
 Payment asset:  Mock USDC-style Devnet mint
 AI:             Gemini Flash-class model with structured JSON output
-Charts:         Lightweight Charts standalone build via CDN, or hand-written SVG
+Charts:         Lightweight Charts (npm) or hand-written SVG
 Hosting:        One web/API deployment plus one scheduled worker
 ```
 
-The frontend stack above reflects the existing `landing/` site and is owned by the frontend developer. Concrete backend and on-chain implementation choices (framework, libraries, layout, API contract, build order) are in [BACKEND_STACK.md](BACKEND_STACK.md).
+The frontend stack above reflects the existing `web/` app (which replaced the earlier static `landing/` prototype) and is owned by the frontend developer. Concrete backend and on-chain implementation choices (framework, libraries, layout, API contract, build order) are in [BACKEND_STACK.md](BACKEND_STACK.md).
 
 ### 5.2 What not to add
 
@@ -1319,7 +1320,7 @@ Founder submits a narrative and GitHub/revenue evidence
 ## 18. Final architecture in one view
 
 ```text
-┌──────────────── Static web UI (landing/) ──────────────────┐
+┌─────────── Next.js static export (web/out/) ───────────────┐
 │ profiles │ evidence │ valuation explanation │ subscribe   │
 └────────────────────────────┬────────────────────────────────┘
                              │
