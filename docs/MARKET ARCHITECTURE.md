@@ -511,8 +511,9 @@ The UI displays all four values before confirmation. For an unincorporated hacka
 ### 5.1 Application stack
 
 ```text
-Frontend:       Next.js + React + TypeScript
-Styling:        Tailwind CSS or existing component library
+Frontend:       Next.js 15 + React 19 + TypeScript in web/, static export (output: "export") to web/out/
+Styling:        Hand-written CSS with design tokens (web/styles/*.css, route-scoped classes);
+                GSAP + ScrollTrigger and fonts via next/font/google
 Wallet:         Solana wallet adapter / current Solana client packages
 Backend:        Node.js + TypeScript, implemented as one modular monolith
 Validation:     Zod schemas shared between API and Gemini structured output

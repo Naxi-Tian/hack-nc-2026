@@ -10,8 +10,8 @@ The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md
 
 ## Intended stack
 
-- Frontend: Next.js, React, TypeScript
-- Styling: Tailwind CSS or the component library already in the repository
+- Frontend: Next.js 15, React 19, TypeScript in `web/`, currently a static export (`output: "export"`); see README for the open integration question with the backend spec
+- Styling: hand-written CSS in `web/styles/` (no Tailwind)
 - Backend: Node.js and TypeScript in a modular monolith
 - Validation: shared Zod schemas
 - Database: Tiger Cloud PostgreSQL with TimescaleDB
