@@ -1,0 +1,1364 @@
+# Campus Startup Primary Market
+
+## Product, Valuation, Tokenization, and Systems Architecture
+
+**Status:** Hackathon implementation specification  
+**Version:** 0.1  
+**Default environment:** Solana Devnet with simulated currency  
+**Product category:** Primary-issuance startup market simulator
+
+---
+
+## Contents
+
+1. Executive summary
+2. Product principles
+3. Market architecture
+4. Valuation methodology and weightings
+5. Technical stack
+6. Tiger Data, Gemini, and Solana integrations
+7. Minting and tokenization
+8. Data schema
+9. Backend modules and APIs
+10. Identity and manipulation controls
+11. Reliability and reconciliation
+12. Security requirements
+13. Legal and product boundary
+14. Cost strategy
+15. Hackathon implementation plan
+16. Testing checklist
+17. Deferred production decisions
+18. Final architecture
+
+---
+
+## 1. Executive summary
+
+The product lets a student founder create a startup profile, submit evidence, receive a transparent model-implied valuation, and open a small primary issuance round. Other students subscribe directly from that issuance. They do not buy from or sell to other participants, and they cannot short the startup.
+
+The system intentionally is **not** a stock exchange:
+
+- no central limit order book;
+- no investor-to-investor secondary trading;
+- no automated market maker or continuous bonding curve;
+- no leverage, margin, liquidation, or shorting;
+- no claim that a hackathon receipt is legal equity;
+- no use of an LLM to determine prices or settle transactions.
+
+The hackathon version uses three sponsor technologies with non-overlapping responsibilities:
+
+- **Tiger Data** is the operational database, immutable analytics history, and time-series dashboard engine.
+- **Gemini** extracts structured claims from messy founder submissions and explains already-computed results.
+- **Solana** enforces issuance rules, processes simulated payment, records allocations, and mints non-transferable participation receipts.
+
+The valuation has two components:
+
+1. **Model-implied reference value:** stage, sector, traction, product evidence, execution evidence, economics, and scenario outcomes.
+2. **Crowd-demand adjustment:** a bounded adjustment based on the prior round's fill rate, breadth of participation, and concentration—not raw hype.
+
+Every valuation stores its inputs, formulas, model version, and evidence references. A participant should always be able to answer: **“Why is this the price?”**
+
+> **Legal boundary:** The Devnet product is a simulation and should describe its assets as non-transferable participation receipts or index units, not shares. Tokenization and non-transferability do not create a securities-law exemption. A real-money or return-bearing version requires qualified legal counsel, an actual issuer, offering documents, identity/compliance controls, and likely a registered or exempt intermediary structure.
+
+---
+
+## 2. Product principles
+
+### 2.1 Primary issuance only
+
+Every subscription is between a participant and the startup's current issuance round. Participants never transact with one another.
+
+This eliminates the need for:
+
+- bid/ask books;
+- market makers;
+- matching priority;
+- secondary liquidity;
+- short inventory;
+- a liquidation engine;
+- continuous price discovery.
+
+An investor-to-investor resale would be secondary trading. It is excluded from the MVP.
+
+### 2.2 Periodic rounds, not a continuous curve
+
+Each startup opens a discrete issuance round at a single published price. Everyone accepted in that round receives the same price. Price changes occur **between rounds**, after new evidence and the preceding round's demand are evaluated.
+
+This is preferable to a bonding curve because it is:
+
+- easier to understand;
+- deterministic and auditable;
+- resistant to transaction-order front-running;
+- compatible with pro-rata allocation;
+- cheaper to implement;
+- closer to primary fundraising than continuous speculative trading.
+
+An “epoch” is therefore unnecessary terminology. The product should use **round**:
+
+```text
+Draft → Scheduled → Open → Filled/Expired → Finalized or Refunding
+```
+
+### 2.3 Evidence over pedigree
+
+School prestige, race, gender, family background, and other protected or proxy attributes must have zero direct weight.
+
+Relevant accomplishments may count only when converted into specific, verifiable evidence:
+
+- a shipped project;
+- sustained open-source contributions;
+- relevant technical or operating experience;
+- a documented competition result;
+- prior customer discovery;
+- prior revenue or usage;
+- domain-specific expertise.
+
+The model should not penalize a founder for having no prior record. Missing evidence receives a neutral prior with wider uncertainty, not a negative score. This is how the market remains open to dark horses.
+
+### 2.4 Determinism at the financial boundary
+
+The following must be deterministic:
+
+- evidence status;
+- factor normalization;
+- factor weights;
+- scenario probabilities;
+- reference valuation;
+- round price;
+- allocation;
+- fee distribution;
+- minting;
+- refunds.
+
+Gemini may propose a structured interpretation, but deterministic application code validates the output and performs all calculations.
+
+---
+
+## 3. Market architecture
+
+Large markets use sequencing, immutable event histories, derived read models, and reconciliation. NYSE's order-by-order feeds distribute events in matching-engine order, while Polymarket distinguishes order matching from later on-chain settlement. The system here adopts those bookkeeping ideas without building their exchange machinery.[^nyse-feed][^polymarket-settlement]
+
+### 3.1 Canonical event flow
+
+```text
+User command
+    ↓
+Authenticate + authorize
+    ↓
+Validate against current round state
+    ↓
+Assign idempotency key / submit Solana transaction
+    ↓
+Solana program performs atomic state transition
+    ↓
+Confirmed chain event is indexed into Tiger Data
+    ↓
+Continuous aggregates update API read models
+    ↓
+UI displays provisional or finalized state
+```
+
+Every meaningful event includes:
+
+```text
+event_id
+project_id
+round_id
+event_type
+actor_identity_id
+actor_wallet
+amount
+valuation_model_version
+occurred_at
+solana_signature
+instruction_index
+confirmation_status
+```
+
+### 3.2 Sources of truth
+
+| Domain | Authoritative source |
+|---|---|
+| Subscription payment and receipt balance | Solana program state |
+| Round parameters once opened | Solana Round PDA |
+| Founder profile and private evidence | Tiger PostgreSQL |
+| Evidence verification status | Tiger PostgreSQL |
+| Model definition and weights | Versioned application configuration in Tiger |
+| Model output history | Immutable valuation snapshots in Tiger |
+| Dashboard charts | Tiger continuous aggregates derived from canonical events |
+| Gemini interpretation | Never authoritative; cached proposal only |
+
+The backend must never overwrite chain truth. A reconciliation worker compares indexed records with Solana and inserts missing events idempotently.
+
+---
+
+## 4. Valuation methodology
+
+### 4.1 Why traditional methods need modification
+
+| Method | Pre-seed usefulness | Use in this product |
+|---|---:|---|
+| DCF | Low when revenue and margins are unknown | Scenario framework only; never pretend a single forecast is precise |
+| Public comparables | Moderate as a sector ceiling/anchor | Establish mature revenue multiples and margin envelopes, then discount heavily |
+| Precedent venture rounds | Moderate | Calibrate stage/sector baselines if data is comparable and recent |
+| Precedent M&A transactions | Moderate for terminal outcomes | Estimate plausible acquisition outcomes, not today's direct value |
+| First Chicago/scenario method | High | Probability-weighted downside, base, and upside outcomes |
+| Venture capital method | Moderate | Cross-check terminal outcome and required return |
+| Scorecard/Berkus-style factors | High at idea stage | Structure qualitative evidence; not a substitute for calibration |
+| LBO method | Very low | Excluded; pre-seed companies generally lack stable cash flow and debt capacity |
+| Black–Scholes | Very low for company valuation | Excluded from core valuation; potentially relevant only to a defined option instrument |
+
+IPEV describes private-capital valuation as a fair-value estimation exercise using appropriate techniques and judgment, not a universal formula.[^ipev] Damodaran's young-company framework emphasizes revenue growth, sustainable margins, reinvestment efficiency, private-company risk, and failure probability.[^damodaran-paper] The system follows those principles but exposes its assumptions instead of claiming accounting-grade fair value.
+
+### 4.2 Valuation outputs
+
+The backend produces four distinct values:
+
+```text
+fundamental_scenario_value
+current_operating_value
+model_reference_value
+round_implied_value
+```
+
+They must not be collapsed in storage.
+
+- **Fundamental scenario value** estimates risk-adjusted future outcomes.
+- **Current operating value** uses verified assets, revenue, and relevant sector multiples when available.
+- **Model reference value** blends those values according to company stage.
+- **Round implied value** applies a bounded demand adjustment from the preceding round.
+
+### 4.3 Factor scores
+
+Every factor is normalized to the interval `[0, 1]`. Scores should be computed from explicit rubrics and verified claims, not free-form judgment.
+
+#### Execution score `E`
+
+```text
+E = 0.35 × shipped_work
+  + 0.25 × relevant_domain_ability
+  + 0.20 × execution_velocity
+  + 0.10 × team_coverage
+  + 0.10 × commitment_evidence
+```
+
+Examples of accepted evidence include deployed products, commit history over time, relevant work, customer interviews, and complementary team roles. Prior founder success may inform `shipped_work`; university name does not.
+
+#### Market score `M`
+
+```text
+M = 0.35 × plausible_market_size
+  + 0.25 × growth_or_tailwind
+  + 0.20 × pain_urgency
+  + 0.20 × reachable_initial_segment
+```
+
+Market size is scenario-based. A CPG company can score well for a clearly reachable and profitable segment even if its theoretical ceiling is below that of a global software platform.
+
+#### Product/evidence score `P`
+
+```text
+P = 0.30 × product_completeness
+  + 0.25 × user_validation
+  + 0.20 × differentiation
+  + 0.15 × defensibility
+  + 0.10 × evidence_quality
+```
+
+#### Traction score `T`
+
+Traction is sector-specific. It must not compare raw SaaS users directly with CPG purchase orders.
+
+```text
+T = 0.30 × growth
+  + 0.25 × retention_or_repeat_use
+  + 0.20 × revenue_or_commitments
+  + 0.15 × engagement_or_usage_depth
+  + 0.10 × acquisition_efficiency
+```
+
+For pre-launch companies, signed pilots, credible waitlists with confirmation, interviews, prototypes used, or letters of intent may substitute for revenue—but must be labeled as weaker evidence.
+
+#### Economics score `U`
+
+```text
+U = 0.30 × gross_margin_potential
+  + 0.25 × capital_efficiency
+  + 0.20 × payback_or_sales_efficiency
+  + 0.15 × recurring_or_repeat_revenue_quality
+  + 0.10 × runway
+```
+
+### 4.4 Stage-dependent category weights
+
+The relative importance of the categories changes as observable data arrives.
+
+| Stage | Execution `E` | Market `M` | Product `P` | Traction `T` | Economics `U` |
+|---|---:|---:|---:|---:|---:|
+| Idea | 40% | 30% | 20% | 5% | 5% |
+| Prototype / pre-launch | 30% | 25% | 25% | 15% | 5% |
+| Launched / pre-revenue | 25% | 25% | 20% | 25% | 5% |
+| Early revenue | 20% | 20% | 10% | 35% | 15% |
+| Repeatable revenue | 15% | 15% | 10% | 35% | 25% |
+
+The composite quality score is:
+
+```text
+Q = wE × E + wM × M + wP × P + wT × T + wU × U
+```
+
+#### Rationale and limits of the weights
+
+The factor selection is grounded in accepted valuation practice: young-company value depends on growth, margins, reinvestment, failure risk, business characteristics, and founder history; early founder choices and intellectual-property activity can predict later growth orientation; human and financial capital have predictive value.[^damodaran-drivers][^nber-growth][^human-capital]
+
+The **exact percentages are product calibration priors**, not scientific constants. No credible research supports a universal factor table for every pre-seed startup. Therefore:
+
+- weights are stored in a versioned table rather than hard-coded invisibly;
+- backtesting must eventually replace hand-set priors;
+- every score snapshot records the applicable model version;
+- sector and stage cohorts must be calibrated separately;
+- sensitive and prestige-proxy features are prohibited;
+- model performance and disparate impact should be audited before real use.
+
+### 4.5 Evidence confidence
+
+Each claim receives a verification multiplier `c`:
+
+| Evidence status | `c` |
+|---|---:|
+| Independently verified API or document | 1.00 |
+| Reviewer-verified artifact | 0.85 |
+| Public but weakly attributable source | 0.65 |
+| Founder-attested only | 0.35 |
+| Missing or contradicted | 0.00 |
+
+For a metric with raw normalized score `s` and a neutral prior `μ = 0.50`:
+
+```text
+adjusted_score = c × s + (1 − c) × μ
+```
+
+This avoids treating unverifiable claims as facts while also avoiding an automatic zero for a new founder with little history.
+
+### 4.6 Scenario valuation
+
+Define four mutually exclusive terminal scenarios:
+
+1. failure/shutdown;
+2. sustainable small business;
+3. venture-scale base outcome;
+4. breakout/dark-horse outcome.
+
+For scenario `k`:
+
+```text
+terminal_enterprise_value_k = terminal_revenue_k × sector_multiple_k
+
+present_value_k = terminal_enterprise_value_k / (1 + r_k)^H
+
+fundamental_scenario_value = Σ(probability_k × present_value_k)
+                           + current_net_cash
+```
+
+Where:
+
+- `H` is the forecast horizon, initially five years;
+- `r_k` is a scenario-specific annual discount rate;
+- terminal revenue and multiples use sector-specific outcome envelopes;
+- probabilities sum to `1.0`;
+- failure value defaults to recoverable net assets, normally near zero.
+
+The composite quality score tilts—but cannot eliminate—the baseline scenario probabilities:
+
+```text
+logit_odds_k = baseline_logit_odds(stage, sector, k)
+             + beta_k × (Q − 0.50)
+
+probability_k = softmax(logit_odds)_k
+```
+
+The breakout scenario remains non-zero for an unknown team. Strong evidence raises its probability, while lack of pedigree alone does not reduce it below the sector-stage prior.
+
+### 4.7 Current operating value
+
+When there is verified revenue:
+
+```text
+current_operating_value = current_net_cash
+                        + verified_ARR × stage_adjusted_revenue_multiple
+```
+
+For transaction-oriented sectors, replace ARR with an appropriate metric such as gross profit, contribution profit, or trailing revenue. The metric and multiple source are stored with the snapshot.
+
+At the idea stage:
+
+```text
+current_operating_value = max(0, verified_net_assets)
+```
+
+This correctly acknowledges that current tangible value may be near zero without asserting that the future opportunity is worth zero.
+
+### 4.8 Blending current and future value
+
+```text
+model_reference_value = alpha_stage × current_operating_value
+                      + (1 − alpha_stage) × fundamental_scenario_value
+```
+
+| Stage | Current weight `alpha_stage` | Scenario weight |
+|---|---:|---:|
+| Idea | 10% | 90% |
+| Prototype / pre-launch | 20% | 80% |
+| Launched / pre-revenue | 30% | 70% |
+| Early revenue | 50% | 50% |
+| Repeatable revenue | 70% | 30% |
+
+These are calibration priors. The scenario component dominates early because historical financial statements contain little information; the operating component gains weight as repeatable economics appear.
+
+### 4.9 Crowd-belief adjustment
+
+Crowd belief affects only the **next** round. It never changes the price for people already participating in an open round.
+
+Define:
+
+```text
+fill_rate = accepted_dollars / target_dollars
+
+buyer_breadth = min(1, unique_eligible_buyers / target_unique_buyers)
+
+HHI = Σ(buyer_allocation_share_i²)
+
+deconcentration = 1 − normalized_HHI
+
+demand_score D = 0.55 × min(1, fill_rate)
+               + 0.30 × buyer_breadth
+               + 0.15 × deconcentration
+```
+
+Founder, team, duplicate-identity, and flagged subscriptions are excluded from these calculations.
+
+Convert demand to a bounded multiplier:
+
+```text
+demand_multiplier = exp(0.40 × (D − 0.50))
+```
+
+For `D ∈ [0,1]`, the multiplier is approximately `0.82×–1.22×`. This prevents crowd enthusiasm from overwhelming fundamentals.
+
+The next round's implied value is:
+
+```text
+raw_round_value = model_reference_value × demand_multiplier
+
+round_implied_value = clamp(
+  raw_round_value,
+  previous_round_value × 0.75,
+  previous_round_value × 1.50
+)
+```
+
+The asymmetric cap permits strong verified progress while limiting abrupt manipulation. A material financing, contract, or other exceptional event may bypass the cap only through a separately labeled model event.
+
+### 4.10 Unit price
+
+The simulator uses a fixed reference unit count:
+
+```text
+REFERENCE_UNITS = 1,000,000
+
+unit_price = round_implied_value / REFERENCE_UNITS
+
+allocated_units = floor(net_subscription_amount / unit_price)
+```
+
+These are index or participation units, not a representation of legal capitalization. If a future regulated product issues real securities, actual fully diluted capitalization and security rights replace `REFERENCE_UNITS`.
+
+### 4.11 Round allocation
+
+At round close:
+
+```text
+if total_requested ≤ available_amount:
+    accepted_i = requested_i
+else:
+    accepted_i = available_amount × requested_i / total_requested
+```
+
+Remainders are resolved deterministically by transaction sequence. Excess simulated currency is refunded. Pro-rata allocation is preferred over first-come-first-served because it reduces bot and latency advantages.
+
+### 4.12 Fees and founder reward
+
+The founder already benefits from primary-issuance proceeds. The additional founder reward must therefore come out of the platform fee, not be charged as an unexplained second fee.
+
+Initial configurable example:
+
+```text
+protocol_fee_bps = 100                 # 1.00%
+founder_share_of_protocol_fee = 40%   # 0.40% of gross
+
+protocol_fee = gross × 0.0100
+founder_reward = protocol_fee × 0.40
+platform_revenue = protocol_fee − founder_reward
+project_proceeds = gross − protocol_fee
+```
+
+The UI displays all four values before confirmation. For an unincorporated hackathon profile, all amounts remain simulated.
+
+---
+
+## 5. Technical stack
+
+### 5.1 Application stack
+
+```text
+Frontend:       Next.js + React + TypeScript
+Styling:        Tailwind CSS or existing component library
+Wallet:         Solana wallet adapter / current Solana client packages
+Backend:        Node.js + TypeScript, implemented as one modular monolith
+Validation:     Zod schemas shared between API and Gemini structured output
+Database:       Tiger Cloud PostgreSQL + TimescaleDB
+ORM/querying:   Drizzle or direct parameterized SQL
+Chain program:  Rust + Anchor
+Chain:          Solana Devnet
+Asset program:  Token-2022
+Payment asset:  Mock USDC-style Devnet mint
+AI:             Gemini Flash-class model with structured JSON output
+Charts:         Lightweight Charts, Recharts, or equivalent
+Hosting:        One web/API deployment plus one scheduled worker
+```
+
+### 5.2 What not to add
+
+Do not add the following to the hackathon build:
+
+- Kafka;
+- Redis unless a demonstrated bottleneck requires it;
+- Kubernetes;
+- multiple backend services;
+- a bespoke chain indexer cluster;
+- a custom oracle network;
+- a central limit order book;
+- a production custody system;
+- real ACH, cash, Bitcoin, or mainnet funds.
+
+PostgreSQL transactions, Solana atomic transactions, an RPC subscription, and a scheduled reconciliation worker are sufficient.
+
+---
+
+## 6. Integration responsibilities
+
+### 6.1 Tiger Data
+
+Tiger stores relational product data and time-series observations in one PostgreSQL-compatible system. Continuous aggregates precompute dashboard series, matching the Tiger Data use case promoted in MLH's current prize materials.[^mlh-prizes]
+
+Use standard PostgreSQL tables for:
+
+- identities and wallets;
+- projects and founders;
+- evidence and verification;
+- model versions;
+- rounds and subscriptions;
+- canonical chain transactions;
+- idempotency records.
+
+Use hypertables for:
+
+- traction measurements;
+- score snapshots;
+- valuation snapshots;
+- operational market metrics.
+
+Use continuous aggregates for:
+
+- amount raised per minute/hour/day;
+- unique participants per round;
+- cumulative receipts issued;
+- valuation and score history;
+- founder rewards;
+- project activity feeds.
+
+Tiger provides financial aggregation helpers such as candlestick aggregates, but the UI should label the result as “implied valuation history,” not stock-price candles.[^tiger-candlestick]
+
+### 6.2 Gemini
+
+Gemini performs three bounded tasks:
+
+1. **Claim extraction:** turn founder narrative and uploaded text into a proposed structured claim list.
+2. **Evidence triage:** describe what proof is missing and route evidence to a verification method.
+3. **Explanation:** translate deterministic factor contributions into plain language.
+
+Example structured output:
+
+```json
+{
+  "claims": [
+    {
+      "metric": "monthly_revenue",
+      "value": 800,
+      "unit": "USD",
+      "period_start": "2026-09-01",
+      "period_end": "2026-09-30",
+      "source_type": "founder_attested",
+      "verification_required": true
+    }
+  ],
+  "missing_evidence": ["payment processor export"],
+  "warnings": []
+}
+```
+
+Gemini supports schema-constrained structured output, but syntactically valid JSON is not proof that a claim is true. The application must validate semantics and evidence.[^gemini-structured]
+
+Cost controls:
+
+- call Gemini only when evidence content changes;
+- hash normalized content and cache the result;
+- use a Flash-class model;
+- cap document size and output tokens;
+- batch explanations when possible;
+- never call Gemini during subscription settlement;
+- never regenerate identical explanations on page load.
+
+### 6.3 Solana
+
+Solana owns the money-like state transition. The Devnet program should atomically validate the round, accept mock currency, record the allocation, split fees, and mint the receipt.
+
+MLH explicitly directs hackathon teams to Solana Devnet and highlights Anchor as a program-development framework.[^mlh-solana]
+
+Solana accounts:
+
+```text
+Project PDA
+  project_id
+  founder_wallet
+  receipt_mint
+  treasury_vault
+  founder_reward_bps
+  status
+
+Round PDA
+  project
+  round_number
+  opens_at
+  closes_at
+  unit_price_micro_usd
+  max_units
+  target_amount
+  model_hash
+  evidence_root
+  total_committed
+  status
+
+Subscription PDA
+  round
+  buyer_wallet
+  gross_amount
+  accepted_amount
+  units
+  refunded_amount
+  status
+
+Vault PDA / token accounts
+  project proceeds
+  protocol fees
+  founder rewards
+```
+
+Program instructions:
+
+```text
+initialize_protocol
+create_project
+open_round
+subscribe
+finalize_round
+mint_final_allocation
+refund_excess
+cancel_and_refund
+withdraw_project_proceeds
+withdraw_founder_rewards
+```
+
+---
+
+## 7. Minting and tokenization process
+
+“Minting,” not mining, is the relevant process. No proof-of-work mining is involved.
+
+### 7.1 Receipt design
+
+Create one Token-2022 mint per project with:
+
+- `NonTransferable` enabled;
+- zero or fixed decimals;
+- mint authority controlled by the protocol PDA;
+- metadata clearly stating “Devnet participation receipt; not equity; no redemption promise”;
+- no holder-controlled transfer path.
+
+Solana's `NonTransferable` extension causes normal transfer instructions to fail, while still allowing authorized minting and holder burning.[^solana-nontransferable]
+
+For the simplest version, receipts represent cumulative allocated index units across rounds. The `Subscription PDA` preserves the price and round at which each allocation occurred.
+
+### 7.2 Project onboarding
+
+```text
+1. Founder verifies campus identity.
+2. Founder connects a wallet and signs a challenge.
+3. Backend creates project record in Tiger.
+4. Solana program creates Project PDA.
+5. Program creates Token-2022 non-transferable receipt mint.
+6. Mint authority is assigned to the program PDA.
+7. Chain addresses are written back to the project record.
+```
+
+### 7.3 Opening a round
+
+```text
+1. Valuation service freezes an evidence snapshot.
+2. Service computes all scores and scenario values.
+3. Canonical JSON is hashed.
+4. Backend writes valuation snapshot to Tiger.
+5. Authorized transaction calls open_round.
+6. Round PDA stores price, supply, timing, model hash, and evidence root.
+7. Tiger records and indexes the confirmed chain event.
+```
+
+The full evidence stays off-chain. Only tamper-evident hashes and public round parameters go on-chain.
+
+### 7.4 Subscription
+
+```text
+1. Participant verifies identity and connects wallet.
+2. UI displays round price, requested amount, fees, and risk disclosure.
+3. Backend issues a short-lived eligibility attestation or allowlist proof.
+4. Participant signs the subscribe transaction.
+5. Program verifies round state and eligibility.
+6. Mock USDC moves atomically into the vault.
+7. Subscription PDA is created or updated.
+8. Program emits SubscriptionAccepted.
+9. After allocation is final, receipt units are minted.
+10. Indexer records the transaction in Tiger.
+```
+
+If the product uses immediate fixed allocation rather than end-of-round pro rata, steps 8–9 may occur in the same transaction. Pro-rata oversubscription requires commitments first and final minting after close.
+
+### 7.5 Finalization and refunds
+
+```text
+1. Round reaches close time or maximum allocation.
+2. Program calculates or verifies deterministic pro-rata allocation.
+3. Accepted amounts become withdrawable project proceeds.
+4. Protocol fee is split between platform and founder reward vault.
+5. Excess commitment becomes refundable.
+6. Final receipt units are minted.
+7. Round status becomes Finalized.
+```
+
+For a hackathon, pro-rata calculations may be computed off-chain and verified using a committed Merkle root if fully on-chain iteration is too expensive. A small demo cohort can instead finalize each subscription directly.
+
+---
+
+## 8. Data schema
+
+### 8.1 Core relational tables
+
+#### `identities`
+
+```text
+id UUID PK
+campus_email_hash TEXT UNIQUE
+verification_status ENUM
+verified_at TIMESTAMPTZ
+risk_flags JSONB
+created_at TIMESTAMPTZ
+```
+
+#### `wallets`
+
+```text
+address TEXT PK
+identity_id UUID FK
+chain TEXT
+verified_signature TEXT
+is_primary BOOLEAN
+created_at TIMESTAMPTZ
+revoked_at TIMESTAMPTZ NULL
+```
+
+#### `projects`
+
+```text
+id UUID PK
+slug TEXT UNIQUE
+name TEXT
+description TEXT
+sector_id UUID FK
+stage ENUM
+founder_identity_id UUID FK
+founder_wallet TEXT FK
+solana_project_pda TEXT UNIQUE
+receipt_mint TEXT UNIQUE
+status ENUM
+created_at TIMESTAMPTZ
+```
+
+#### `project_members`
+
+```text
+project_id UUID FK
+identity_id UUID FK
+role TEXT
+is_founder BOOLEAN
+joined_at TIMESTAMPTZ
+PRIMARY KEY (project_id, identity_id)
+```
+
+#### `evidence_claims`
+
+```text
+id UUID PK
+project_id UUID FK
+metric_code TEXT
+value_numeric NUMERIC NULL
+value_text TEXT NULL
+unit TEXT NULL
+period_start DATE NULL
+period_end DATE NULL
+source_type ENUM
+source_uri TEXT NULL
+content_hash TEXT
+verification_status ENUM
+confidence_multiplier NUMERIC
+verified_by UUID NULL
+created_at TIMESTAMPTZ
+supersedes_claim_id UUID NULL
+```
+
+Claims are immutable. Corrections create a new row referencing the superseded claim.
+
+#### `model_versions`
+
+```text
+id TEXT PK
+effective_at TIMESTAMPTZ
+stage_weights JSONB
+factor_weights JSONB
+normalization_rules JSONB
+scenario_parameters JSONB
+demand_parameters JSONB
+code_commit TEXT
+status ENUM
+```
+
+#### `rounds`
+
+```text
+id UUID PK
+project_id UUID FK
+round_number INTEGER
+solana_round_pda TEXT UNIQUE
+opens_at TIMESTAMPTZ
+closes_at TIMESTAMPTZ
+unit_price NUMERIC
+max_units NUMERIC
+target_amount NUMERIC
+model_version_id TEXT FK
+valuation_snapshot_id UUID FK
+model_hash TEXT
+evidence_root TEXT
+status ENUM
+created_at TIMESTAMPTZ
+UNIQUE (project_id, round_number)
+```
+
+#### `subscriptions`
+
+```text
+id UUID PK
+round_id UUID FK
+identity_id UUID FK
+wallet_address TEXT FK
+requested_amount NUMERIC
+accepted_amount NUMERIC
+fee_amount NUMERIC
+founder_reward_amount NUMERIC
+allocated_units NUMERIC
+status ENUM
+solana_signature TEXT
+created_at TIMESTAMPTZ
+UNIQUE (round_id, identity_id)
+```
+
+#### `chain_events`
+
+```text
+id UUID PK
+chain TEXT
+program_id TEXT
+signature TEXT
+instruction_index INTEGER
+slot BIGINT
+event_type TEXT
+project_id UUID NULL
+round_id UUID NULL
+payload JSONB
+confirmation_status ENUM
+block_time TIMESTAMPTZ
+indexed_at TIMESTAMPTZ
+UNIQUE (chain, signature, instruction_index)
+```
+
+`chain_events` remains a normal PostgreSQL table so its idempotency constraint is simple and authoritative.
+
+### 8.2 Time-series hypertables
+
+#### `traction_metrics`
+
+```text
+observed_at TIMESTAMPTZ
+project_id UUID
+metric_code TEXT
+value NUMERIC
+unit TEXT
+evidence_claim_id UUID
+```
+
+#### `score_snapshots`
+
+```text
+calculated_at TIMESTAMPTZ
+project_id UUID
+model_version_id TEXT
+execution_score NUMERIC
+market_score NUMERIC
+product_score NUMERIC
+traction_score NUMERIC
+economics_score NUMERIC
+composite_score NUMERIC
+input_hash TEXT
+factor_contributions JSONB
+```
+
+#### `valuation_snapshots`
+
+```text
+calculated_at TIMESTAMPTZ
+id UUID
+project_id UUID
+model_version_id TEXT
+current_operating_value NUMERIC
+scenario_value NUMERIC
+model_reference_value NUMERIC
+demand_score NUMERIC
+demand_multiplier NUMERIC
+round_implied_value NUMERIC
+unit_price NUMERIC
+scenario_details JSONB
+assumptions JSONB
+input_hash TEXT
+```
+
+#### `market_metrics`
+
+```text
+observed_at TIMESTAMPTZ
+project_id UUID
+round_id UUID
+metric_code TEXT
+value NUMERIC
+dimensions JSONB
+```
+
+### 8.3 Continuous aggregates
+
+Create views for:
+
+```text
+project_metrics_1m
+project_metrics_1h
+round_funding_progress
+project_valuation_daily
+project_participant_growth
+project_founder_rewards_daily
+```
+
+The frontend queries these views instead of repeatedly scanning raw events.
+
+---
+
+## 9. Backend modules and APIs
+
+### 9.1 Modular monolith
+
+```text
+identity/
+projects/
+evidence/
+valuation/
+rounds/
+solana/
+indexing/
+analytics/
+ai/
+```
+
+These are code boundaries, not separate deployed services.
+
+### 9.2 API surface
+
+```text
+POST   /api/auth/wallet-challenge
+POST   /api/auth/wallet-verify
+POST   /api/projects
+GET    /api/projects/:slug
+POST   /api/projects/:id/evidence
+POST   /api/projects/:id/evidence/extract
+POST   /api/projects/:id/valuation/preview
+POST   /api/projects/:id/rounds
+GET    /api/rounds/:id
+POST   /api/rounds/:id/eligibility
+POST   /api/rounds/:id/subscribe/prepare
+GET    /api/rounds/:id/subscriptions/me
+GET    /api/projects/:id/history
+GET    /api/transactions/:signature
+```
+
+The subscription endpoint prepares a transaction; the user's wallet signs it. The backend should not custody the user's private key.
+
+### 9.3 Valuation service contract
+
+Input:
+
+```json
+{
+  "projectId": "uuid",
+  "asOf": "timestamp",
+  "modelVersion": "valuation-v0.1",
+  "evidenceSnapshotHash": "sha256",
+  "priorRoundId": "uuid-or-null"
+}
+```
+
+Output:
+
+```json
+{
+  "scores": {
+    "execution": 0.64,
+    "market": 0.72,
+    "product": 0.55,
+    "traction": 0.31,
+    "economics": 0.40,
+    "composite": 0.571
+  },
+  "values": {
+    "currentOperating": 1000,
+    "fundamentalScenario": 145000,
+    "modelReference": 130600,
+    "demandMultiplier": 1.04,
+    "roundImplied": 135824,
+    "unitPrice": 0.135824
+  },
+  "modelHash": "sha256",
+  "explanationInputs": []
+}
+```
+
+All currency calculations use integers in the smallest unit on-chain. Floating-point arithmetic must not determine payment or allocation.
+
+---
+
+## 10. Identity, self-trading, and manipulation controls
+
+### 10.1 Founder self-subscription
+
+The Solana program can reject the registered founder wallet, but a wallet check alone cannot stop a founder from creating another wallet.
+
+The MVP should therefore bind wallets to a verified campus identity:
+
+- one identity may control a limited number of wallets;
+- project founders and team members cannot subscribe to their own project;
+- related flagged identities are excluded from the demand score;
+- changing wallets does not create a new eligible identity;
+- the eligibility attestation expires and is scoped to one round.
+
+### 10.2 Sybil and whale resistance
+
+Controls:
+
+- per-identity round cap;
+- per-wallet and per-device rate limits;
+- unique campus-email verification;
+- buyer breadth in the demand score;
+- HHI concentration penalty;
+- anomaly flags for circular funding or coordinated timestamps;
+- delayed final demand calculation until the round closes;
+- model inputs frozen before opening.
+
+### 10.3 No price changes during an open round
+
+Traction updates submitted while a round is open apply to the next round. This prevents a founder, buyer, or administrator from changing the price after seeing commitments.
+
+### 10.4 Explainability
+
+Every valuation page should show:
+
+- stage and sector baseline;
+- factor scores and weights;
+- verification confidence;
+- scenario probabilities;
+- current-versus-future blend;
+- prior-round demand adjustment;
+- model version and timestamp;
+- material changes since the prior valuation.
+
+---
+
+## 11. Reliability and reconciliation
+
+### 11.1 Confirmation states
+
+```text
+Prepared → Submitted → Confirmed → Finalized
+                         ↘ Failed
+```
+
+The UI may display `Confirmed` provisionally but should distinguish it from `Finalized`.
+
+### 11.2 Idempotency
+
+- Every mutation request carries an idempotency key.
+- Each chain instruction is uniquely identified by chain, signature, and instruction index.
+- Indexing the same transaction twice must not create a second subscription.
+- Round finalization must be safe to retry.
+- Withdrawal and refund status come from program accounts, not UI state.
+
+### 11.3 Reconciliation worker
+
+Every minute in the demo environment:
+
+```text
+1. Fetch recently changed program accounts/signatures.
+2. Compare against chain_events.
+3. Insert missing events.
+4. Refresh affected subscription and round mirrors.
+5. Mark stale provisional transactions.
+6. Emit an operational alert for irreconcilable differences.
+```
+
+### 11.4 Snapshots and replay
+
+Tiger's derived metrics must be rebuildable from canonical chain events plus immutable off-chain evidence and model snapshots. Store model code commit and input hashes so a historical valuation can be reproduced.
+
+---
+
+## 12. Security requirements
+
+- Never store wallet private keys.
+- Store API keys only in server-side secret management.
+- Require wallet-signature challenges with nonce and expiration.
+- Validate Gemini output with the same Zod schema used by application code.
+- Sanitize uploaded text and treat it as untrusted input.
+- Use parameterized SQL.
+- Make administrator actions append-only and auditable.
+- Separate the authority that verifies evidence from the program upgrade authority where practical.
+- Use a multisig for any mainnet upgrade authority in a future version.
+- Cap round values and transaction amounts in the program.
+- Add pause/cancel-and-refund paths before accepting anything of value.
+- Test arithmetic overflow, rounding, duplicate subscription, premature finalization, and refund behavior.
+
+---
+
+## 13. Legal and product boundary
+
+### 13.1 Hackathon-safe positioning
+
+Use:
+
+- Solana Devnet;
+- faucet-issued mock currency;
+- non-transferable participation receipts;
+- explicit simulation disclosures;
+- no promise of profit, redemption, ownership, dividends, or conversion;
+- no real cash, Bitcoin, stablecoins, or mainnet settlement.
+
+Do not market the receipt as a share, security, investment, or synthetic exposure to a real company.
+
+### 13.2 Why tokenization is not a loophole
+
+U.S. securities analysis looks at the economic arrangement, not merely whether an instrument is called a token. Regulation Crowdfunding is a structured exemption involving issuer disclosure, investor limits, and a registered intermediary; the SEC states that a funding portal may not hold investor funds or securities, among other restrictions.[^sec-regcf][^sec-intermediary]
+
+An unincorporated team also cannot casually promise corporate “shares” that do not legally exist. A future real-money product requires a separate legal architecture. Possible routes to investigate with counsel include:
+
+- requiring a legal issuer before fundraising;
+- partnering with a registered Regulation Crowdfunding intermediary;
+- using a compliant special-purpose vehicle where permitted;
+- limiting the product to non-investment patronage, donations, rewards, or purchases with no financial-return promise;
+- operating only as analytics and simulation software.
+
+None of these should be treated as a loophole or assumed exemption.
+
+---
+
+## 14. Cost strategy
+
+### 14.1 Keep variable costs event-driven
+
+- Gemini runs on evidence changes, not reads.
+- Solana transactions occur only for project creation, round actions, subscriptions, and withdrawals/refunds.
+- Tiger continuous aggregates serve charts.
+- Content-hash caching prevents duplicate AI calls.
+- The frontend polls a compact endpoint or uses server-sent events; it does not repeatedly scan the chain.
+- Old time-series chunks can use Tiger's compression/columnar storage policies.
+
+### 14.2 Avoid premature infrastructure
+
+One web application, one database, one Solana program, and one scheduled worker are enough for the demo and early campus pilot.
+
+---
+
+## 15. Hackathon implementation plan
+
+### Phase 1: deterministic vertical slice
+
+1. Create project and founder profile.
+2. Enter a small set of manual evidence claims.
+3. Calculate transparent scores and reference valuation.
+4. Open a fixed-price round in Tiger only.
+5. Render the valuation breakdown and funding-progress chart.
+
+### Phase 2: sponsor integrations
+
+1. Add Gemini structured claim extraction.
+2. Convert metrics tables to Tiger hypertables and add continuous aggregates.
+3. Deploy Anchor program to Solana Devnet.
+4. Create mock currency and one non-transferable receipt mint.
+5. Complete one end-to-end subscription.
+
+### Phase 3: trust and demo polish
+
+1. Add wallet/campus identity binding.
+2. Reject founder self-subscription.
+3. Display model/evidence hashes and Solana explorer links.
+4. Demonstrate a failed receipt transfer.
+5. Demonstrate an oversubscribed or refunded round.
+6. Show a second-round price updated by verified evidence and bounded demand.
+
+### Recommended live demo
+
+```text
+Founder submits a narrative and GitHub/revenue evidence
+→ Gemini extracts claims and requests missing proof
+→ deterministic backend produces an explainable valuation
+→ founder opens a five-minute Devnet issuance round
+→ three students subscribe with faucet-issued mock currency
+→ Solana records allocations and mints non-transferable receipts
+→ Tiger updates funding, participant, and valuation dashboards
+→ founder self-subscription and receipt transfer both fail
+→ next round reflects new traction plus bounded crowd demand
+```
+
+---
+
+## 16. Testing checklist
+
+### Valuation
+
+- Same inputs and model version always yield the same output.
+- Category weights sum to `1.0` for every stage.
+- Scenario probabilities sum to `1.0`.
+- Missing evidence moves a score toward neutral rather than zero.
+- School name and protected attributes cannot enter features.
+- Demand multiplier remains within documented bounds.
+- A single participant cannot create maximum demand score.
+- Historical valuations reproduce from stored inputs.
+
+### Solana
+
+- Founder wallet cannot subscribe to own project.
+- Closed or not-yet-open round rejects subscriptions.
+- Subscription cannot exceed caps.
+- Payment and state update are atomic.
+- Non-transferable receipt rejects transfer.
+- Duplicate instruction does not double-mint.
+- Finalization cannot exceed maximum units.
+- Excess funds can be refunded exactly once.
+- Fee split matches disclosed basis points.
+
+### Data and indexing
+
+- Re-indexing a signature creates no duplicate event.
+- Missed WebSocket event is recovered by reconciliation.
+- Confirmed and finalized status are distinguished.
+- Continuous aggregates match raw-event totals.
+- Private evidence never appears in public APIs or on-chain.
+
+---
+
+## 17. Decisions deferred beyond the MVP
+
+- real-money offering structure;
+- incorporation and standardized security documents;
+- registered intermediary partnership;
+- KYC/AML and sanctions screening;
+- tax reporting;
+- custody and fiat/Bitcoin on-ramps;
+- investor accreditation or Regulation Crowdfunding limits;
+- legally enforceable shareholder rights;
+- secondary trading or issuer repurchases;
+- production oracle governance;
+- externally calibrated sector/transaction datasets;
+- formal model-risk and fairness audits.
+
+---
+
+## 18. Final architecture in one view
+
+```text
+┌──────────────────────── Next.js UI ────────────────────────┐
+│ profiles │ evidence │ valuation explanation │ subscribe   │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                 ┌───────────▼───────────┐
+                 │ TypeScript monolith   │
+                 │ identity + valuation  │
+                 │ rounds + tx builder   │
+                 └──────┬─────────┬──────┘
+                        │         │
+         structured     │         │ signed transaction
+         extraction     │         │
+                 ┌──────▼───┐ ┌───▼────────────────────────┐
+                 │ Gemini   │ │ Solana Devnet + Anchor     │
+                 │ advisory │ │ payment, allocation, mint  │
+                 └──────────┘ └─────────────┬──────────────┘
+                                           │ events/state
+                 ┌─────────────────────────▼──────────────┐
+                 │ Tiger Data / PostgreSQL               │
+                 │ evidence + model versions             │
+                 │ indexed chain events + time series    │
+                 │ continuous aggregates + read models   │
+                 └────────────────────────────────────────┘
+```
+
+The essential rule is simple:
+
+> **Gemini interprets, deterministic code values, Solana settles, and Tiger remembers.**
+
+---
+
+## References
+
+[^ipev]: International Private Equity and Venture Capital Valuation Board, [2025 IPEV Valuation Guidelines](https://www.privateequityvaluation.com/Portals/0/Documents/Guidelines/2025%20IPEV%20Valuation%20Guidelines.pdf).
+[^damodaran-paper]: Aswath Damodaran, [*Valuing Young, Start-up and Growth Companies: Estimation Issues and Valuation Challenges*](https://pages.stern.nyu.edu/~adamodar/pdfiles/papers/younggrowth.pdf).
+[^damodaran-drivers]: Aswath Damodaran, [Young Growth Companies: Value Drivers](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/littlebook/younggrowthvaluedrivers.htm).
+[^nber-growth]: Christian Catalini, Jorge Guzman, and Scott Stern, [*Passive Versus Active Growth: Evidence from Founder Choices and Venture Capital Investment*](https://www.nber.org/papers/w26073), NBER Working Paper 26073.
+[^human-capital]: Arnold C. Cooper, F. Javier Gimeno-Gascon, and Carolyn Y. Woo, [*Initial Human and Financial Capital as Predictors of New Venture Performance*](https://www.sciencedirect.com/science/article/pii/0883902694900132), Journal of Business Venturing.
+[^nyse-feed]: NYSE, [TAQ Integrated Feed](https://beta.nyse.com/market-data/historical/taq-integrated-feed) and [Pillar Gateway Binary Protocol](https://www.nyse.com/publicdocs/nyse/NYSE_Pillar_Gateway_Binary_Protocol_Specification.pdf).
+[^polymarket-settlement]: Polymarket, [Trading Quickstart: matching and on-chain settlement](https://docs.polymarket.com/trading/quickstart).
+[^mlh-prizes]: Major League Hacking, [Upcoming Hackathon Prizes](https://www.mlh.com/events/prizes).
+[^mlh-solana]: Major League Hacking, [Build with Solana](https://www.mlh.com/partners/solana).
+[^tiger-candlestick]: Tiger Data, [Financial analysis with `candlestick_agg`](https://docs.tigerdata.com/api/latest/hyperfunctions/financial-analysis/candlestick_agg/).
+[^gemini-structured]: Google AI for Developers, [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output).
+[^solana-nontransferable]: Solana, [Token-2022 non-transferable tokens](https://solana.com/docs/tokens/extensions/non-transferrable-tokens).
+[^sec-regcf]: U.S. Securities and Exchange Commission, [Regulation Crowdfunding Compliance and Disclosure Interpretations](https://www.sec.gov/files/divisions/corpfin/guidance/reg-crowdfunding-interps.htm).
+[^sec-intermediary]: U.S. Securities and Exchange Commission, [JOBS Act FAQs About Crowdfunding Intermediaries](https://www.sec.gov/rules-regulations/staff-guidance/trading-markets-frequently-asked-questions/jumpstart-our-business).
