@@ -10,6 +10,8 @@ create type identity_verification_status as enum ('NOT_STARTED', 'PENDING', 'VER
 create type platform_role as enum ('USER', 'REVIEWER', 'ADMIN');
 create type project_stage as enum ('IDEA', 'PROTOTYPE', 'LAUNCHED', 'EARLY_REVENUE', 'REPEATABLE_REVENUE');
 create type project_status as enum ('DRAFT', 'PUBLISHED', 'ARCHIVED');
+create type entity_type as enum ('UNINCORPORATED', 'INCORPORATED');
+create type profile_snapshot_source as enum ('PASTED_TEXT', 'DATA_EXPORT');
 create type project_member_role as enum ('FOUNDER', 'TEAM');
 create type evidence_source_type as enum ('FOUNDER_STATEMENT', 'DOCUMENT', 'LINK', 'INTEGRATION');
 -- Evidence levels from §4.5. The confidence multiplier for each level is a model parameter
@@ -178,7 +180,17 @@ create table projects (
   slug text not null unique check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   name text not null check (length(name) between 1 and 120),
   description text not null default '',
+  -- The founder's one-liner: shown on listings and given to research as search context (never cited or scored).
+  tagline text not null default '' check (length(tagline) <= 140),
+  website_url text check (website_url ~ '^https?://' and length(website_url) <= 2048),
+  entity_type entity_type not null default 'UNINCORPORATED',
+  -- Incorporated only: lets research confirm the entity in the state registry and match pages on the legal name.
+  legal_name text check (length(legal_name) between 1 and 200),
+  formation_state text check (formation_state ~ '^[A-Z]{2}$'),
+  -- Listings publish the founder's campus email (auth."user".email); the founder can turn this off.
+  publish_contact_email boolean not null default true,
   sector_code text references sectors(code),
+  -- Declared by the founder. Valuation prices on the lower of this and the evidence-supported stage.
   stage project_stage not null,
   status project_status not null default 'DRAFT',
   founder_identity_id uuid not null references identities(id),
@@ -186,16 +198,39 @@ create table projects (
   solana_project_pda text unique,
   receipt_mint text unique,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  check (entity_type = 'INCORPORATED' or (legal_name is null and formation_state is null))
 );
 
 create table project_members (
   project_id uuid not null references projects(id),
   identity_id uuid not null references identities(id),
   role project_member_role not null,
+  -- Listing display only. Names and titles carry zero weight in scoring (§2.3).
+  display_name text check (length(display_name) between 1 and 120),
+  role_title text check (length(role_title) between 1 and 80),
   joined_at timestamptz not null default now(),
   primary key (project_id, identity_id)
 );
+
+-- Founder-provided LinkedIn profile text (§6.5); LinkedIn is never scraped. Claims from it are
+-- founder-attested unless a third-party page corroborates them. Deleting erases the text but
+-- keeps the row, so research runs that used it stay explainable.
+create table profile_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  identity_id uuid not null references identities(id),
+  -- Canonical https://www.linkedin.com/in/<handle> form, written by the API.
+  profile_url text not null check (profile_url ~ '^https://www\.linkedin\.com/in/[^/?#]+$'),
+  source profile_snapshot_source not null,
+  text text check (length(text) between 1 and 20000),
+  content_hash text check (content_hash ~ '^[a-f0-9]{64}$'),
+  captured_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  check ((deleted_at is null) = (text is not null and content_hash is not null))
+);
+
+create unique index profile_snapshots_one_live
+  on profile_snapshots(identity_id, profile_url) where deleted_at is null;
 
 -- Cached Gemini proposals. Advisory only; never authoritative (§3.2).
 create table ai_intake_proposals (
@@ -215,6 +250,9 @@ create table evidence_claims (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references projects(id),
   metric_code text not null check (length(metric_code) between 1 and 80),
+  -- What the claim is about when it is not this project, e.g. the prior venture a
+  -- prior_venture_* claim describes. Null means the project itself.
+  subject text check (length(subject) between 1 and 200),
   value_numeric numeric(30, 8),
   value_text text,
   unit text,
@@ -323,6 +361,8 @@ create table score_snapshots (
   valuation_run_id uuid not null,
   project_id uuid not null references projects(id),
   model_version_id text not null references model_versions(id),
+  -- Stage whose weights were applied: min(declared, evidence-supported).
+  effective_stage project_stage not null,
   execution_score numeric(8, 7) not null check (execution_score between 0 and 1),
   market_score numeric(8, 7) not null check (market_score between 0 and 1),
   product_score numeric(8, 7) not null check (product_score between 0 and 1),
@@ -350,6 +390,9 @@ create table valuation_snapshots (
   project_id uuid not null references projects(id),
   model_version_id text not null references model_versions(id),
   model_hash text not null check (model_hash ~ '^[a-f0-9]{64}$'),
+  -- Scenario priors use effective_stage, which never exceeds the founder's declared stage.
+  declared_stage project_stage not null,
+  effective_stage project_stage not null check (effective_stage <= declared_stage),
   prior_round_id uuid,
   current_operating_value numeric(30, 8) not null check (current_operating_value >= 0),
   scenario_value numeric(30, 8) not null check (scenario_value >= 0),
@@ -938,7 +981,7 @@ grant select, insert, update, delete on all tables in schema auth to prospecto_a
 
 grant insert on
   identities, wallets, wallet_challenges,
-  projects, project_members, ai_intake_proposals, evidence_claims, evidence_verifications,
+  projects, project_members, profile_snapshots, ai_intake_proposals, evidence_claims, evidence_verifications,
   model_versions, score_snapshots, valuation_snapshots, traction_metrics,
   rounds, subscriptions, chain_events, market_metrics,
   banking_accounts, funding_intents, banking_attempts, funding_chain_attempts, funding_transitions,
@@ -947,7 +990,7 @@ grant insert on
 
 -- Mutable state only; triggers further restrict model_versions, rounds, and chain_events.
 grant update on
-  identities, wallets, wallet_challenges, projects, project_members, model_versions,
+  identities, wallets, wallet_challenges, projects, project_members, profile_snapshots, model_versions,
   rounds, subscriptions, chain_events,
   banking_accounts, funding_intents, banking_attempts, funding_chain_attempts,
   subscription_intents, idempotency_keys, rate_limits, indexer_state
@@ -1005,6 +1048,7 @@ drop view if exists evidence_claim_current_status;
 drop table if exists evidence_verifications;
 drop table if exists evidence_claims;
 drop table if exists ai_intake_proposals;
+drop table if exists profile_snapshots;
 drop table if exists project_members;
 drop table if exists projects;
 drop table if exists sectors;
@@ -1026,6 +1070,8 @@ drop type if exists model_version_status;
 drop type if exists evidence_status;
 drop type if exists evidence_source_type;
 drop type if exists project_member_role;
+drop type if exists profile_snapshot_source;
+drop type if exists entity_type;
 drop type if exists project_status;
 drop type if exists project_stage;
 drop type if exists platform_role;
