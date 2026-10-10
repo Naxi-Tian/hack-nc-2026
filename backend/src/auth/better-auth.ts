@@ -23,8 +23,8 @@ export interface AuthOptions {
 const EMAIL_PATHS = new Set(["/email-otp/send-verification-otp", "/sign-in/email-otp"]);
 
 /** Better Auth reaches only its own tables (migration 0001, schema "auth"). */
-export function createAuthPool(connectionString: string): Pool {
-  return new Pool({ connectionString, options: "-c search_path=auth" });
+export function createAuthPool(connectionString: string, poolOptions: { max?: number; idleTimeoutMillis?: number } = {}): Pool {
+  return new Pool({ connectionString, ...poolOptions, options: "-c search_path=auth" });
 }
 
 export function createAuth(options: AuthOptions) {

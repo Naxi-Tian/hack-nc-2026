@@ -22,6 +22,8 @@ export interface ApiDependencies {
   /** EMAIL_HASH_PEPPER: HMAC key for identities.campus_email_hash. */
   emailHashPepper: string;
   campusDomains: readonly string[];
+  /** Keeps background research alive after the response (Vercel's waitUntil); defaults to next tick. */
+  runInBackground?: (task: () => Promise<void>) => void;
   /** DEMO_MODE only: POST /api/demo/sign-in signs in any campus email without a code. */
   demoSignIn?: boolean;
 }
@@ -53,6 +55,7 @@ export function createApi(dependencies: ApiDependencies): Hono {
       fetchPage: safeFetch,
       collectGithub: (target, projectSiteKey) => collectGithub(target, projectSiteKey, { token: dependencies.githubToken }),
       requireProjectEditor: requireEditor,
+      runInBackground: dependencies.runInBackground,
     }),
   );
 

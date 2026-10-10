@@ -6,6 +6,7 @@ import {
   confirmRequestSchema,
   confirmResearchRun,
   getResearchRun,
+  recoverStaleRuns,
   researchRequestSchema,
   startResearchRun,
   type ResearchDependencies,
@@ -35,6 +36,8 @@ export function createResearchRouter(deps: ResearchRouterDependencies): Hono {
     const body = researchRequestSchema.safeParse(await context.req.json().catch(() => null));
     if (!body.success) return context.json({ error: { code: "INVALID_INPUT" } }, 400);
     try {
+      // No long-lived worker on Vercel: fail runs whose instance was stopped before claiming new work.
+      await recoverStaleRuns(deps.pool);
       const run = await startResearchRun(deps, { projectId: projectId.data, identityId: editor.identityId, request: body.data });
       return context.json(run, run.cached ? 200 : 202);
     } catch (error) {
@@ -48,6 +51,7 @@ export function createResearchRouter(deps: ResearchRouterDependencies): Hono {
     if (!projectId.success || !runId.success) return context.json({ error: { code: "INVALID_INPUT" } }, 400);
     await deps.requireProjectEditor(context, projectId.data);
     try {
+      await recoverStaleRuns(deps.pool);
       const run = await getResearchRun(deps.pool, projectId.data, runId.data);
       return context.json({ run });
     } catch (error) {
