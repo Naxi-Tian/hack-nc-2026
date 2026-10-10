@@ -1,0 +1,38 @@
+# Secrets — keep an .env.example with placeholder values instead
+.env
+.env.*
+!.env.example
+*.pem
+# Solana keypairs (Anchor/CLI write these as JSON byte arrays)
+*-keypair.json
+id.json
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Claude Code per-user settings (shared config lives in .claude/settings.json)
+.claude/settings.local.json
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Anchor / Rust / local validator
+target/
+.anchor/
+test-ledger/
+.surfpool/
