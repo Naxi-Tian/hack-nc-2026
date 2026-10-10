@@ -1,0 +1,20 @@
+# Never upload local secrets or build artifacts with `vercel deploy`.
+.env
+.env.*
+!.env.example
+*.pem
+*-keypair.json
+id.json
+.vercel
+node_modules
+.next
+out
+build
+dist
+coverage
+target
+.anchor
+test-ledger
+.surfpool
+.claude
+sources
