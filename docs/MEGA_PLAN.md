@@ -5,6 +5,8 @@ Updated: October 10, 2026
 Status: proposed product/build specification; no application or runtime verification implemented yet.  
 Working name: **FirstStake**, subject to the team's choice.
 
+Business rationale: see [users](#28-first-users-and-potential-customers), [benefits](#29-why-the-product-is-useful), [competitors](#30-competitive-landscape), [differentiation](#31-where-we-could-be-better-and-how-to-demonstrate-it), [demand](#32-demand-evidence-and-its-limits), [VC-and-small-investment-questions](#33-why-complement-vcs-and-why-small-investments-matter), and [validation](#34-validation-positioning-and-execution).
+
 ## 1. Product direction
 
 Build a platform where people discover startups at any stage and **buy shares directly from the startup** through a simple investment page. A founder can add an **“Invest in us”** link to their website, share their company profile, and raise funding through structured checkout.
@@ -54,6 +56,8 @@ An early startup generally lacks an observable continuously traded share price. 
 Assume three or four teammates and a relative 24-hour build. Adjust to the actual time remaining and organizers' submission instructions. HackNC describes a 24-hour project challenge and recommends teams of three or four. [HackNC](https://hacknc.com/)
 
 ## 4. Users, value, and validation
+
+Initial audience recommendation: campus founders and their existing communities, with entrepreneurship clubs/incubators as potential organizers and customers. This is a segment hypothesis, not validated adoption. The detailed distinction between simulation users and future actual-investment users is in section 28.
 
 **Founder:** “I want to explain my company and share one link where backers can buy an allocation.” Provide profile, suggested initial valuation, offering creation, proceeds tracking, and allocation records.
 
@@ -634,6 +638,8 @@ Internal targets: roughly 20 simultaneous demo users and normal purchase interac
 
 Be ready to explain Freeport as interface inspiration, primary issuance as the product focus, heuristic valuation as a prototype, and virtual units as distinct from actual equity. Do not promise automatic conversion.
 
+Position the demo around helping emerging founders build an informed community through understandable profiles and simulated primary investing. Demonstrate a stage-aware founder profile, visible pricing assumptions, and clear share allocation. Present investment links and community features as useful established patterns; the potential distinction is the focused audience and combined experience described in sections 28–34.
+
 ### Definition of done
 
 - [ ] Primary-only rules and example agreed.
@@ -662,4 +668,171 @@ Be ready to explain Freeport as interface inspiration, primary issuance as the p
 
 Resale is outside the current implementation scope. Monitor primary lock waits, quote failure rates, settlement errors, reconciliation mismatch, and outbox lag before optimizing. Index/paginate discovery and improve measured bottlenecks without weakening invariants.
 
-**Immediate next task:** agree on the worked supply example, assign H03/H04, and build the ledger/issuance transaction before expanding features.
+## 28. First users and potential customers
+
+The platform's accessibility ambition spans stages, but the initial product and distribution should serve a specific community. **Recommended first audience: campus founders, their peers/alumni/supporters, and entrepreneurship programs.** This is our proposed starting segment, not an assertion that these people already use the system.
+
+| Segment | What they need | Value in the virtual MVP | Possible actual-investment value later |
+| --- | --- | --- | --- |
+| Student/early founders | Explain the project and reach supporters | Profile, pitch feedback, practice pricing/allocation, exposure | A structured primary fundraising link when an eligible offering is available |
+| Customers, alumni, peers, existing supporters | Understand a familiar business and participate | Learn to evaluate it, allocate credits, follow progress | Obtain defined investment rights through an actual offering |
+| Aspiring investors and investment clubs | Practice evaluating early businesses | Transparent assumptions, cost/dilution explanations, persistent records | Participation where appropriate and eligible |
+| Incubators and entrepreneurship instructors | Run organized founder/backer exercises | Cohort discovery, a repeatable simulation, learning outcomes | Potential issuer-readiness or community programs |
+
+Potential paying customers for the simulation are program organizers/incubators; founders may pay for later useful software or fundraising services. Neither willingness to pay is established. We should test the outcome people would pay for before choosing prices.
+
+For a future actual-money pilot, prioritize founders who can identify an interested customer/supporter audience and a specific funding milestone. Listing on a platform does not generate investor interest by itself. A founder with no audience may need customer development, grants, or another funding path first.
+
+Professional angels could participate in a suitable future offering, but they are not the strongest first audience for a play-money product. Users seeking immediate resale/liquidity are outside the primary-only scope.
+
+## 29. Why the product is useful
+
+The main utility is a structured connection between a startup and people already interested in it: **one company page, clear offering information, an investment action, and durable records.**
+
+| Benefit | Mechanism | Limit to acknowledge |
+| --- | --- | --- |
+| Easier founder communication | A shareable page explains company, founders, price, terms, and allocation | The link cannot create demand or trust by itself |
+| A practical use for the existing audience | Website/newsletter/community visitors reach a consistent investment flow | Audience interest is not guaranteed investment commitment |
+| Clearer backer decisions | Show source information, total cost, units, simulated/actual rights, and dilution | Clear presentation cannot establish that a business is a good investment |
+| Reliable funding/allocation records | Atomic ledger and issuance connect each completed purchase to its receipt | Correct accounting is an expected foundation, not a unique moat |
+| Founder/supporter continuity | Updates let supporters follow progress against earlier claims | Repeat engagement must be observed, not assumed |
+| Better fundraising education | Virtual purchasing illustrates pricing, new issuance, and allocation | Demo credits do not finance the startup |
+
+Example of the future actual-investment use case: customers already ask a founder how to invest. A structured link provides a consistent way to explain the offering and record valid completed subscriptions. This kind of audience-led fundraising is an established use case in competitors' positioning. [DealMaker](https://www.dealmaker.tech/), [Republic](https://republic.com/raise)
+
+For the HackNC simulation, founders receive exposure/feedback and users receive a learning/community experience. Those benefits should stand on their own; do not sell simulated proceeds as money the founder can use.
+
+The valuation service contributes by explaining a starting price and its assumptions. A number without good data, provenance, and uncertainty is not a useful advantage. Stage-aware prompts and clear missing-input labels matter more initially than adding mathematical complexity.
+
+## 30. Competitive landscape
+
+Sources checked October 10, 2026. Product descriptions below reflect public company materials; they do not prove competitor quality or establish exhaustive feature absences.
+
+| Competitor | Relevant offering | Competitive relationship |
+| --- | --- | --- |
+| [DealMaker](https://www.dealmaker.tech/) | Company-branded offering pages, investment checkout, payments/compliance, share issuance and investor administration | Closest to the website investment-link concept; an important benchmark for a future actual-money product |
+| [Wefunder](https://www.wefunder.com/verticals/yc) | Community/private rounds and administration; community capital alongside lead investors | Direct primary-fundraising competitor; a link and an existing community are already part of its pitch |
+| [Republic](https://republic.com/raise) | Community fundraising and investment infrastructure | Competes on company/community participation and funding relationships |
+| [StartEngine](https://help.startengine.com/en_us/categories/for-companies-rJjXauRzK) | Online fundraising campaigns and issuer support | Direct primary-fundraising competitor |
+| [Netcapital](https://netcapital.com/) | Startup investment discovery, offerings, and founder/investor communication | Competes on discovery, information, and primary investment workflows |
+| [Equidam](https://www.equidam.com/) | Startup/private-company valuation from company inputs, projections and benchmarks | Adjacent competitor to the valuation component |
+| [HowTheMarketWorks](https://www.howthemarketworks.com/) | Virtual-money investing for classrooms and clubs | Adjacent competitor for educational users; uses public-market instruments rather than this proposed startup primary-allocation exercise |
+| [Freeport Markets](https://freeportmarkets.com/) | Company-related exposure through instruments including pre-IPO perpetuals and separate SPV-backed exposure | Interface inspiration and an adjacent exposure product; different from direct startup issuance and our virtual demo |
+
+Existing products already offer investment links, community fundraising, company information, and valuation assistance. We should not pitch those individually as inventions. Our proposed combined experience is focused on emerging founders and a specific community, with a clear primary-investing simulation before any actual-money offering.
+
+Competitors handling actual investing have operating infrastructure and experience the hackathon prototype does not provide. Their presence confirms category activity but also means a generic investment checkout is unlikely to be enough to win users.
+
+## 31. Where we could be better and how to demonstrate it
+
+**Strongest potential distinction: help founders build an informed investor community before a formal fundraise.** This is a product opportunity to validate, not demonstrated superiority over incumbents.
+
+| Proposed advantage | Specific build/positioning choice | Evidence needed before saying we are better |
+| --- | --- | --- |
+| Fit for very early founders | Profile accommodates idea/prototype/unincorporated status and unknown financials | Target founders complete it successfully and prefer the experience to available alternatives |
+| Understandable startup investing | Show cost, issued units, current/full-round allocation, and payment destination | Users explain the transaction correctly in a comparative usability test |
+| Explainable initial price | Expose versioned inputs, evidence, category contributions, sensitivity, and founder override | Users understand assumptions; later pricing methods are calibrated against credible data |
+| Ongoing founder relationship | Follows and updates tied to product milestones | Founders publish useful updates; supporters return and engage |
+| Focused campus distribution | One club/incubator cohort, relevant founders, peer/alumni discovery | Organizers run repeat cohorts; founders invite real supporters; retention persists beyond one event |
+
+### Amplification priorities
+
+1. **Choose the cohort.** Recruit one entrepreneurship club/incubator, then build for its actual founder and participant workflow. Access can remain broad while onboarding is specific.
+2. **Make early-stage onboarding work.** Website, founder links, prototype, next milestone, and known/unknown facts should produce a useful page without invented revenue or corporate status. Measure completion time; do not claim speed until measured.
+3. **Make allocation visible.** During the existing checkout/portfolio flow, explain how a primary purchase funds the startup account and increases issued supply. Use the worked example in section 11.
+4. **Explain price rather than decorating it.** Make assumptions/evidence easy to inspect. Preserve the heuristic label and never substitute popularity for valuation evidence.
+5. **Add one reason to return.** When the core purchase is stable, implement H13's founder milestone update and follow loop. A larger social network can wait.
+6. **Build evidence.** Compare task completion, understanding, founder publishing, supporter return, and willingness to pay with the tools each target user currently uses.
+
+A cohort/network and accumulated consented progress/evidence could create a longer-term advantage if participants keep using it. A formula, LinkedIn URL field, or balanced ledger is easy to copy. Reliable money handling remains mandatory technical execution, not a substitute for product demand.
+
+Use careful claims: “designed for emerging campus founders,” “transparent simulation assumptions,” and “direct startup purchase workflow.” Avoid “first,” “accurate AI valuation,” “cheapest,” “fastest,” or “better than DealMaker” without supporting comparison. Actual-equity conversion and guaranteed allocation are not current advantages.
+
+## 32. Demand evidence and its limits
+
+There is established activity in online startup/community investing; the specific demand for our virtual product remains unproven.
+
+| Evidence | What it supports | What it does not establish |
+| --- | --- | --- |
+| SEC data: $1.644B cumulative reported proceeds from May 2016 through June 2026, across 4,517 offerings reporting proceeds | Real participation in US Regulation Crowdfunding | Total global market size, platform revenue, or demand for our product |
+| SEC average: approximately $364k raised among those reporting offerings | Many small contributions can aggregate into meaningful funding | Median outcome, guaranteed success, or a typical outcome for every founder |
+| DealMaker reports $2.8B+ raised and 1,100+ raises across its platform | Company-reported evidence of fundraising infrastructure usage | Independently verified adoption of our features or demand for virtual units |
+
+The SEC notes reporting gaps make proceeds likely a lower-bound estimate. Reporting-offering averages are selected and should not be treated as expected results for a new issuer. [SEC statistics](https://www.sec.gov/data-research/statistics-data-visualizations/regulation-crowdfunding-cf-offerings)
+
+DealMaker's figures are cumulative, company-reported, and cover its broader offering business. They can overlap with SEC categories and must not be added to SEC totals. Money raised is issuer funding, not software-company revenue. [DealMaker](https://www.dealmaker.tech/)
+
+This supports a meaningful category, but not a claim of huge unmet demand. We have no measured adoption or willingness to pay for FirstStake. The virtual product needs independent educational/community value; its users may differ from actual investors. A simulated purchase shows interest/usability, not a commitment of real capital.
+
+Potential demand barriers: founders may prefer existing tools; supporters may not understand or want startup risk; a startup without an audience may not attract buyers; virtual holdings may provide little reason to return; inaccurate valuations can reduce trust. Test these rather than assuming the broad accessibility vision solves them.
+
+## 33. Why complement VCs and why small investments matter
+
+### Why would startups use this instead of only approaching VCs?
+
+Startups do approach VCs. Venture capital focuses on high-growth businesses and also provides guidance, hiring support, and connections. Our proposed platform does not supply that institutional role. [NVCA explanation](https://nvca.org/about-us/what-is-vc/)
+
+The product hypothesis is a complementary route: some founders need a defined amount to prove a product milestone; some do not fit a particular fund's stage/sector/return strategy; others want interested customers or supporters to participate alongside lead investors. Crowdfunding is not evidence that a company is unsuitable for VC, and a VC rejection does not prove a good community investment.
+
+Wefunder explicitly describes adding community capital alongside lead checks, showing that the routes can coexist. [Wefunder](https://www.wefunder.com/verticals/yc)
+
+### Will the platform handle big transactions?
+
+The MVP handles simulated amounts only. A future actual-money platform could support larger subscriptions where the selected offering and investor rules permit them. We have not demonstrated that infrastructure or transaction demand.
+
+The current backend should safely handle its defined numeric limits and cumulative investor/issuance caps. Large real subscriptions would also require the partner settlement, eligibility, accounting, and operational controls in section 21. Do not equate an integer field accepting a large number with a production-ready large payment.
+
+### Why would small amounts matter?
+
+The relevant measure is the aggregate usable funding relative to a concrete milestone:
+
+```text
+illustrative gross raise = 200 backers * $500 = $100,000
+net usable funding = settled gross proceeds - raise/compliance/setup costs
+                     - transaction costs - investor administration costs
+```
+
+This is a hypothetical example, not a conversion forecast. Depending on the business and its actual costs, the net amount could finance a prototype, customer pilot, or essential operating work. The founder should specify the budget and expected milestone rather than claim any amount is automatically meaningful.
+
+A small community round will not finance every capital-intensive business. Fixed costs and investor support can make a tiny real raise uneconomic. Ask founders what their next milestone costs and compare it with a realistic audience, contribution range, and net proceeds estimate before pursuing live fundraising.
+
+The strongest potential use case is a founder with an interested community, a specific need, and manageable administration. Supporter enthusiasm is not proof of financial return or customer demand; investment and product-purchase behavior are different.
+
+### Suggested judge answer
+
+“Startups do approach VCs, and community funding can complement that route. Some founders need a smaller amount to reach a specific milestone, and some already have customers or supporters who want to participate. For example, 200 investments of $500 would produce $100,000 before costs. Whether that is useful depends on the company's budget and the net funds left after running the raise. Our HackNC MVP simulates this direct purchase flow. We still need to validate founder demand, backer commitment, and an appropriate actual-money arrangement.”
+
+## 34. Validation, positioning, and execution
+
+### Near-term experiment
+
+1. Interview **10 founders** about current tools, fundraising plans, audience, milestone budget, and alternatives. Record what they actually do, not just whether they like the idea.
+2. Ask **three founders** to publish consented profiles and share their simulation links. Measure publishing completion and effort.
+3. Observe **20 prospective backers** completing the flow; record understanding of units, price, funding destination, dilution, and simulation limits.
+4. When founders publish updates to opted-in followers, measure return within a week and whether those updates are useful.
+5. Ask founders/program organizers which outcome they would pay for and seek a concrete pilot commitment where appropriate. Keep real fundraising unavailable until the operating model is validated.
+
+These sample sizes are experiment targets, not statistical market proof. Invite targets with different familiarity levels and record dropouts as well as successes. A free-credit purchase cannot validate willingness to invest actual money.
+
+### Decision signals
+
+| Signal | Interpretation/action |
+| --- | --- |
+| Founders publish and invite supporters | Initial evidence of workflow demand |
+| Backers understand the transaction and return after updates | Initial evidence of educational/community utility |
+| Organizers commit to another cohort or paid pilot | Evidence for a program-focused simulation business |
+| Founder interest is limited to real capital | Simulation may serve as a demonstration, not the standalone product |
+| Interest is high but no one shares/returns/commits | Revise the value proposition before adding features |
+| The target group's existing tool works as well | Investigate a narrower unmet need rather than claim generic superiority |
+
+### Product and pitch alignment
+
+HackNC positioning: **help emerging founders build an informed community through clear company profiles, explainable initial pricing, and simulated primary share investing.**
+
+Future actual-investment hypothesis: **help community-backed founders fund a concrete milestone through a structured direct investment link and valid issuance arrangements.** Validate this separately from the simulation business.
+
+Keep the existing P0 backend and primary-only scope. The profile/valuation/allocation experience fits H04/H05/H09; followers and milestone updates remain H13/P1 until durable settlement works. Founder website extraction, future rights, and resale do not become prerequisites because of the competitive analysis.
+
+Add a short validation report after the event with interview notes, completion rates, confusion points, update return, and actual pilot commitments. Do not turn targets into marketing claims before recording results.
+
+**Immediate next task:** build the H03 ledger/issuance boundary and H04 founder profile while the team recruits a small consented founder/backer cohort to validate these hypotheses.
