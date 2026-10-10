@@ -1,5 +1,13 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Prospecto: local dev and deploy
+
+- `npm run dev` serves pages on http://localhost:3000 and proxies `/api/*` to the backend
+  (`API_PROXY_TARGET`, default http://localhost:8787). Start it with `npm --prefix ../backend run dev`
+  and set `PUBLIC_ORIGIN=http://localhost:3000` in the repo-root `.env.local`.
+- `npm run build` writes the static export to `out/`. Vercel serves it and `vercel.json` forwards
+  `/api/*` to the Railway backend. See `docs/BACKEND_STACK.md` §12.1.
+
 ## Getting Started
 
 First, run the development server:

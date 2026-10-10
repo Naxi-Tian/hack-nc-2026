@@ -10,7 +10,7 @@ The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md
 
 ## Intended stack
 
-- Frontend: Next.js 15, React 19, TypeScript in `web/`, static export only (`output: "export"`), served by the Hono backend
+- Frontend: Next.js 15, React 19, TypeScript in `web/`, static export only (`output: "export"`), hosted on Vercel, which proxies `/api/*` to the backend
 - Styling: hand-written CSS in `web/styles/` (no Tailwind)
 - Backend: Node.js and TypeScript in a modular monolith
 - Validation: shared Zod schemas
@@ -23,7 +23,7 @@ The canonical product and architecture specification is [`MARKET_ARCHITECTURE.md
 - Demo banking: Capital One Nessie mock banking REST API
 - AI: Gemini Flash-class model with structured JSON output
 - Charts: Lightweight Charts, Recharts, or an existing equivalent
-- Hosting: one web/API deployment and one scheduled reconciliation worker
+- Hosting: Vercel for the static frontend; Railway for one web/API service and one scheduled reconciliation worker
 
 Prefer the tools and libraries already present in the repository. Do not add infrastructure such as Kafka, Kubernetes, Redis, new services, or real-money payment rails unless a documented requirement and demonstrated need justify it.
 

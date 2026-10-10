@@ -1,7 +1,7 @@
 # Backend Tech Stack & Implementation Spec
 
 Audience: AI coding agents and backend teammates.  
-Scope: **backend + on-chain implementation only.** The frontend is the Next.js static export in `web/` (built to `web/out/`) and is owned by the frontend developer.
+Scope: **backend + on-chain implementation only.** The frontend is the Next.js static export in `web/` (built to `web/out/`, hosted on Vercel) and is owned by the frontend developer.
 
 ## 0. Precedence
 
@@ -21,7 +21,7 @@ Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour 
 | --- | --- | --- |
 | Language | TypeScript `strict: true` (server); Rust (program) | No `any` in server domain code |
 | Runtime | Node.js 22 LTS or newer | Long-lived process (websocket subscription + worker), so no serverless |
-| HTTP server | **Hono** on `@hono/node-server` | One modular monolith (M§9.1). Also serves the frontend's static export `web/out/`, so frontend and API are same-origin |
+| HTTP server | **Hono** on `@hono/node-server` | One modular monolith (M§9.1), API only. Vercel serves the frontend and forwards `/api/*` here, so the browser sees one origin (§12.1) |
 | Validation | `zod` + `@hono/zod-validator` | Same schemas validate Gemini output (M§12) |
 | Database | **Tiger Data** (Tiger Cloud PostgreSQL + TimescaleDB) | Relational tables + hypertables + continuous aggregates (M§6.1) |
 | DB access | `pg` (node-postgres) with parameterized SQL | MARKET allows Drizzle or SQL; this spec picks **SQL only** |
@@ -36,7 +36,7 @@ Keywords **MUST**, **MUST NOT**, **SHOULD** are normative. Time budget: 24-hour 
 | Auth | **Better Auth** 1.7.7 with the `emailOTP` plugin, mounted at `/api/auth/*` (`backend/src/auth/`) | Campus email codes (6 digits, 10 min, 5 attempts, stored hashed) and 7-day sessions in schema `auth` |
 | Email OTP delivery | Resend (optional); `DEMO_MODE=true` logs codes to server console | Campus email verification |
 | Tests | `vitest` (server); `anchor test` (program) | §11 |
-| Hosting | One web/API service + one worker service on **Railway** (Render acceptable) | `WORKER_IN_PROCESS=true` fallback runs the worker inside the web process |
+| Hosting | Frontend static export on **Vercel**; one web/API service + one worker service on **Railway** (Render acceptable) | `WORKER_IN_PROCESS=true` fallback runs the worker inside the web process |
 | Package manager | `pnpm` workspace (`server`, `chain`) | Pin exact versions |
 
 ### Banned for the MVP
@@ -53,7 +53,7 @@ landing/                      legacy static prototype that web/ replaced; fronte
 server/                       BACKEND
   package.json
   src/
-    index.ts                  Hono app: /api/* routes + serveStatic(web/out/)
+    index.ts                  Hono app: /api/* routes (the frontend is served by Vercel)
     worker.ts                 indexer + reconciliation + settlement crank (§8)
     config.ts                 zod-parsed env (§12); fail fast on missing vars
     db/
@@ -89,7 +89,7 @@ pnpm-workspace.yaml
 
 Backend and chain contributors MUST NOT edit `web/` or `landing/`. The frontend calls the API in §7 over `fetch` and never imports server code; shared types, if wanted, are copied or generated, not imported across packages.
 
-Static-export constraints the API must respect: `trailingSlash: true` means pages live at `/rounds/`, `/launch/`, `/news/`; there is no Next.js server, so dynamic pages such as a single project read their id from the query string or hash and fetch `/api/...` client-side. The Hono static handler serves `web/out/<path>/index.html` for directory paths and `404.html` otherwise, and never shadows `/api/*`.
+Static-export constraints the API must respect: `trailingSlash: true` means pages live at `/rounds/`, `/launch/`, `/news/`; there is no Next.js server, so dynamic pages such as a single project read their id from the query string or hash and fetch `/api/...` client-side. Vercel serves `web/out/` and forwards `/api/*` to the backend; locally, `next dev` on :3000 proxies `/api/*` to the backend on :8787 (`web/next.config.ts`). Next.js redirects `/x` to `/x/`, so the API also accepts a trailing slash on `/api/*` paths.
 
 ---
 
@@ -263,7 +263,7 @@ Unallocated remainder from pro-rata flooring (`target − Σaccepted`) is simply
 
 ## 7. HTTP API (M§9.2 plus required additions)
 
-Base `/api`, JSON, same-origin with the static export in `web/out/`.
+Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev` (local) proxies `/api/*` to the backend. Every `/api` response is `Cache-Control: no-store`.
 
 | Method & path | Auth | Purpose |
 | --- | --- | --- |
@@ -384,7 +384,7 @@ Persist intent and reserve limits
 
 ```bash
 # .env.example: names only
-PUBLIC_ORIGIN=                 # e.g. http://localhost:8787
+PUBLIC_ORIGIN=                 # browser-facing origin: http://localhost:3000 locally, the Vercel production domain when deployed
 DATABASE_URL=                  # Tiger Data app connection (sslmode=require)
 MIGRATION_DATABASE_URL=        # owner connection for dbmate
 BETTER_AUTH_SECRET=            # 32+ random bytes; signs sessions and hashes stored codes
@@ -413,13 +413,35 @@ WORKER_IN_PROCESS=false
 
 Never commit values. `RELAYER_SECRET_KEY` is Devnet-only and must never be reused on mainnet.
 
+### 12.1 Local dev and deployment
+
+The browser always talks to one origin, so session cookies stay first-party and no CORS is needed.
+
+| | Browser origin | Pages | `/api/*` |
+| --- | --- | --- | --- |
+| Local | `http://localhost:3000` | `npm --prefix web run dev` | proxied by `next dev` to `API_PROXY_TARGET` (default `http://localhost:8787`; run `npm --prefix backend run dev`) |
+| Deployed | Vercel production domain | Vercel serves the static export | external rewrite in `web/vercel.json` to the Railway service |
+
+`web/next.config.ts` applies `output: "export"` only to `next build` and the `/api` rewrite only to `next dev`, because Next.js rejects rewrites in export mode.
+
+**Railway (backend)**: root directory `backend`; start command `npm start`; healthcheck path `/api/health`; Node from `engines` (≥ 22.9). Set the §12 variables, with `PUBLIC_ORIGIN` = the Vercel production domain and `DEMO_MODE` as needed. Railway provides `PORT`. Apply migrations from a laptop with `npm --prefix backend run db:migrate` before deploying code that needs them.
+
+**Vercel (frontend)**: root directory `web`; framework preset Next.js. Replace the `.invalid` placeholder host in `web/vercel.json` with the Railway public domain. The placeholder fails closed; never point it at an unclaimed hostname. `x-vercel-enable-rewrite-caching: 0` stops the CDN caching API responses.
+
+**First-deploy checks** (behaviors that could not be verified locally):
+
+1. `curl -i https://<vercel-domain>/api/health` returns `200` JSON with `cache-control: no-store` (also try `/api/health/`).
+2. Campus email sign-in completes on the production domain. Preview deployment URLs do not match `PUBLIC_ORIGIN`, so sign-in is expected to fail there.
+3. Client IP for rate limiting: Better Auth trusts only a single-value `x-forwarded-for`. If Railway logs "Rate limiting could not determine a client IP", every user shares one bucket (30 requests/minute per path); set `advanced.ipAddress` for the headers actually observed before the demo.
+4. The Railway domain is publicly reachable and bypasses Vercel. Acceptable for the demo; the hardening is Vercel's origin-secret header check.
+
 ---
 
 ## 13. Build order (maps to M§15 phases)
 
 | Step | Phase | Deliverable | Done when |
 | --- | --- | --- | --- |
-| 1 | 1 | Workspace, Hono server serving `web/out/` (run `npm --prefix web run build` first), config, pg pool, dbmate, docker Tiger image, error/middleware skeleton | `GET /` serves landing page; `GET /api/projects` returns `[]` |
+| 1 | 1 | Workspace, Hono API server, config, pg pool, dbmate, docker Tiger image, error/middleware skeleton; `next dev` proxies `/api/*` | `GET /` on :3000 serves landing page; `GET /api/projects` returns `[]` |
 | 2 | 1 | Identity: email OTP, sessions, wallet challenge/verify | OTP → session → wallet bound; replayed nonce rejected |
 | 3 | 1 | Projects, evidence, reviewer verify; `seed.sql` | Founder creates project and claims; public API hides private evidence |
 | 4 | 1 | Valuation engine + `valuation-v0.1` seed + preview endpoint | Golden tests pass; M§9.3 output shape |
@@ -429,7 +451,7 @@ Never commit values. `RELAYER_SECRET_KEY` is Devnet-only and must never be reuse
 | 8 | 2 | Worker: ingest, reconciliation, crank | Round finalizes, units minted, refunds sent; mirrors match chain |
 | 9 | 2 | Nessie funding saga | Funding completes once under retry |
 | 10 | 2 | Gemini extraction/triage/explanation | Failure falls back cleanly; cache hit on repeat |
-| 11 | 3 | Hosted deploy (Railway + Tiger + Devnet), M§15 demo rehearsal | Full M§15 live demo runs twice from a fresh project |
+| 11 | 3 | Hosted deploy (Vercel + Railway + Tiger + Devnet, §12.1), M§15 demo rehearsal | Full M§15 live demo runs twice from a fresh project |
 
 Cut order for the requested Nessie prize path: optional Gemini explanations/extraction → hourly/daily aggregates → social extras. Preserve Nessie funding, guarded minting, chain tests, idempotent ingest, and receipt-transfer checks. A visibly labeled faucet-only development fallback is not a completed Nessie integration.
 
