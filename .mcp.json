@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "solana-mcp": {
+      "type": "http",
+      "url": "https://mcp.solana.com/mcp"
+    },
+    "tiger": {
+      "type": "stdio",
+      "command": "tiger",
+      "args": ["mcp", "start"]
+    },
+    "geminiDocs": {
+      "type": "http",
+      "url": "https://gemini-api-docs-mcp.dev"
+    }
+  }
+}
