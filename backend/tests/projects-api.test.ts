@@ -198,7 +198,29 @@ describe("public profile and valuation preview", () => {
       founders: [{ display_name: "Ana Ruiz", role_title: "CEO", role: "FOUNDER" }],
       valuation: { effective_stage: "LAUNCHED", unit_price_micro_usd: third.values.unitPriceMicroUsd },
     });
-    expect(JSON.stringify(profile)).not.toMatch(/active_users|source_quote/);
+    expect(JSON.stringify(profile)).not.toMatch(/active_users|source_quote|claim_id/);
+    // M§10.4 explanation: weights, scores, confidence, scenarios, blend, and demand from the snapshot.
+    const explanation = profile.valuation.explanation;
+    expect(explanation).toMatchObject({ model_status: "DRAFT", demand: { multiplier: 1 }, alpha: expect.any(Number) });
+    expect(explanation.scenarios).toHaveLength(4);
+    expect(explanation.categories.traction).toEqual({ score: expect.any(Number), weight: expect.any(Number), contribution: expect.any(Number) });
+    expect(explanation.subfactors.find((f: { subfactor: string }) => f.subfactor === "user_validation")).toMatchObject({ c: 0.65, status: "PUBLIC_WEAK" });
+    expect(Object.keys(explanation.factor_weights).sort()).toEqual(["economics", "execution", "market", "product", "traction"]);
+  });
+
+  it("lists only published projects, with their latest price and current round", async () => {
+    const lister = await newIdentity("lister@unc.edu");
+    const draft = await (await call(lister, "POST", "/projects", project({ name: "Kiln Draft" }), { "idempotency-key": "kiln-0001" })).json();
+    const res = await call(null, "GET", "/projects");
+    expect(res.status).toBe(200);
+    const { projects } = await res.json();
+    const slugs = projects.map((p: { slug: string }) => p.slug);
+    expect(slugs).toContain("tidewater");
+    expect(slugs).not.toContain(draft.project.slug);
+    const tide = projects.find((p: { slug: string }) => p.slug === "tidewater");
+    expect(tide).toMatchObject({ stage: "EARLY_REVENUE", valuation: { effective_stage: "LAUNCHED" }, round: null, founders: [{ display_name: "Ana Ruiz" }] });
+    expect(tide.id).toBeUndefined();
+    expect(JSON.stringify(projects)).not.toMatch(/@unc\.edu|founder_identity_id/);
   });
 
   it("omits the contact email when the founder opts out, and only editors may preview", async () => {

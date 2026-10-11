@@ -18,7 +18,7 @@ export default function RoundsPage() {
           <Link className="bal" href="/participate/">Connect your demo wallet →</Link>
         </div>
         <RoundsFeed />
-        <p className="note">All companies are fictional demo fixtures. Units are simulated.</p>
+        <p className="note">Units are simulated participation receipts, not equity.</p>
         <div className="foot"><Link href="/">← Front page</Link><Link href="/news/">Read the news →</Link></div>
       </main>
     </div>

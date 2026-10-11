@@ -62,3 +62,23 @@
 .S-launch .q,.S-launch .q.out,.S-launch .q.in{transition:none;transform:none;opacity:1}
 .S-launch .done.on{animation:none}
 }
+/* Founder flow after the interview (LaunchPipeline). */
+.S-launch .q textarea{display:block;width:100%;background:transparent;border:0;border-bottom:2px solid var(--rule);color:var(--ink);font-family:var(--serif);font-size:19px;line-height:1.4;padding:8px 0;outline:none;resize:vertical;transition:border-color .25s}
+.S-launch .q textarea:focus{border-bottom-color:var(--green)}
+.S-launch .q textarea::placeholder{color:#45423c;font-style:italic}
+.S-launch .pipe .steps{list-style:none;padding:0;margin:18px 0 0;border-top:1px solid var(--rule)}
+.S-launch .pipe .steps li{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px dotted #2f2d28;color:var(--carbon);font-size:17px}
+.S-launch .pipe .steps li span{font-family:var(--mono);font-size:11px;width:24px;height:24px;display:inline-grid;place-items:center;border:1px solid var(--rule)}
+.S-launch .pipe .steps li.cur{color:var(--ink)}
+.S-launch .pipe .steps li.cur span{border-color:var(--green);color:var(--green)}
+.S-launch .pipe .steps li.ok{color:var(--ink-2)}
+.S-launch .pipe .steps li.ok span{background:var(--green);border-color:var(--green);color:#071208}
+.S-launch .pipe .note{font-style:italic;color:var(--carbon);font-size:15px;margin-top:14px}
+.S-launch .pipe .msg{color:var(--ink-2);margin:14px 0}
+.S-launch .pipe .row{margin-top:18px}
+.S-launch .pipe .found{list-style:none;padding:0;margin:16px 0 0;border-top:1px solid var(--rule);max-height:340px;overflow:auto}
+.S-launch .pipe .found li{padding:10px 0;border-bottom:1px dotted #2f2d28}
+.S-launch .pipe .found label{display:flex;gap:10px;align-items:baseline;cursor:pointer}
+.S-launch .pipe .found input{accent-color:var(--green)}
+.S-launch .pipe .found b{font-weight:500;font-size:15.5px}
+.S-launch .pipe .found span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--carbon);margin:3px 0 0 24px;overflow-wrap:anywhere}

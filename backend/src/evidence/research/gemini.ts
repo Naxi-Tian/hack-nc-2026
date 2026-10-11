@@ -1,7 +1,8 @@
 // Gemini passes for evidence research (EVIDENCE_RESEARCH §3). Gemini only *proposes* claims with
 // verbatim quotes; verifier.ts decides what any of it is worth. Structured output combined with
 // built-in tools is a Gemini 3 preview feature (ai.google.dev/gemini-api/docs/structured-output),
-// so GEMINI_MODEL must be a Gemini 3 model; scripts/gemini-probe.ts checks the live shape.
+// so GEMINI_MODEL must be a Gemini 3 model (default gemini-3.1-flash-lite, the cheapest that supports
+// it; Gemini 2.5 is closed to new keys); scripts/gemini-probe.ts checks the live shape.
 import type { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
@@ -274,7 +275,8 @@ export function createGeminiResearchModel(ai: GoogleGenAI, model: string): Resea
           input,
           tools,
           // Gemini 3 guidance: keep temperature at its default 1.0 (ai.google.dev/gemini-api/docs/gemini-3#temperature).
-          generation_config: { max_output_tokens: 8_192 },
+          // Thinking tokens bill as output; extraction with quotes needs little reasoning, so keep it low.
+          generation_config: { max_output_tokens: 8_192, thinking_level: "low" },
           response_format: { type: "text", mime_type: "application/json", schema: jsonSchema },
         },
         { timeout: 90_000, maxRetries: 1 },

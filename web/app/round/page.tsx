@@ -8,7 +8,7 @@ import "@/styles/founders.css";
 
 export const metadata: Metadata = { title: "Round · Prospecto" };
 
-// Static export has no per-company routes, so the company comes from ?co=TICKER (read on the client).
+// Static export has no per-company routes, so the project comes from ?slug= (read on the client).
 export default function RoundPage() {
   return (
     <div className="S S-round">

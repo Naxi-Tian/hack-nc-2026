@@ -904,13 +904,18 @@ These are code boundaries, not separate deployed services.
 ```text
 POST   /api/auth/email-otp/send-verification-otp   (Better Auth: campus email code)
 POST   /api/auth/sign-in/email-otp                 (Better Auth: session cookie)
+POST   /api/demo/sign-in                           (DEMO_MODE only: campus email, no code)
 GET    /api/me
+GET    /api/me/profile-snapshots                   (also POST; DELETE /:id)
 POST   /api/wallets/challenge
 POST   /api/wallets/verify
+GET    /api/projects
 POST   /api/projects
 GET    /api/projects/:slug
+POST   /api/projects/:id/publish
 POST   /api/projects/:id/evidence
 POST   /api/projects/:id/evidence/extract
+POST   /api/projects/:id/research-runs             (GET /:runId, POST /:runId/confirm)
 POST   /api/projects/:id/valuation/preview
 POST   /api/projects/:id/rounds
 GET    /api/rounds/:id

@@ -202,6 +202,8 @@ MARKET does not define these. They are **invented demo calibration priors** (AGE
 
 The valuation owner MUST write golden tests from this seed (same input + version → identical output) before any API uses it (`backend/tests/valuation/model-value.test.ts`). Load or refresh the seed with `npm --prefix backend run -s db:model-sql | tiger db query <service> --file /dev/stdin`; it stores `model_hash = sha256(canonical JSON of id + the five parameter groups)`, and the API refuses a row whose parameters no longer match that hash. Until a version is `ACTIVE`, previews use the DRAFT `valuation-v0.1` and say so in `modelVersion.status`.
 
+`valuation-v0.1` is **ACTIVE** (migration `0003_activate_valuation_v0_1.sql`, 2026-10-10), so its parameters are frozen. On a fresh database, load the seed with `db:model-sql` **before** `db:migrate` reaches 0003; that migration refuses to activate a missing row or one whose hash differs from the reviewed parameters.
+
 ---
 
 ## 6. Solana program (`chain/programs/prospecto`)
@@ -291,10 +293,10 @@ Base `/api`, JSON, same-origin with the frontend: Vercel (deployed) or `next dev
 | POST `/wallets/challenge` | session | `{address}` → SIWS-style message + nonce (built) |
 | POST `/wallets/verify` | session | `{address, signature(base58)}` → bind wallet (max 2 active per identity, enforced in the database). Built: ed25519 check, single-use nonce, first wallet is primary, `WALLET_TAKEN` / `WALLET_LIMIT` / `WALLET_NOT_VERIFIED` 409 |
 | POST `/funding` | session + wallet | Nessie-backed mock USDC funding (§9) |
-| GET `/projects` | none | Discovery list (public fields) |
+| GET `/projects` | none | Discovery list. Built: published projects only (open rounds first, max 100), each with listing fields, founders' names and titles, latest `valuation` (`effective_stage`, `unit_price_micro_usd`, `model_version_id`) and current `round` (same shape as the profile's) |
 | POST `/projects` | session + wallet | Create project, returns `create_project` tx to sign. **Demo (built):** session only, no wallet or tx yet; body `{name, tagline, stage, entity_type, legal_name?, formation_state?, website_url?, sector_code?, publish_contact_email, founder: {display_name, role_title?}}`; creates a DRAFT with a server-chosen slug; `Idempotency-Key` required; at most 5 per founder |
 | POST `/projects/:id/publish` | founder | DRAFT → PUBLISHED (demo addition) |
-| GET `/projects/:slug` | none | Public profile + latest valuation + current round. Built: listing fields, founders' names and titles, the founder's campus email when `publish_contact_email`, latest valuation and scores; drafts and lookups by id only for editors (404 otherwise) |
+| GET `/projects/:slug` | none | Public profile + latest valuation + current round. Built: listing fields, founders' names and titles, the founder's campus email when `publish_contact_email`, latest valuation and scores, `valuation.explanation` (M§10.4: model status and factor weights, category scores × stage weights, sub-factor score/confidence/status without claim ids, metric codes or values, scenario probabilities, blend `alpha`, operating value inputs, demand adjustment), and the current non-draft `round` with `backers` (distinct confirmed subscribers); drafts and lookups by id only for editors (404 otherwise) |
 | GET/POST `/me/profile-snapshots`, DELETE `/me/profile-snapshots/:id` | session | Founder-pasted LinkedIn profile text (M§6.5); replace on re-save, erase on delete |
 | POST `/projects/:id/evidence` | founder | Add claim (immutable; corrections supersede) |
 | POST `/projects/:id/evidence/extract` | founder | Gemini claim extraction proposal (not saved until founder confirms) |
@@ -464,6 +466,8 @@ Production: `https://hack-nc-2026.vercel.app` (project `hack-nc-2026`, deployed 
 - Cold starts add latency to the first request after idle; open the site before presenting.
 
 **Demo sign-in (DEMO_MODE=true only):** `POST /api/demo/sign-in { email }` signs in any address on `CAMPUS_EMAIL_DOMAINS` without sending a code (Better Auth `createVerificationOTP` + `signInEmailOTP` server-side, same-origin only). The identity is still recorded as `VERIFIED`, which under `DEMO_MODE` means only "campus-domain address"; `/api/me` returns `demoMode: true` so the UI can say so. Production replacement: the emailed-code flow with `DEMO_MODE=false`.
+
+**Demo seed:** `npm --prefix backend run db:seed` (idempotent; `-- --dry-run` prints prices without writing) creates the fictional demo companies in `backend/scripts/demo-seed.ts`: founder identities on reserved `example.edu` addresses (never signed in, `NOT_STARTED`), evidence claims with assigned statuses, a valuation from the ACTIVE model (prices are model output, never typed), and one round each. Seeded rounds are inserted `OPEN`/`FILLED` with no Round PDA and a seeded `total_committed_micro_usd` instead of subscription rows; production rounds leave DRAFT only via the indexer. By product decision (2026-10-10) the UI does not label seeded companies or progress. Round terms are frozen, so seeded close dates are fixed at seed time.
 
 **First-deploy checks** (behaviors that could not be verified locally):
 
