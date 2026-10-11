@@ -15,6 +15,7 @@
     "db:status": "dbmate --env-file ../.env.local --env MIGRATION_DATABASE_URL --migrations-dir ../db/migrations --no-dump-schema status",
     "db:migrate": "dbmate --env-file ../.env.local --env MIGRATION_DATABASE_URL --migrations-dir ../db/migrations --no-dump-schema migrate",
     "db:model-sql": "tsx scripts/model-sql.ts",
+    "db:seed": "tsx --env-file-if-exists=../.env.local scripts/demo-seed.ts",
     "db:new": "dbmate --env-file ../.env.local --env MIGRATION_DATABASE_URL --migrations-dir ../db/migrations --no-dump-schema new"
   },
   "dependencies": {

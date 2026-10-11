@@ -467,6 +467,8 @@ Production: `https://hack-nc-2026.vercel.app` (project `hack-nc-2026`, deployed 
 
 **Demo sign-in (DEMO_MODE=true only):** `POST /api/demo/sign-in { email }` signs in any address on `CAMPUS_EMAIL_DOMAINS` without sending a code (Better Auth `createVerificationOTP` + `signInEmailOTP` server-side, same-origin only). The identity is still recorded as `VERIFIED`, which under `DEMO_MODE` means only "campus-domain address"; `/api/me` returns `demoMode: true` so the UI can say so. Production replacement: the emailed-code flow with `DEMO_MODE=false`.
 
+**Demo seed:** `npm --prefix backend run db:seed` (idempotent; `-- --dry-run` prints prices without writing) creates the fictional demo companies in `backend/scripts/demo-seed.ts`: founder identities on reserved `example.edu` addresses (never signed in, `NOT_STARTED`), evidence claims with assigned statuses, a valuation from the ACTIVE model (prices are model output, never typed), and one round each. Seeded rounds are inserted `OPEN`/`FILLED` with no Round PDA and a seeded `total_committed_micro_usd` instead of subscription rows; production rounds leave DRAFT only via the indexer. By product decision (2026-10-10) the UI does not label seeded companies or progress. Round terms are frozen, so seeded close dates are fixed at seed time.
+
 **First-deploy checks** (behaviors that could not be verified locally):
 
 1. `curl -i https://<vercel-domain>/api/health` returns `200` JSON with `cache-control: no-store`, and `/` serves the landing page.
