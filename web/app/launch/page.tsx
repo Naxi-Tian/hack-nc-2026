@@ -15,7 +15,7 @@ export default function LaunchPage() {
       <main className="page">
         <div className="head">
           <HeroText text="List your" em="company." />
-          <span className="kicker">Seven questions · about 3 minutes</span>
+          <span className="kicker">A few questions · about 3 minutes</span>
         </div>
         <LaunchInterview />
         <div className="foot"><Link href="/">← Front page</Link><Link href="/rounds/">Back a startup →</Link></div>

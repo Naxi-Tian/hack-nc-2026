@@ -1,29 +1,42 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { DRAFT_KEY } from "@/components/RoundView";
-import type { Stage } from "@/lib/fixtures";
-import { normalizeLinkedIn } from "@/lib/linkedin";
+import LaunchPipeline, { type LaunchDraft } from "@/components/LaunchPipeline";
+import { STAGE_LABEL, STAGES } from "@/lib/api";
 
-// Demo anchors from MEGA_PLAN §10 (illustrative only; the real estimate comes from the server valuation module).
-const ANCHOR: Record<Stage, number> = { IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, EARLY_REVENUE: 2000000, REPEATABLE_REVENUE: 5000000 };
+type Field = { k: string; l?: string; ph: string; type?: string; area?: boolean };
+type Step = { k: string; sec: string; q: [string, string]; fields?: Field[]; opts?: string[]; hint?: string; req?: boolean; when?: (d: Data) => boolean };
 
-type Field = { k: string; l?: string; ph: string; type?: string };
-type Step = { k: string; sec: string; q: [string, string]; fields?: Field[]; opts?: string[]; hint?: string; req?: boolean };
-
+// Answers map one-to-one onto POST /api/projects and the research run (docs/BACKEND_STACK.md §7).
 const STEPS: Step[] = [
   { k: "name", sec: "Identity", q: ["What’s it", "called?"], fields: [{ k: "name", ph: "Mothlight" }], hint: "A working title is fine.", req: true },
   { k: "line", sec: "Identity", q: ["Say it in", "one line."], fields: [{ k: "line", ph: "Quiet study rooms at 2 a.m." }], req: true },
-  { k: "stage", sec: "Stage", q: ["How far", "along is it?"], opts: Object.keys(ANCHOR), req: true },
+  { k: "stage", sec: "Stage", q: ["How far", "along is it?"], opts: STAGES.map((s) => STAGE_LABEL[s]), hint: "We price on the stage your evidence supports.", req: true },
   { k: "entity", sec: "Stage", q: ["Is it", "incorporated?"], opts: ["Unincorporated", "Incorporated"], hint: "Either is fine. We label it honestly.", req: true },
+  { k: "legal", sec: "Stage", q: ["What’s the", "legal name?"], fields: [{ k: "legal", l: "Legal name", ph: "Mothlight, Inc." }, { k: "state", l: "State of formation", ph: "NC" }], when: (d) => d.entity === "Incorporated" },
   { k: "site", sec: "Web", q: ["Where can backers", "see it?"], fields: [{ k: "site", ph: "https://mothlight.app", type: "url" }], hint: "No site? A Notion, Figma or demo link works." },
-  { k: "founder", sec: "Founders", q: ["Who’s", "building it?"], fields: [{ k: "fname", l: "Name", ph: "Ana Ruiz" }, { k: "role", l: "Role", ph: "CEO" }, { k: "li", l: "LinkedIn", ph: "linkedin.com/in/ana-ruiz", type: "url" }] },
-  { k: "contact", sec: "Contact", q: ["How do backers", "reach you?"], fields: [{ k: "pub", l: "Public contact", ph: "hello@mothlight.app", type: "email" }, { k: "acct", l: "Account email · private", ph: "ana@unc.edu", type: "email" }] },
+  { k: "founder", sec: "Founders", q: ["Who’s", "building it?"], fields: [{ k: "fname", l: "Name", ph: "Ana Ruiz" }, { k: "role", l: "Role", ph: "CEO" }], req: true },
+  { k: "proof", sec: "Evidence", q: ["What have you", "shown so far?"], fields: [{ k: "proof", l: "In your own words", ph: "40 student interviews, 120 on the waitlist, beta live since May…", area: true }, { k: "links", l: "Links · one per line", ph: "https://github.com/…", area: true }], hint: "Numbers help. We check what we can against public sources." },
+  { k: "contact", sec: "Contact", q: ["Show your campus email", "on the profile?"], opts: ["Publish it", "Keep it private"], req: true },
 ];
 
 type Data = Record<string, string>;
+const ANSWERS = "prospecto:launch-answers";
 const summary = (s: Step, d: Data) => (s.fields ? s.fields.map((f) => d[f.k]).filter(Boolean).join(" · ") : d[s.k] ?? "");
+const visible = (d: Data) => STEPS.filter((s) => !s.when || s.when(d));
+const toDraft = (d: Data): LaunchDraft => {
+  const incorporated = d.entity === "Incorporated";
+  const text = (v?: string) => v?.trim() || null;
+  return {
+    name: d.name.trim(), tagline: (d.line ?? "").trim().slice(0, 140),
+    stage: STAGES.find((s) => STAGE_LABEL[s] === d.stage) ?? "IDEA",
+    entityType: incorporated ? "INCORPORATED" : "UNINCORPORATED",
+    legalName: incorporated ? text(d.legal) : null, formationState: incorporated ? text(d.state)?.toUpperCase() ?? null : null,
+    website: text(d.site), founderName: d.fname.trim(), founderRole: text(d.role),
+    founderText: text(d.proof), links: (d.links ?? "").split(/\s+/).filter(Boolean).slice(0, 10),
+    publishContact: d.contact !== "Keep it private",
+  };
+};
 
 export default function LaunchInterview() {
   const [data, setData] = useState<Data>({});
@@ -31,25 +44,20 @@ export default function LaunchInterview() {
   const [phase, setPhase] = useState<"" | "out" | "in">("");
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const firstInput = useRef<HTMLInputElement>(null);
-  const step = STEPS[cur];
+  const [attempt, setAttempt] = useState(0);
+  const firstInput = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const steps = visible(data);
+  const step = steps[Math.min(cur, steps.length - 1)];
 
   useEffect(() => { firstInput.current?.focus({ preventScroll: true }); }, [cur, done]);
-
-  // Demo stand-in for publishing: keep a preview in this tab so Publish can show the round page.
-  // Only public fields go in (the founder card, LinkedIn included); contact emails stay out. Nothing leaves the browser.
+  // Keep answers for this tab so signing in elsewhere and coming back does not lose them.
   useEffect(() => {
-    if (!done) return;
-    const stage = (data.stage as Stage) || "IDEA";
-    const draft = {
-      t: (data.name || "NEW").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) || "NEW",
-      n: data.name || "Your company", s: stage, e: data.entity === "Incorporated" ? "Incorporated" : "Unincorporated",
-      p: ANCHOR[stage] / 1e6, h: data.line || "", dek: "Preview of your round. Nothing is published until the Prospecto backend is live.",
-      f: data.fname ? [{ n: data.fname, r: data.role || "Founder", li: normalizeLinkedIn(data.li) ?? undefined }] : [],
-    };
-    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* private mode: preview page shows "No round here" */ }
-  }, [done, data]);
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(ANSWERS) ?? "null");
+      if (saved && typeof saved.data === "object") { setData(saved.data); setDone(saved.done === true); }
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => { try { sessionStorage.setItem(ANSWERS, JSON.stringify({ data, done })); } catch { /* private mode */ } }, [data, done]);
 
   // Slide the question out, swap, slide the next one in.
   const go = (i: number) => {
@@ -63,53 +71,21 @@ export default function LaunchInterview() {
   };
   const next = (d: Data = data, skip = false) => {
     if (!skip && step.req && !summary(step, d)) { setErr("Needed to publish."); return; }
-    if (!skip && step.k === "founder" && d.li && !normalizeLinkedIn(d.li)) { setErr("Use your LinkedIn profile link, like linkedin.com/in/your-name."); return; }
-    if (cur < STEPS.length - 1) go(cur + 1); else setDone(true);
+    if (!skip && step.k === "founder" && !d.fname?.trim()) { setErr("Add the founder’s name."); return; }
+    if (!skip && step.k === "legal" && d.state && !/^[A-Za-z]{2}$/.test(d.state.trim())) { setErr("Use the two-letter state code, like NC."); return; }
+    if (!skip && step.k === "site" && d.site && !/^https?:\/\/\S+\.\S+/.test(d.site.trim())) { setErr("Use a full link starting with https://"); return; }
+    const all = visible(d);
+    if (cur < all.length - 1) go(cur + 1); else setDone(true);
   };
   const pick = (v: string) => { const d = { ...data, [step.k]: v }; setData(d); next(d); };
 
-  if (done) {
-    const stage = (data.stage as Stage) || "IDEA";
-    const anchor = ANCHOR[stage];
-    const slug = (data.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "company";
-    const link = `<a href="https://prospecto.finance/i/${slug}">Invest in us →</a>`;
-    const meta = [data.site, data.pub, data.fname && `${data.fname}${data.role ? ", " + data.role : ""}`].filter(Boolean).join(" · ");
-    return (
-      <section className="done on" aria-live="polite">
-        <div>
-          <span className="kicker">Proof · how backers see you</span>
-          <div className="ad">
-            <span className="what">Wanted: first believers</span>
-            <h3>{data.name}</h3>
-            <p>{(data.line || "").replace(/[.!?]+$/, "")}. {data.entity === "Incorporated" ? "Incorporated" : "Unincorporated project"} · {stage}.</p>
-            <span className="meta">{meta || "Add links any time."}</span>
-          </div>
-          <div className="stats">
-            <div><span>Anchor</span><b>${anchor.toLocaleString()}</b></div>
-            <div><span>Unit price</span><b className="up">${(anchor / 1e6).toFixed(2)}</b></div>
-            <div><span>Cap</span><b>100,000</b></div>
-          </div>
-        </div>
-        <div>
-          <h2>Ready to <i>print.</i></h2>
-          <p className="kicker" style={{ marginTop: 16 }}>Your “Invest in us” link</p>
-          <code className="snip">&lt;a href=<em>&quot;https://prospecto.finance/i/{slug}&quot;</em>&gt;Invest in us →&lt;/a&gt;</code>
-          <div className="row">
-            <button className="btn ghost" type="button" onClick={() => { setDone(false); setCur(0); }}>← Edit answers</button>
-            <button className="btn" type="button" onClick={async () => { try { await navigator.clipboard.writeText(link); setCopied(true); } catch { setCopied(false); } }}>{copied ? "Copied" : "Copy link"}</button>
-            <Link className="btn go" href="/round/?co=draft">Publish →</Link>
-          </div>
-          <p className="kicker" style={{ marginTop: 18, textTransform: "none", letterSpacing: ".02em" }}>Demo only: simulated units, illustrative estimate.</p>
-        </div>
-      </section>
-    );
-  }
+  if (done) return <LaunchPipeline key={attempt} draft={toDraft(data)} onEdit={() => { setDone(false); go(0); }} onRetry={() => setAttempt((a) => a + 1)} />;
 
   return (
     <section className="desk">
       <aside className="nb">
         <span className="kicker">Your answers</span>
-        {STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const v = summary(s, data);
           return (
             <button key={s.k} type="button" className={`${!v && i !== cur ? "todo" : ""} ${i === cur ? "cur" : ""}`} onClick={() => go(i)}>
@@ -119,8 +95,8 @@ export default function LaunchInterview() {
         })}
       </aside>
       <div className="stage">
-        <div className="folio"><span>Question {cur + 1} of {STEPS.length}</span><span>{step.sec}</span></div>
-        <div className="dots">{STEPS.map((s, i) => <i key={s.k} className={i <= cur ? "on" : ""} />)}</div>
+        <div className="folio"><span>Question {cur + 1} of {steps.length}</span><span>{step.sec}</span></div>
+        <div className="dots">{steps.map((s, i) => <i key={s.k} className={i <= cur ? "on" : ""} />)}</div>
         <form className={`q ${phase}`} noValidate onSubmit={(e) => { e.preventDefault(); next(); }}>
           <h2>{step.q[0]} <i>{step.q[1]}</i></h2>
           {step.opts ? (
@@ -131,11 +107,19 @@ export default function LaunchInterview() {
             step.fields!.map((f, fi) => (
               <div key={f.k}>
                 {f.l && <label htmlFor={`f-${f.k}`}>{f.l}</label>}
-                <input
-                  id={`f-${f.k}`} ref={fi === 0 ? firstInput : undefined} name={f.k} type={f.type ?? "text"} placeholder={f.ph}
-                  aria-label={f.l ?? step.sec} value={data[f.k] ?? ""}
-                  onChange={(e) => setData({ ...data, [f.k]: e.target.value })}
-                />
+                {f.area ? (
+                  <textarea
+                    id={`f-${f.k}`} ref={fi === 0 ? firstInput : undefined} name={f.k} placeholder={f.ph} rows={3} maxLength={f.k === "proof" ? 20000 : 4000}
+                    aria-label={f.l ?? step.sec} value={data[f.k] ?? ""}
+                    onChange={(e) => setData({ ...data, [f.k]: e.target.value })}
+                  />
+                ) : (
+                  <input
+                    id={`f-${f.k}`} ref={fi === 0 ? firstInput : undefined} name={f.k} type={f.type ?? "text"} placeholder={f.ph}
+                    aria-label={f.l ?? step.sec} value={data[f.k] ?? ""}
+                    onChange={(e) => setData({ ...data, [f.k]: e.target.value })}
+                  />
+                )}
               </div>
             ))
           )}

@@ -127,3 +127,32 @@ export function toRound(p: ProjectCard | ProjectProfile): Round {
     f: p.founders.map((f) => ({ n: f.display_name, r: f.role_title ?? (f.role === "FOUNDER" ? "Founder" : "Team") })),
   };
 }
+
+/** JSON POST. Pass `idempotencyKey` for routes that require one (BACKEND_STACK §7 conventions). */
+export const post = <T>(path: string, body: unknown = {}, idempotencyKey?: string) =>
+  api<T>(path, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}) },
+    body: JSON.stringify(body),
+  });
+
+export type Me = { identityId: string; verified: boolean; demoMode?: boolean };
+
+export type ResearchProposal = {
+  id: string; metric_code: string; subject: string | null; value_numeric: string | null; value_text: string | null;
+  source_type: string; source_url: string | null; quote: string | null; status: string; droppable: boolean;
+};
+
+export type ResearchRun = {
+  id: string; status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED"; error_code: string | null;
+  confirmed_at: string | null;
+  result: { proposals: ResearchProposal[]; warnings: string[]; passes: Record<string, string> } | null;
+};
+
+export type ValuationPreview = {
+  modelVersion: { id: string; status: string };
+  stage: { declared: Stage; effective: Stage };
+  scores: Record<"execution" | "market" | "product" | "traction" | "economics" | "composite", number>;
+  values: { modelReference: string; roundImplied: string; unitPrice: string; unitPriceMicroUsd: string; demandMultiplier: number };
+  explanationInputs: { claimCount: number };
+};
