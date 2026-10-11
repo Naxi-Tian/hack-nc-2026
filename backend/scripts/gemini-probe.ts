@@ -1,6 +1,6 @@
 // Live probe for EVIDENCE_RESEARCH build step 1: confirms that structured output works together
 // with url_context and google_search on GEMINI_MODEL, and prints the provenance the verifier relies on.
-//   GEMINI_API_KEY=... GEMINI_MODEL=gemini-3.8-flash npm run probe:gemini -- https://your-site.example "Name" "One-liner"
+//   GEMINI_API_KEY=... GEMINI_MODEL=gemini-3.1-flash-lite npm run probe:gemini -- https://your-site.example "Name" "One-liner"
 // Prints step types, URL-context statuses, citation URLs, and search counts. Never prints the key.
 import { GoogleGenAI } from "@google/genai";
 
