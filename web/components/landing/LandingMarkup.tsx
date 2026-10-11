@@ -1,6 +1,8 @@
 import HeroText from "@/components/HeroText";
 import FounderCards from "@/components/FounderCards";
 import RoundTerminal from "@/components/RoundTerminal";
+import LiveDateline from "@/components/landing/LiveDateline";
+import DeckToggle from "@/components/landing/DeckToggle";
 import { ROUNDS } from "@/lib/fixtures";
 
 const FERN = ROUNDS.find((r) => r.t === "FERN")!;
@@ -13,9 +15,16 @@ export default function LandingMarkup() {
 
 <div className="tape" aria-label="Open rounds ticker"><div className="tape-track" id="tape"></div></div>
 
-<header className="page">
+{/* hero: the WebGL halftone (Fig. 1) is the full-bleed backdrop; text layers let the pointer through to it */}
+<header className="page hero">
+  <div className="hero-bg">
+    <div className="plate">
+      <canvas id="halftone" aria-hidden="true"></canvas>
+      <span className="tag b">Stage: Idea &rarr; Growth</span>
+    </div>
+  </div>
   <div className="dateline">
-    <span className="mid">Saturday, October 10, 2026</span>
+    <LiveDateline />
   </div>
   <div className="masthead">
     <div className="ear l">Today’s issue<em>8 rounds open, 3 from dorm rooms</em></div>
@@ -23,6 +32,10 @@ export default function LandingMarkup() {
     <div className="ear r">Price of this paper<em>Free. Backers get demo credits.</em></div>
   </div>
   <div className="motto">All the companies too early to list.</div>
+  <div className="btns hero-btns">
+    <a className="btn go" href="/launch/">List your company &rarr;</a>
+    <a className="btn" href="/rounds/">Back a startup</a>
+  </div>
   <nav className="sections" aria-label="Sections">
     <a href="/how/">How It Works</a>
     <a href="/desk/">Estimate Desk</a>
@@ -30,6 +43,7 @@ export default function LandingMarkup() {
     <a href="/launch/">List Your Company</a>
     <button type="button" className="protocol-nav" data-protocol-open aria-haspopup="dialog">Protocol</button>
   </nav>
+  <div className="hero-hint"><span>Move your cursor to change the light.</span><span>Scroll for today’s issue &darr;</span></div>
 </header>
 
 <main className="page" id="front">
@@ -38,18 +52,7 @@ export default function LandingMarkup() {
       <div className="kicker"><b>Extra</b> &nbsp;·&nbsp; Primary issuance &nbsp;·&nbsp; Any stage</div>
       <HeroText as="h2" id="headline" text="Your half‑built idea now has" em="backers." />
 
-      <figure className="figure">
-        <div className="plate">
-          <canvas id="halftone" aria-hidden="true"></canvas>
-          <span className="tag a">Fig. 1 &mdash; The prospect</span>
-          <span className="tag b">Stage: Idea &rarr; Growth</span>
-        </div>
-        <figcaption>
-          <span>The view from the idea stage. Every ridge here started as a flat line. <em>Move your cursor to change the light.</em></span>
-          <span className="mono">Halftone · 15° screen · live</span>
-        </figcaption>
-      </figure>
-      {/* split-flap, compact: fills the lead column under the figure */}
+      {/* split-flap, compact: fills the lead column under the headline */}
       <section className="board-wrap in-lead" id="prices">
         <div className="sec-head">
           <h2>Opening Prices <i>&mdash; today’s issuances</i></h2>
@@ -64,29 +67,28 @@ export default function LandingMarkup() {
 
     <aside className="side">
       <div className="cta-box">
-        <p className="deck">Prospecto lets founders at any stage &mdash; a dorm-room idea, a scrappy prototype, the first paying customers &mdash; publish a transparent valuation, set a fixed price, and put one <em>“Invest in us”</em> link on their website. Backers buy units directly from the startup.</p>
+        <DeckToggle>Prospecto lets founders at any stage &mdash; a dorm-room idea, a scrappy prototype, the first paying customers &mdash; publish a transparent valuation, set a fixed price, and put one <em>“Invest in us”</em> link on their website. Backers buy units directly from the startup.</DeckToggle>
         <div className="byline">By the Prospecto desk &nbsp;·&nbsp; Filed 9:41 a.m.</div>
-        <div className="btns">
-          <a className="btn go" href="/launch/">List your company &rarr;</a>
-          <a className="btn" href="/rounds/">Back a startup</a>
-        </div>
       </div>
       <div className="bell">
         <div><strong>8</strong><span>Rounds open</span></div>
         <div><strong>$412,880</strong><span>Demo credits raised</span></div>
       </div>
-      <div className="brief">
+      {/* native accordion: name="brief" keeps one item open at a time, no JS */}
+      <div className="briefs">
         <div className="kicker">In brief</div>
-        <h3>Idea-stage teams are welcome.</h3>
-        <p>Five stages, from <span className="mono" style={{ fontSize: '13px' }}>IDEA</span> to <span className="mono" style={{ fontSize: '13px' }}>GROWTH</span>, are recorded separately from incorporation. An unincorporated project is labeled exactly that.</p>
-      </div>
-      <div className="brief">
-        <h3>Every unit comes from the startup.</h3>
-        <p>No order book, no resale, no leverage. Each purchase is new issuance at the founder’s fixed price, and the proceeds land in the round account.</p>
-      </div>
-      <div className="brief">
-        <h3>The estimate shows its work.</h3>
-        <p>Inputs, weights, model version and a sensitivity band are printed next to every suggested price. The founder can override it, with a reason on the record.</p>
+        <details name="brief">
+          <summary><span className="n">01</span><h3>Idea-stage teams are welcome.</h3><span className="pm" aria-hidden="true"></span></summary>
+          <p>Five stages, from <span className="mono" style={{ fontSize: '13px' }}>IDEA</span> to <span className="mono" style={{ fontSize: '13px' }}>GROWTH</span>, are recorded separately from incorporation. An unincorporated project is labeled exactly that.</p>
+        </details>
+        <details name="brief">
+          <summary><span className="n">02</span><h3>Every unit comes from the startup.</h3><span className="pm" aria-hidden="true"></span></summary>
+          <p>No order book, no resale, no leverage. Each purchase is new issuance at the founder’s fixed price, and the proceeds land in the round account.</p>
+        </details>
+        <details name="brief">
+          <summary><span className="n">03</span><h3>The estimate shows its work.</h3><span className="pm" aria-hidden="true"></span></summary>
+          <p>Inputs, weights, model version and a sensitivity band are printed next to every suggested price. The founder can override it, with a reason on the record.</p>
+        </details>
       </div>
     </aside>
   </section>
