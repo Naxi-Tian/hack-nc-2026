@@ -2,22 +2,24 @@
 
 import { useEffect } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { STAGE_LABEL } from "@/lib/api";
 import type { Round } from "@/lib/fixtures";
 
 /*
  * One company's round terminal: fills tape, units-issued chart and the buy quote.
- * Used on the landing page (B1) and on /round/?co=TICKER. All numbers come from the
- * demo fixture: fixed price, 100,000-unit cap, 1,000,000 founder units.
- * Ids are the contract with the landing page's B1 scroll timeline (#term, #fills, #chart .base …).
+ * Used on the landing page (B1, fixture) and on /round/?slug= (API round). Price, cap, committed
+ * share, fee and close date come from `co`; the hourly issuance shape is drawn from the committed
+ * total. 1,000,000 founder units is the model's reference unit count. `live` adds simulated fills
+ * (landing only). Ids are the contract with the landing page's B1 scroll timeline (#term, #fills, #chart .base …).
  */
 
-const CAP = 100000, FOUNDER_UNITS = 1000000, CREDITS = 10000;
+const FOUNDER_UNITS = 1000000, CREDITS = 10000;
 const fmt$ = (n: number, d = 0) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmtM = (n: number) => (n >= 1e6 ? `$${+(n / 1e6).toFixed(2)}M` : `$${Math.round(n / 1e3)}K`);
 const $ = <T extends Element = HTMLElement>(id: string) => document.getElementById(id) as unknown as T;
-const title = (s: string) => s[0] + s.slice(1).toLowerCase();
 
-export default function RoundTerminal({ co, preview = false }: { co: Round; preview?: boolean }) {
+export default function RoundTerminal({ co, preview = false, live: simulate = true }: { co: Round; preview?: boolean; live?: boolean }) {
+  const CAP = co.cap ?? 100000;
   const ISSUED = Math.round(Math.min(co.sub, 100) / 100 * CAP), full = ISSUED >= CAP;
   const raised = Math.round(ISSUED * co.p);
   const max = Math.max(1, Math.min(CAP - ISSUED, Math.floor(CREDITS / co.p)));
@@ -25,7 +27,7 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
 
   useEffect(() => {
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const live = !full && !preview;
+    const live = !full && !preview && simulate;
     const cleanups: (() => void)[] = [];
     const every = (fn: () => void, ms: number) => { const id = setInterval(fn, ms); cleanups.push(() => clearInterval(id)); };
     const later = (fn: () => void, ms: number) => { const id = setTimeout(fn, ms); cleanups.push(() => clearTimeout(id)); };
@@ -117,11 +119,11 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
       const drawBase = () => {
         const g = geo(); svg.setAttribute("viewBox", `0 0 ${g.W} ${g.H}`);
         let s = `<defs><linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5BD06A" stop-opacity=".22"/><stop offset="1" stop-color="#5BD06A" stop-opacity="0"/></linearGradient><clipPath id="cpast"><rect id="cpast-r" x="0" y="0" width="0" height="${g.H}"/></clipPath><clipPath id="creveal"><rect id="creveal-r" x="0" y="0" width="${g.W}" height="${g.H}"/></clipPath></defs>`;
-        [0, 25000, 50000, 75000, 100000].forEach((v) => {
+        [0, 0.25, 0.5, 0.75, 1].map((f) => f * CAP).forEach((v) => {
           s += `<line x1="0" x2="${g.W - g.padR}" y1="${g.y(v)}" y2="${g.y(v)}" stroke="${v === CAP ? "#5a2a22" : "#1d1c19"}" stroke-dasharray="${v === CAP ? "0" : "2 4"}"/>`;
           s += `<text x="${g.W - g.padR + 10}" y="${g.y(v) + 4}" fill="#8A857A" font-size="11" ${MONO}>${v ? v / 1000 + "K" : "0"}</text>`;
         });
-        s += `<text x="6" y="${g.y(CAP) - 6}" fill="#EF5A43" font-size="10.5" ${MONO} letter-spacing="1">CAP · 100,000 UNITS</text>`;
+        s += `<text x="6" y="${g.y(CAP) - 6}" fill="#EF5A43" font-size="10.5" ${MONO} letter-spacing="1">CAP · ${CAP.toLocaleString("en-US")} UNITS</text>`;
         s += `<g class="base" clip-path="url(#creveal)">${layers(g, true)}</g><g id="chart-ov"></g>`;
         svg.innerHTML = s;
         drawOverlay();
@@ -203,7 +205,7 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
         units[units.length - 1] += u; backers[backers.length - 1] += 1;
         const total = units.reduce((x, y) => x + y, 0);
         $("c-raised").textContent = fmt$(Math.round(total * PRICE));
-        $("c-backers").textContent = String(co.b + ++extraBackers);
+        const cb = $("c-backers"); if (cb) cb.textContent = String(co.b + ++extraBackers);
         const from = C.lastShown; C.data = series(C.view); const to = C.data[C.data.length - 1].cum;
         if (replaying) { C.lastShown = to; return; }
         // Edit the existing paths in place so the B1 timeline keeps its tween targets.
@@ -236,7 +238,7 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
       };
       chips.addEventListener("click", onChip);
       const onBuy = () => {
-        if (full || preview) return; buy.textContent = "Quote locked · demo"; later(() => (buy.textContent = `Buy ${qn.textContent} units`), 1600); };
+        if (full || preview) return; buy.textContent = co.slug ? "Wallet checkout opens soon" : "Quote locked · demo"; later(() => (buy.textContent = `Buy ${qn.textContent} units`), 1600); };
       buy.addEventListener("click", onBuy);
       cleanups.push(() => { chips.removeEventListener("click", onChip); buy.removeEventListener("click", onBuy); });
       let left = co.d * 86400 + 4 * 3600 + 11 * 60 + 9;
@@ -251,7 +253,7 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
       cleanups.reverse().forEach((fn) => fn());
       document.querySelectorAll("#fills [data-term]").forEach((n) => n.remove());
     };
-  }, [co, preview, full, ISSUED]);
+  }, [co, preview, full, ISSUED, CAP, simulate]);
 
   return (
     <div className="term" id="term">
@@ -264,7 +266,7 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
         <aside className="panel book">
           <div className="ptabs t-chrome"><span className="on">Fills</span><span>Backers</span></div>
           <div className="cap t-in">
-            <div className="lbl"><span>Round capacity</span><span>100,000 units</span></div>
+            <div className="lbl"><span>Round capacity</span><span>{CAP.toLocaleString("en-US")} units</span></div>
             <div className="meter"><i style={{ width: `${ISSUED / CAP * 100}%` }}></i></div>
             <div className="nums"><span className="up">{ISSUED.toLocaleString("en-US")} issued</span><span>{(CAP - ISSUED).toLocaleString("en-US")} left</span></div>
           </div>
@@ -275,14 +277,16 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
         <div className="panel center">
           <div className="chead t-in">
             <div className="cname">
-              <div className="k">{co.t} <em>{title(co.s)}</em> <em>{preview ? "Preview" : "Simulated units"}</em></div>
+              <div className="k">{co.t} <em>{STAGE_LABEL[co.s]}</em> <em>{preview ? "Preview" : "Simulated units"}</em></div>
               <h3>{co.n}</h3>
             </div>
             <div className="cprice">{fmt$(co.p, 2)}<small>FIXED · FOUNDER-APPROVED</small></div>
             <div className="cstats">
               <div><span>Pre-money</span><b>{fmtM(co.p * FOUNDER_UNITS)}</b></div>
               <div><span>Raised</span><b className="up" id="c-raised">{fmt$(raised)}</b></div>
-              <div><span>Backers</span><b id="c-backers">{co.b}</b></div>
+              {co.b > 0 || co.maxPer == null
+                ? <div><span>Backers</span><b id="c-backers">{co.b}</b></div>
+                : <div><span>Max / person</span><b>{fmt$(co.maxPer)}</b></div>}
               <div><span>Entity</span><b>{co.e === "Incorporated" ? "Inc." : "Unincorp."}</b></div>
             </div>
           </div>
@@ -308,7 +312,7 @@ export default function RoundTerminal({ co, preview = false }: { co: Round; prev
             </div>
             <div className="quote t-in">
               <div><span>Unit price</span><b>{fmt$(co.p, 2)}</b></div>
-              <div><span>Fee</span><b>$0.00</b></div>
+              <div><span>Fee</span><b>{co.feeBps != null ? `${co.feeBps / 100}% of amount` : "$0.00"}</b></div>
               <div><span>Allocation at full round</span><b id="qa">{(qty / (FOUNDER_UNITS + CAP) * 100).toFixed(4)}%</b></div>
               <div className="tot"><span>Total</span><b id="qt">{fmt$(qty * co.p, 2)}</b></div>
             </div>

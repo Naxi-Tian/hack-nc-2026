@@ -7,7 +7,7 @@ import type { Stage } from "@/lib/fixtures";
 import { normalizeLinkedIn } from "@/lib/linkedin";
 
 // Demo anchors from MEGA_PLAN §10 (illustrative only; the real estimate comes from the server valuation module).
-const ANCHOR: Record<Stage, number> = { IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, REVENUE: 2000000, GROWTH: 5000000 };
+const ANCHOR: Record<Stage, number> = { IDEA: 100000, PROTOTYPE: 500000, LAUNCHED: 1000000, EARLY_REVENUE: 2000000, REPEATABLE_REVENUE: 5000000 };
 
 type Field = { k: string; l?: string; ph: string; type?: string };
 type Step = { k: string; sec: string; q: [string, string]; fields?: Field[]; opts?: string[]; hint?: string; req?: boolean };
