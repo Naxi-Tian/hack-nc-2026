@@ -48,7 +48,6 @@
 .L .figure .plate{position:relative;aspect-ratio:16/8.4;background:#060605;border:1px solid var(--rule);overflow:hidden}
 .L .figure canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .L .plate .tag{position:absolute;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--ground);padding:3px 7px;border:1px solid var(--rule)}
-.L .plate .tag.a{left:14px;top:14px}
 .L .plate .tag.b{right:14px;bottom:14px;color:var(--green);border-color:#2f5a35}
 .L figcaption{display:flex;justify-content:space-between;gap:20px;padding-top:9px;font-size:14px;font-style:italic;color:var(--carbon);line-height:1.4}
 .L figcaption .mono{font-style:normal;font-size:11px;letter-spacing:.06em;white-space:nowrap}
@@ -59,9 +58,6 @@
 .L .btn.go{background:var(--green);border-color:var(--green);color:#071208;font-weight:700}
 .L .btn.go:hover{background:#7ae387;border-color:#7ae387}
 .L .btns{display:flex;flex-wrap:wrap;gap:10px}
-.L .brief{border-top:1px solid var(--rule);padding:16px 0}
-.L .brief h3{font-family:var(--serif);font-size:22px;line-height:1.15;font-weight:600;margin:6px 0 8px;letter-spacing:-.01em}
-.L .brief p{font-size:15.5px;color:#cfc8b6;line-height:1.5}
 .L .bell{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--ink);border-bottom:1px solid var(--rule)}
 .L .bell div{padding:14px 0}
 .L .bell div+div{border-left:1px solid var(--rule);padding-left:16px}
@@ -288,7 +284,7 @@
   .L .protocol-sheet td:first-child{white-space:normal}
 }
 
-/* Opening Prices, compact, inside the lead column under Fig. 1.
+/* Opening Prices, compact, inside the lead column under the headline.
    Flap size follows the column width (container units): 35 flaps + gaps + bar must fit the row. */
 .L .board-wrap.in-lead{margin-top:40px;border-top:1px solid var(--ink);padding-top:16px;container-type:inline-size}
 .L .in-lead .sec-head{margin-bottom:14px;gap:6px 16px}
@@ -326,13 +322,63 @@
   .L nav.sections a:after,.L nav.sections .protocol-nav:after{transition:none}
 }
 
-/* Both front columns end on the same line: if the side is taller the figure plate grows,
-   if the lead is taller the side's blocks spread out evenly. */
-@media (min-width:961px){
-.L .lead{display:flex;flex-direction:column}
-.L .lead .figure{flex:1 1 auto;display:flex;flex-direction:column}
-.L .lead .figure .plate{flex:1 1 auto;aspect-ratio:auto;min-height:clamp(180px,16vw,250px)}
-.L .side{display:flex;flex-direction:column;justify-content:space-between}
-}
 .L .in-lead .sec-head h2{margin:0;line-height:1;letter-spacing:-.02em;font-variation-settings:normal}
 .L .in-lead .sec-head h2 i{color:inherit}
+
+/* Hero: the masthead and the two CTAs sit centred on a full-bleed halftone backdrop that fills the
+   first screen. Text layers ignore the pointer so the plate still receives pointermove (LandingFX). */
+.L .hero{position:relative;isolation:isolate;min-height:calc(100svh - 34px);display:flex;flex-direction:column}
+.L .hero > *:not(.hero-bg){pointer-events:none}
+.L .hero a,.L .hero button,.L .hero nav.sections{pointer-events:auto} /* nav scrolls sideways on phones */
+.L .hero-bg{position:absolute;z-index:-1;top:0;bottom:0;left:50%;width:100vw;transform:translateX(-50%)}
+.L .hero-bg .plate{position:absolute;inset:0;background:#060605;overflow:hidden}
+.L .hero-bg canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* scrim: dark behind the lockup so the blackletter reads, fading into the ground at the fold */
+.L .hero-bg:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 46% 52% at 50% 46%,rgba(10,10,9,.9),rgba(10,10,9,.55) 60%,rgba(10,10,9,.25)),linear-gradient(transparent 82%,var(--ground))}
+.L .hero .plate .tag.b{bottom:96px;right:var(--gutter)}
+.L .hero .masthead{margin-top:auto}
+.L .hero .masthead .ear{background:var(--ground)}
+.L .hero-btns{justify-content:center;gap:14px;margin:30px 0 auto}
+.L .hero-btns .btn{padding:17px 26px;font-size:13.5px}
+.L .hero-btns .btn:not(.go){background:rgba(10,10,9,.72);backdrop-filter:blur(2px)}
+.L .hero-btns .btn:not(.go):hover{background:var(--ink)}
+.L .hero nav.sections{margin-top:24px;background:var(--ground)}
+/* live clock: ink on a ground chip so it reads over the dots; tabular digits keep seconds from jittering */
+.L .dateline .live{flex:none;margin:0 auto;min-width:30ch;padding:5px 14px;background:var(--ground);border:1px solid var(--rule);font-size:13px;letter-spacing:.1em;color:var(--ink);font-variant-numeric:tabular-nums}
+.L .dateline .live b{color:var(--green);font-weight:400;margin:0 .3em}
+.L .hero-hint{display:flex;justify-content:space-between;gap:16px;padding:10px 0 14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--carbon)}
+/* no cursor on touch screens: keep only the scroll cue */
+@media (hover:none),(max-width:620px){.L .hero-hint span:first-child{display:none}.L .hero-hint{justify-content:center}}
+@media (max-width:620px){
+  .L .hero-btns{flex-direction:column;align-items:stretch;padding:0 8px}
+  .L .hero-btns .btn{justify-content:center}
+  .L .hero .motto{gap:10px;text-align:center}
+  .L .hero .motto:before,.L .hero .motto:after{width:18px;flex:none}
+  .L .hero-bg:after{background:radial-gradient(ellipse 85% 34% at 50% 44%,rgba(10,10,9,.9),rgba(10,10,9,.5) 70%,rgba(10,10,9,.25)),linear-gradient(transparent 82%,var(--ground))}
+}
+
+/* Side column, compact: the deck clamps to three lines and "In brief" is an accordion. */
+.L .cta-box .deck.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;margin-bottom:0}
+.L .cta-box .deck{margin-bottom:0}
+.L .deck-more{all:unset;cursor:pointer;margin-top:10px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+.L .deck-more:hover{color:#7ae387;text-decoration:underline;text-underline-offset:4px}
+.L .deck-more:focus-visible{outline:1px solid var(--green);outline-offset:3px}
+.L .briefs{padding-top:16px}
+.L .briefs .kicker{margin-bottom:6px}
+.L .briefs details{border-top:1px solid var(--rule)}
+.L .briefs details:last-child{border-bottom:1px solid var(--rule)}
+.L .briefs summary{list-style:none;display:grid;grid-template-columns:28px 1fr 18px;align-items:center;gap:10px;padding:14px 0;cursor:pointer;transition:color .18s}
+.L .briefs summary::-webkit-details-marker{display:none}
+.L .briefs summary:focus-visible{outline:1px solid var(--green);outline-offset:3px}
+.L .briefs summary h3{font-family:var(--serif);font-size:19px;font-weight:600;line-height:1.2;letter-spacing:-.01em;margin:0}
+.L .briefs summary:hover{color:#fffaf0}
+.L .briefs .n{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--carbon);transition:color .18s}
+.L .briefs summary:hover .n,.L .briefs details[open] .n{color:var(--green)}
+.L .briefs .pm{position:relative;width:12px;height:12px;justify-self:end}
+.L .briefs .pm:before,.L .briefs .pm:after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:currentColor;transition:transform .25s cubic-bezier(.2,.7,.2,1)}
+.L .briefs .pm:after{transform:rotate(90deg)}
+.L .briefs details[open] .pm:after{transform:rotate(0)}
+.L .briefs details > p{padding:0 0 16px 38px;font-size:15.5px;color:#cfc8b6;line-height:1.5}
+.L .briefs details[open] > p{animation:brief-in .3s cubic-bezier(.2,.7,.2,1)}
+@keyframes brief-in{from{opacity:0;transform:translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){.L .briefs details[open] > p{animation:none}.L .briefs .pm:before,.L .briefs .pm:after{transition:none}}

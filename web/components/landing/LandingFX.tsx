@@ -250,7 +250,7 @@ function initHalftone(cv: HTMLCanvasElement, reduce: boolean): () => void {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
   resize();
-  // The plate stretches to match the side column (landing.css), so watch the canvas, not just the window.
+  // The hero plate tracks the viewport height (landing.css), so watch the canvas, not just the window.
   const ro = new ResizeObserver(resize);
   ro.observe(cv);
   const plate = cv.parentElement!;
