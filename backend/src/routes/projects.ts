@@ -74,7 +74,7 @@ async function freeSlug(client: PoolClient, base: string): Promise<string> {
 const CURRENT_ROUND_SQL = `(select json_build_object('id', r.id, 'round_number', r.round_number, 'status', r.status, 'opens_at', r.opens_at,
                                   'closes_at', r.closes_at, 'unit_price_micro_usd', r.unit_price_micro_usd::text,
                                   'max_units', r.max_units::text, 'target_amount_micro_usd', r.target_amount_micro_usd::text,
-                                  'max_subscription_micro_usd', r.max_subscription_micro_usd::text,
+                                  'max_subscription_micro_usd', r.max_subscription_micro_usd::text, 'protocol_fee_bps', r.protocol_fee_bps,
                                   'total_committed_micro_usd', r.total_committed_micro_usd::text,
                                   'backers', (select count(distinct sub.identity_id) from subscriptions sub
                                                where sub.round_id = r.id and sub.status in ('CONFIRMED', 'FINALIZED')))
