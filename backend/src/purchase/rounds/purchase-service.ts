@@ -23,6 +23,7 @@ export class PurchaseService {
       }
     }
     const mapping=await this.store.round(roundId);if (!mapping) throw new AppError('NOT_FOUND','Round not found.',404);
+    if(!mapping.address) throw new AppError('ROUND_NOT_DEPLOYED','Participation is not enabled for this round yet.',409);
     await this.store.eligibility(identityId,roundId,wallet);
     const round=await this.chain.roundInfo(mapping.address);
     if (round.projectId!==mapping.projectId) throw new AppError('CHAIN_STATE_INVALID','Round mapping mismatch.',503);

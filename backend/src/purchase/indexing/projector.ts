@@ -69,7 +69,7 @@ export async function projectEvent(db:PoolClient,event:ChainEvent,eventId:string
     if(!prior.rows.length) await db.query(`INSERT INTO market_metrics(observed_at,project_id,round_id,chain_event_id,metric_code,value,dimensions) VALUES(now(),$1,$2,$3,'NEW_PARTICIPANT',1,$4)`,[row.project_id,row.id,eventId,{identityId}]);
     // Add this event's delta; log order across transactions does not need to match wall-clock order.
     await db.query('UPDATE rounds SET total_committed_micro_usd=total_committed_micro_usd+$2::bigint WHERE id=$1',[row.id,metrics[0]![1]]);
-  } else if(kind==='roundfinalized') await db.query("UPDATE rounds SET status='FINALIZED' WHERE id=$1",[row.id]);
+  } else if(kind==='roundfinalized') await db.query('UPDATE rounds SET status=$2::round_status WHERE id=$1',[row.id,integer.parse(get(p,'total_committed'))==='0' ? 'EXPIRED' : 'FINALIZED']);
   else if(kind==='roundcancelled') await db.query("UPDATE rounds SET status='REFUNDING' WHERE id=$1",[row.id]);
   else if(kind==='allocationminted') for(const [code,key] of [['SUBSCRIPTION_ACCEPTED_MICRO_USD','accepted_amount'],['RECEIPT_UNITS_MINTED','units'],['PROTOCOL_FEE_MICRO_USD','fee'],['FOUNDER_REWARD_MICRO_USD','founder_reward']]) metrics.push([code!,integer.parse(get(p,key!))]);
   else if(kind==='excessrefunded') metrics.push(['REFUND_MICRO_USD',integer.parse(get(p,'amount'))]);

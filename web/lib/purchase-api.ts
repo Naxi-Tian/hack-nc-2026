@@ -1,10 +1,7 @@
+import {api as request} from '@/lib/api';
 export async function api<T>(path:string,body?:unknown,key?:string):Promise<T> {
-  const response=await fetch(`/api${path}`,{credentials:'same-origin',cache:'no-store',method:body===undefined?'GET':'POST',
-    headers:body===undefined?{}:{'Content-Type':'application/json','Idempotency-Key':key??crypto.randomUUID()},
-    ...(body===undefined?{}:{body:JSON.stringify(body)})});
-  const value=await response.json().catch(()=>null);
-  if(!response.ok) throw new Error(value?.error?.message??value?.message??`Request failed (${response.status}).`);
-  return value as T;
+  return request<T>(path,{cache:'no-store',method:body===undefined?'GET':'POST',
+    ...(body===undefined?{}:{headers:{'Content-Type':'application/json','Idempotency-Key':key??crypto.randomUUID()},body:JSON.stringify(body)})});
 }
 // Reuse the key after a lost response. A new action must explicitly clear the old key.
 export function actionKey(scope:string) {

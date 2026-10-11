@@ -238,7 +238,7 @@ export default function RoundTerminal({ co, preview = false, live: simulate = tr
       };
       chips.addEventListener("click", onChip);
       const onBuy = () => {
-        if (full || preview) return; buy.textContent = co.slug ? "Wallet checkout opens soon" : "Quote locked · demo"; later(() => (buy.textContent = `Buy ${qn.textContent} units`), 1600); };
+        if (preview) return; if(co.roundId){window.location.assign(`/participate/?round=${encodeURIComponent(co.roundId)}`);return;} if(full)return; buy.textContent = co.slug ? "Wallet checkout opens soon" : "Quote locked · demo"; later(() => (buy.textContent = `Buy ${qn.textContent} units`), 1600); };
       buy.addEventListener("click", onBuy);
       cleanups.push(() => { chips.removeEventListener("click", onChip); buy.removeEventListener("click", onBuy); });
       let left = co.d * 86400 + 4 * 3600 + 11 * 60 + 9;
@@ -316,7 +316,7 @@ export default function RoundTerminal({ co, preview = false, live: simulate = tr
               <div><span>Allocation at full round</span><b id="qa">{(qty / (FOUNDER_UNITS + CAP) * 100).toFixed(4)}%</b></div>
               <div className="tot"><span>Total</span><b id="qt">{fmt$(qty * co.p, 2)}</b></div>
             </div>
-            <button className="buy t-in" id="buy" disabled={full || preview}>{full ? "Round full" : preview ? "Opens after publishing" : `Buy ${qty.toLocaleString("en-US")} units`}</button>
+            <button className="buy t-in" id="buy" disabled={(full && !co.roundId) || preview}>{co.roundId ? "Review Devnet commitment" : full ? "Round full" : preview ? "Opens after publishing" : `Buy ${qty.toLocaleString("en-US")} units`}</button>
             <p className="fine t-in">Demo credits only. Units are virtual, bought directly from {co.n}, and can’t be resold.</p>
             <div className="closes t-in"><span>Round closes</span><b id="cd">{co.d > 0 ? `${co.d}d 04:11:09` : "Closed"}</b></div>
           </div>

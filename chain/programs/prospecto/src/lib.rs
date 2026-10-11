@@ -240,6 +240,19 @@ pub struct FundingReceipt {pub intent_id:[u8;16],pub wallet:Pubkey,pub amount:u6
 pub enum ErrorCode {#[msg("Protocol paused")] Paused,#[msg("Invalid token mint")] InvalidMint,#[msg("Invalid authority")] InvalidAuthority,#[msg("Invalid amount")] InvalidAmount,#[msg("Invalid proof")] InvalidProof,#[msg("Funding replay differs")] ReplayMismatch,#[msg("Founder cannot subscribe")] SelfParticipation,#[msg("Invalid round terms")] InvalidRound,#[msg("Round is not open")] RoundNotOpen,#[msg("Round has not closed")] RoundNotClosed,#[msg("Arithmetic limit exceeded")] Overflow,#[msg("Round already settled")] AlreadySettled}
 #[cfg(test)] mod tests {
     use super::*;
+    #[test] fn shared_documented_goldens(){
+        let fixtures:serde_json::Value=serde_json::from_str(include_str!("../../../../docs/fixtures/nessie-purchase-cases.json")).unwrap();
+        for case in fixtures["cases"].as_array().unwrap() {
+            let value=|v:&serde_json::Value| v.as_str().unwrap().parse::<u64>().unwrap();
+            let amounts=case["grossAmountsMicroUsd"].as_array().unwrap();let total=amounts.iter().map(value).sum();
+            for (gross,expected) in amounts.iter().zip(case["expected"].as_array().unwrap()) {
+                let result=allocation(value(gross),total,value(&case["targetMicroUsd"]),value(&case["unitPriceMicroUsd"]),case["cancelled"].as_bool().unwrap_or(false)).unwrap();
+                assert_eq!(result.accepted,value(&expected["acceptedMicroUsd"]),"{}",case["name"]);
+                assert_eq!(result.fee,value(&expected["feeMicroUsd"]));assert_eq!(result.reward,value(&expected["founderRewardMicroUsd"]));
+                assert_eq!(result.net,value(&expected["projectProceedsMicroUsd"]));assert_eq!(result.units,value(&expected["units"]));assert_eq!(result.refund,value(&expected["refundMicroUsd"]));
+            }
+        }
+    }
     #[test] fn golden(){let a=allocation(100_000_000,100_000_000,100_000_000,1_000_000,false).unwrap();assert_eq!(a,Allocation {accepted:100_000_000,fee:1_000_000,reward:400_000,net:99_000_000,units:99,refund:0});}
     #[test] fn oversubscription_and_conservation(){for total in [1_000_000_000,1_000_000_001,u64::MAX] {let a=allocation(100_000_000,total,100_000_000,1_000_000,false).unwrap();assert_eq!(a.accepted+a.refund,100_000_000);assert!(a.net+a.fee==a.accepted && a.units<=100);}}
     #[test] fn cancellation(){let a=allocation(100_000_000,100_000_000,100_000_000,1_000_000,true).unwrap();assert_eq!(a.refund,100_000_000);assert_eq!(a.units+a.fee+a.accepted,0);}
