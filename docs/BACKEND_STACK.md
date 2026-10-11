@@ -202,6 +202,8 @@ MARKET does not define these. They are **invented demo calibration priors** (AGE
 
 The valuation owner MUST write golden tests from this seed (same input + version → identical output) before any API uses it (`backend/tests/valuation/model-value.test.ts`). Load or refresh the seed with `npm --prefix backend run -s db:model-sql | tiger db query <service> --file /dev/stdin`; it stores `model_hash = sha256(canonical JSON of id + the five parameter groups)`, and the API refuses a row whose parameters no longer match that hash. Until a version is `ACTIVE`, previews use the DRAFT `valuation-v0.1` and say so in `modelVersion.status`.
 
+`valuation-v0.1` is **ACTIVE** (migration `0003_activate_valuation_v0_1.sql`, 2026-10-10), so its parameters are frozen. On a fresh database, load the seed with `db:model-sql` **before** `db:migrate` reaches 0003; that migration refuses to activate a missing row or one whose hash differs from the reviewed parameters.
+
 ---
 
 ## 6. Solana program (`chain/programs/prospecto`)
