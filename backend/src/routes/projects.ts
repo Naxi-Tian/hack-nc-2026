@@ -69,11 +69,37 @@ async function freeSlug(client: PoolClient, base: string): Promise<string> {
   throw fail(409, "SLUG_UNAVAILABLE", "Too many projects share this name.");
 }
 
+// Current round: the latest one that reached the chain (drafts and cancellations stay private).
+// Backers are distinct identities with a confirmed subscription.
+const CURRENT_ROUND_SQL = `(select json_build_object('id', r.id, 'round_number', r.round_number, 'status', r.status, 'opens_at', r.opens_at,
+                                  'closes_at', r.closes_at, 'unit_price_micro_usd', r.unit_price_micro_usd::text,
+                                  'max_units', r.max_units::text, 'target_amount_micro_usd', r.target_amount_micro_usd::text,
+                                  'max_subscription_micro_usd', r.max_subscription_micro_usd::text,
+                                  'total_committed_micro_usd', r.total_committed_micro_usd::text,
+                                  'backers', (select count(distinct sub.identity_id) from subscriptions sub
+                                               where sub.round_id = r.id and sub.status in ('CONFIRMED', 'FINALIZED')))
+           from rounds r where r.project_id = p.id and r.status not in ('DRAFT', 'CANCELLED')
+          order by r.round_number desc limit 1)`;
+
+// M§10.4 "why is this the price?" for valuation snapshot v: model weights, category and sub-factor
+// scores with their confidence, scenario probabilities, the blend, and the demand adjustment.
+// Claims stay private: no ids, metric codes, or values, only each sub-factor's score, confidence, and status.
+const EXPLANATION_SQL = `(select json_build_object(
+          'model_status', m.status, 'factor_weights', m.factor_weights,
+          'alpha', v.assumptions->'alpha', 'operating', (v.assumptions->'operating') - 'revenue_claim_id',
+          'demand', v.assumptions->'demand', 'notes', v.assumptions->'notes', 'scenarios', v.scenario_details,
+          'categories', s.factor_contributions->'categories',
+          'subfactors', (select coalesce(jsonb_agg(f - 'claim_id' - 'metric_code'), '[]'::jsonb) from jsonb_array_elements(s.factor_contributions->'subfactors') f))
+         from model_versions m, score_snapshots s
+        where m.id = v.model_version_id and s.valuation_run_id = v.valuation_run_id
+        limit 1)`;
+
 interface PublicProjectRow {
   id: string;
   slug: string;
   name: string;
   tagline: string;
+  description: string;
   stage: string;
   status: string;
   entity_type: string;
@@ -90,7 +116,7 @@ interface PublicProjectRow {
 /** Public profile: listing fields, founders, published contact, latest valuation. Never private evidence. */
 async function loadPublicProject(pool: Pool, where: "slug" | "id", value: string): Promise<PublicProjectRow | null> {
   const { rows } = await pool.query<PublicProjectRow>(
-    `select p.id, p.slug, p.name, p.tagline, p.stage::text as stage, p.status::text as status, p.entity_type::text as entity_type,
+    `select p.id, p.slug, p.name, p.tagline, p.description, p.stage::text as stage, p.status::text as status, p.entity_type::text as entity_type,
             p.legal_name, p.formation_state, p.website_url, p.sector_code,
             case when p.publish_contact_email then u.email end as contact_email,
             coalesce((select json_agg(json_build_object('display_name', m.display_name, 'role_title', m.role_title, 'role', m.role)
@@ -105,15 +131,10 @@ async function loadPublicProject(pool: Pool, where: "slug" | "id", value: string
                       'evidence_root', v.evidence_root,
                       'scores', (select json_build_object('execution', s.execution_score, 'market', s.market_score, 'product', s.product_score,
                                                           'traction', s.traction_score, 'economics', s.economics_score, 'composite', s.composite_score)
-                                   from score_snapshots s where s.valuation_run_id = v.valuation_run_id limit 1))
+                                   from score_snapshots s where s.valuation_run_id = v.valuation_run_id limit 1),
+                      'explanation', ${EXPLANATION_SQL})
                from valuation_snapshots v where v.project_id = p.id order by v.calculated_at desc limit 1) as valuation,
-            -- Current round: the latest one that reached the chain (drafts and cancellations stay private).
-            (select json_build_object('id', r.id, 'round_number', r.round_number, 'status', r.status, 'opens_at', r.opens_at,
-                                      'closes_at', r.closes_at, 'unit_price_micro_usd', r.unit_price_micro_usd::text,
-                                      'max_units', r.max_units::text, 'target_amount_micro_usd', r.target_amount_micro_usd::text,
-                                      'total_committed_micro_usd', r.total_committed_micro_usd::text)
-               from rounds r where r.project_id = p.id and r.status not in ('DRAFT', 'CANCELLED')
-              order by r.round_number desc limit 1) as round
+            ${CURRENT_ROUND_SQL} as round
        from projects p
        join identities i on i.id = p.founder_identity_id
        join auth."user" u on u.id = i.auth_user_id
@@ -121,6 +142,25 @@ async function loadPublicProject(pool: Pool, where: "slug" | "id", value: string
     [value],
   );
   return rows[0] ?? null;
+}
+
+/** Feed cards: published projects with their latest price and current round, open rounds first. */
+async function listPublishedProjects(pool: Pool) {
+  const { rows } = await pool.query(
+    `select p.slug, p.name, p.tagline, p.description, p.stage::text as stage, p.entity_type::text as entity_type,
+            (select json_build_object('effective_stage', v.effective_stage, 'unit_price_micro_usd', v.unit_price_micro_usd::text,
+                                      'model_version_id', v.model_version_id, 'calculated_at', v.calculated_at)
+               from valuation_snapshots v where v.project_id = p.id order by v.calculated_at desc limit 1) as valuation,
+            coalesce((select json_agg(json_build_object('display_name', m.display_name, 'role_title', m.role_title, 'role', m.role)
+                                      order by m.joined_at, m.display_name)
+                        from project_members m where m.project_id = p.id and m.display_name is not null), '[]'::json) as founders,
+            ${CURRENT_ROUND_SQL} as round
+       from projects p
+      where p.status = 'PUBLISHED'
+      order by exists (select 1 from rounds r where r.project_id = p.id and r.status in ('OPEN', 'SCHEDULED')) desc, p.created_at
+      limit 100`,
+  );
+  return rows;
 }
 
 const view = ({ id: _id, ...row }: PublicProjectRow, projectId?: string) => (projectId ? { id: projectId, ...row } : row);
@@ -204,6 +244,8 @@ export function createProjectsRouter(deps: ProjectsRouterDependencies): Hono {
       throw error;
     }
   });
+
+  router.get("/projects", async (context) => context.json({ projects: await listPublishedProjects(deps.pool) }));
 
   // Public profile by slug. Drafts are visible only to their editors (by id or slug).
   router.get("/projects/:slugOrId", async (context) => {
